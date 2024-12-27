@@ -46,24 +46,23 @@ import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 import com.sigpwned.rapier.core.util.CaseFormat;
 
-@SupportedAnnotationTypes("com.sigpwned.rapier.core.EnvironmentVariable")
+@SupportedAnnotationTypes("com.sigpwned.rapier.core.SystemProperty")
 @SupportedSourceVersion(SourceVersion.RELEASE_11)
 @SupportedOptions({"rapier.targetPackage"})
-public class EnvironmentVariableProcessor extends AbstractProcessor {
-  private List<Map.Entry<Element, String>> environmentVariables;
+public class SystemPropertyProcessor extends AbstractProcessor {
+  private List<Map.Entry<Element, String>> systemProperties;
 
   @Override
   public synchronized void init(ProcessingEnvironment processingEnv) {
     super.init(processingEnv);
-    this.environmentVariables = new ArrayList<>();
+    this.systemProperties = new ArrayList<>();
   }
 
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-    roundEnv.getElementsAnnotatedWith(EnvironmentVariable.class).stream()
-        .flatMap(
-            e -> extractEnvironmentVariable(e).map(n -> Map.<Element, String>entry(e, n)).stream())
-        .forEach(environmentVariables::add);
+    roundEnv.getElementsAnnotatedWith(SystemProperty.class).stream().flatMap(
+        e -> extractSystemProperty(e).map(n -> Map.<Element, String>entry(e, n)).stream())
+        .forEach(systemProperties::add);
 
     // Wait until processing is over to generate the module
     if (!roundEnv.processingOver()) {
@@ -71,57 +70,67 @@ public class EnvironmentVariableProcessor extends AbstractProcessor {
     }
 
     final String targetPackage = Optional
-        .ofNullable(processingEnv.getOptions().get("rapier.targetPackage")).orElse("rapier");
+        .ofNullable(getProcessingEnv().getOptions().get("rapier.targetPackage")).orElse("rapier");
 
     final Element[] dependentElements =
-        environmentVariables.stream().map(Map.Entry::getKey).toArray(Element[]::new);
+        systemProperties.stream().map(Map.Entry::getKey).toArray(Element[]::new);
 
-    final SortedSet<String> environmentVariableNames = environmentVariables.stream()
-        .map(Map.Entry::getValue).collect(Collectors.toCollection(TreeSet::new));
+    final SortedSet<String> systemPropertyNames = systemProperties.stream().map(Map.Entry::getValue)
+        .collect(Collectors.toCollection(TreeSet::new));
 
     try {
       final JavaFileObject o = getFiler()
-          .createSourceFile(targetPackage + ".RapierEnvironmentVariableModule", dependentElements);
+          .createSourceFile(targetPackage + ".RapierSystemPropertyModule", dependentElements);
       try (final PrintWriter writer = new PrintWriter(o.openWriter())) {
         writer.println("package " + targetPackage + ";");
         writer.println();
         writer.println("import static java.util.Collections.unmodifiableMap;");
+        writer.println("import static java.util.stream.Collectors.toMap;");
         writer.println();
-        writer.println("import com.sigpwned.rapier.core.EnvironmentVariable;");
+        writer.println("import com.sigpwned.rapier.core.SystemProperty;");
         writer.println("import dagger.Module;");
         writer.println("import dagger.Provides;");
         writer.println("import java.util.Map;");
         writer.println("import java.util.Optional;");
+        writer.println("import java.util.Properties;");
         writer.println("import javax.inject.Inject;");
         writer.println();
         writer.println("@Module");
-        writer.println("public class RapierEnvironmentVariableModule {");
-        writer.println("    private final Map<String, String> env;");
+        writer.println("public class RapierSystemPropertyModule {");
+        writer.println("    private final Map<String, String> properties;");
         writer.println();
         writer.println("    @Inject");
-        writer.println("    public RapierEnvironmentVariableModule() {");
-        writer.println("        this(System.getenv());");
+        writer.println("    public RapierSystemPropertyModule() {");
+        writer.println("        this(System.getProperties());");
         writer.println("    }");
         writer.println();
-        writer.println("    public RapierEnvironmentVariableModule(Map<String, String> env) {");
-        writer.println("        this.env = unmodifiableMap(env);");
+        writer.println("    public RapierSystemPropertyModule(Properties properties) {");
+        writer.println("        this(properties.entrySet()");
+        writer.println("            .stream()");
+        writer.println("            .collect(toMap(");
+        writer.println("                e -> String.valueOf(e.getKey()),");
+        writer.println("                e -> String.valueOf(e.getValue()))));");
         writer.println("    }");
         writer.println();
-        for (String environmentVariableName : environmentVariableNames) {
-          final String baseMethodName = "provideEnvironmentVariable"
-              + CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, environmentVariableName);
+        writer.println("    public RapierSystemPropertyModule(Map<String, String> properties) {");
+        writer.println("        this.properties = unmodifiableMap(properties);");
+        writer.println("    }");
+        writer.println();
+        for (String systemPropertyName : systemPropertyNames) {
+          final String baseMethodName = "provideSystemProperty"
+              + CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, systemPropertyName);
 
-          writer.println("    // " + environmentVariableName);
+          writer.println("    // " + systemPropertyName);
 
           writer.println("    @Provides");
-          writer.println("    @EnvironmentVariable(\"" + environmentVariableName + "\")");
+          writer.println("    @SystemProperty(\"" + systemPropertyName + "\")");
           writer.println("    public String " + baseMethodName + "() {");
-          writer.println("        return env.get(\"" + environmentVariableName + "\");");
+          writer.println("        return properties.get(\"" + systemPropertyName + "\");");
           writer.println("    }");
           writer.println();
 
           writer.println("    @Provides");
-          writer.println("    @EnvironmentVariable(\"" + environmentVariableName + "\")");
+          writer.println("    @SystemProperty(\"" + systemPropertyName + "\")");
           writer.println("    public Byte " + baseMethodName + "AsByte() {");
           writer.println("        return Optional.ofNullable(" + baseMethodName
               + "()).map(Byte::parseByte).orElse(null);");
@@ -129,7 +138,7 @@ public class EnvironmentVariableProcessor extends AbstractProcessor {
           writer.println();
 
           writer.println("    @Provides");
-          writer.println("    @EnvironmentVariable(\"" + environmentVariableName + "\")");
+          writer.println("    @SystemProperty(\"" + systemPropertyName + "\")");
           writer.println("    public Short " + baseMethodName + "AsShort() {");
           writer.println("        return Optional.ofNullable(" + baseMethodName
               + "()).map(Short::parseShort).orElse(null);");
@@ -137,7 +146,7 @@ public class EnvironmentVariableProcessor extends AbstractProcessor {
           writer.println();
 
           writer.println("    @Provides");
-          writer.println("    @EnvironmentVariable(\"" + environmentVariableName + "\")");
+          writer.println("    @SystemProperty(\"" + systemPropertyName + "\")");
           writer.println("    public Integer " + baseMethodName + "AsInteger() {");
           writer.println("        return Optional.ofNullable(" + baseMethodName
               + "()).map(Integer::parseInt).orElse(null);");
@@ -145,7 +154,7 @@ public class EnvironmentVariableProcessor extends AbstractProcessor {
           writer.println();
 
           writer.println("    @Provides");
-          writer.println("    @EnvironmentVariable(\"" + environmentVariableName + "\")");
+          writer.println("    @SystemProperty(\"" + systemPropertyName + "\")");
           writer.println("    public Long " + baseMethodName + "AsLong() {");
           writer.println("        return Optional.ofNullable(" + baseMethodName
               + "()).map(Long::parseLong).orElse(null);");
@@ -153,7 +162,7 @@ public class EnvironmentVariableProcessor extends AbstractProcessor {
           writer.println();
 
           writer.println("    @Provides");
-          writer.println("    @EnvironmentVariable(\"" + environmentVariableName + "\")");
+          writer.println("    @SystemProperty(\"" + systemPropertyName + "\")");
           writer.println("    public Float " + baseMethodName + "AsFloat() {");
           writer.println("        return Optional.ofNullable(" + baseMethodName
               + "()).map(Float::parseFloat).orElse(null);");
@@ -161,7 +170,7 @@ public class EnvironmentVariableProcessor extends AbstractProcessor {
           writer.println();
 
           writer.println("    @Provides");
-          writer.println("    @EnvironmentVariable(\"" + environmentVariableName + "\")");
+          writer.println("    @SystemProperty(\"" + systemPropertyName + "\")");
           writer.println("    public Double " + baseMethodName + "AsDouble() {");
           writer.println("        return Optional.ofNullable(" + baseMethodName
               + "()).map(Double::parseDouble).orElse(null);");
@@ -169,7 +178,7 @@ public class EnvironmentVariableProcessor extends AbstractProcessor {
           writer.println();
 
           writer.println("    @Provides");
-          writer.println("    @EnvironmentVariable(\"" + environmentVariableName + "\")");
+          writer.println("    @SystemProperty(\"" + systemPropertyName + "\")");
           writer.println("    public Boolean " + baseMethodName + "AsBoolean() {");
           writer.println("        return Optional.ofNullable(" + baseMethodName
               + "()).map(Boolean::parseBoolean).orElse(null);");
@@ -190,15 +199,16 @@ public class EnvironmentVariableProcessor extends AbstractProcessor {
   /**
    * Process the annotated element. Example: Log its details.
    */
-  private Optional<String> extractEnvironmentVariable(Element element) {
-    AnnotationMirror annotation = element.getAnnotationMirrors().stream().filter(
-        a -> a.getAnnotationType().toString().equals(EnvironmentVariable.class.getCanonicalName()))
+  private Optional<String> extractSystemProperty(Element element) {
+    AnnotationMirror annotation = element.getAnnotationMirrors().stream()
+        .filter(
+            a -> a.getAnnotationType().toString().equals(SystemProperty.class.getCanonicalName()))
         .findFirst().orElse(null);
 
     if (annotation == null)
       return Optional.empty();
 
-    final String environmentVariableNames = annotation.getElementValues().entrySet().stream()
+    final String systemPropertyNames = annotation.getElementValues().entrySet().stream()
         .filter(e -> e.getKey().getSimpleName().contentEquals("value")).findFirst()
         .map(Map.Entry::getValue)
         .map(v -> v.accept(new SimpleAnnotationValueVisitor8<String, Void>() {
@@ -207,10 +217,10 @@ public class EnvironmentVariableProcessor extends AbstractProcessor {
             return s;
           }
         }, null)).orElseThrow(() -> {
-          return new AssertionError("No string value for @EnvironmentVariable");
+          return new AssertionError("No string value for @SystemProperty");
         });
 
-    return Optional.of(environmentVariableNames);
+    return Optional.of(systemPropertyNames);
   }
 
   private ProcessingEnvironment getProcessingEnv() {
