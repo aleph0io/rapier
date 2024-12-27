@@ -1,0 +1,109 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    
+    <parent>
+        <groupId>org.sonatype.oss</groupId>
+        <artifactId>oss-parent</artifactId>
+        <version>7</version>
+    </parent>
+
+    <groupId>com.sigpwned</groupId>
+    <artifactId>rapier</artifactId>
+    <version>0.0.0-SNAPSHOT</version>
+    <name>rapier</name>
+    <inceptionYear>2024</inceptionYear>
+    <description>Code generation companion for Dagger</description>
+    <url>https://github.com/sigpwned/rapier</url>
+    <packaging>pom</packaging>
+
+    <organization>
+        <name>Andy Boothe</name>
+        <url>https://www.sigpwned.com/</url>
+    </organization>
+
+    <scm>
+        <connection>scm:git:ssh://git@github.com/sigpwned/rapier.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/sigpwned/rapier.git</developerConnection>
+        <url>https://github.com/sigpwned/rapier/tree/main</url>
+        <tag>v70.1.0</tag>
+    </scm>
+
+    <licenses>
+        <license>
+            <name>Apache License, Version 2.0</name>
+            <url>http://www.apache.org/licenses/LICENSE-2.0.txt</url>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <name>Andy Boothe</name>
+            <email>andy.boothe@gmail.com</email>
+        </developer>
+    </developers>
+
+    <issueManagement>
+        <system>GitHub</system>
+        <url>https://github.com/sigpwned/rapier</url>
+    </issueManagement>
+
+    <properties>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.source>11</maven.compiler.source>
+        <maven.compiler.target>11</maven.compiler.target>
+        <maven.compiler.release>11</maven.compiler.release>
+        <dagger.version>2.54</dagger.version>
+    </properties>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>license-maven-plugin</artifactId>
+                <version>2.4.0</version>
+                <configuration>
+                    <verbose>false</verbose>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>update-file-header</id>
+                        <goals>
+                            <goal>update-file-header</goal>
+                        </goals>
+                        <phase>process-sources</phase>
+                        <configuration>
+                            <addJavaLicenseAfterPackage>false</addJavaLicenseAfterPackage>
+                            <processStartTag>=================================LICENSE_START==================================</processStartTag>
+                            <processEndTag>==================================LICENSE_END===================================</processEndTag>
+                            <sectionDelimiter>====================================SECTION=====================================</sectionDelimiter>
+                            <licenseName>apache_v2</licenseName>
+                            <roots>
+                                <root>src/main/java</root>
+                                <root>src/test/java</root>
+                            </roots>
+                            <excludes>
+                                <exclude>**/com/ibm/icu/**</exclude>
+                            </excludes>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>org.junit</groupId>
+                <artifactId>junit-bom</artifactId>
+                <version>5.11.4</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>        
+        </dependencies>
+    </dependencyManagement>
+
+    <modules>
+        <module>rapier-core</module>
+    </modules>
+</project>
