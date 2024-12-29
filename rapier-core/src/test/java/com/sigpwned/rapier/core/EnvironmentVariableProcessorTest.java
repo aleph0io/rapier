@@ -36,13 +36,13 @@ public class EnvironmentVariableProcessorTest {
         @dagger.Component
         public interface ExampleComponent {
             @com.sigpwned.rapier.core.EnvironmentVariable("FOO_BAR")
-            public String getFooBar();
+            public Integer provisionFooBarAsInt();
         }
         """);
 
     // Run the annotation processor
-    Compilation compilation = Compiler.javac().withProcessors(new EnvironmentVariableProcessor())
-        .withOptions("-Arapier.targetPackage=com.example").compile(source);
+    Compilation compilation =
+        Compiler.javac().withProcessors(new EnvironmentVariableProcessor()).compile(source);
 
     // Assert the compilation succeeded
     assertThat(compilation).succeeded();
@@ -84,45 +84,10 @@ public class EnvironmentVariableProcessorTest {
 
                 @Provides
                 @EnvironmentVariable("FOO_BAR")
-                public Byte provideEnvironmentVariableFooBarAsByte() {
-                    return Optional.ofNullable(provideEnvironmentVariableFooBar()).map(Byte::parseByte).orElse(null);
+                public java.lang.Integer provideEnvironmentVariableFooBarAsInteger(@EnvironmentVariable("FOO_BAR") String value) {
+                    return value != null ? java.lang.Integer.valueOf(value) : null;
                 }
 
-                @Provides
-                @EnvironmentVariable("FOO_BAR")
-                public Short provideEnvironmentVariableFooBarAsShort() {
-                    return Optional.ofNullable(provideEnvironmentVariableFooBar()).map(Short::parseShort).orElse(null);
-                }
-
-                @Provides
-                @EnvironmentVariable("FOO_BAR")
-                public Integer provideEnvironmentVariableFooBarAsInteger() {
-                    return Optional.ofNullable(provideEnvironmentVariableFooBar()).map(Integer::parseInt).orElse(null);
-                }
-
-                @Provides
-                @EnvironmentVariable("FOO_BAR")
-                public Long provideEnvironmentVariableFooBarAsLong() {
-                    return Optional.ofNullable(provideEnvironmentVariableFooBar()).map(Long::parseLong).orElse(null);
-                }
-
-                @Provides
-                @EnvironmentVariable("FOO_BAR")
-                public Float provideEnvironmentVariableFooBarAsFloat() {
-                    return Optional.ofNullable(provideEnvironmentVariableFooBar()).map(Float::parseFloat).orElse(null);
-                }
-
-                @Provides
-                @EnvironmentVariable("FOO_BAR")
-                public Double provideEnvironmentVariableFooBarAsDouble() {
-                    return Optional.ofNullable(provideEnvironmentVariableFooBar()).map(Double::parseDouble).orElse(null);
-                }
-
-                @Provides
-                @EnvironmentVariable("FOO_BAR")
-                public Boolean provideEnvironmentVariableFooBarAsBoolean() {
-                    return Optional.ofNullable(provideEnvironmentVariableFooBar()).map(Boolean::parseBoolean).orElse(null);
-                }
             }
             """);
 
