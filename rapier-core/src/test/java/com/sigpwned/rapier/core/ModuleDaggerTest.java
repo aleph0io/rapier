@@ -376,4 +376,48 @@ public class ModuleDaggerTest extends DaggerTestBase {
 
     assertEquals("ExampleModuleA must be set", problem.getMessage());
   }
+
+  /**
+   * Confirm that Dagger scans @Provides method parameters for JSR-330 annotations
+   */
+  @Test
+  public void givenProvidesMethodWithUnresolvableParameter_whenCompiled_thenError()
+      throws IOException {
+    final String componentSourceCode = """
+        import dagger.Component;
+
+        @Component(modules={ExampleModule.class})
+        public interface ExampleComponent {
+            String getRequiredBinding();
+        }
+        """;
+
+    final String moduleSourceCode = """
+        import dagger.Module;
+        import dagger.Provides;
+
+        @Module
+        public class ExampleModule {
+            @Provides
+            public String provideRequiredBinding(UnresolvableDependency dependency) {
+                return dependency.toString();
+            }
+        }
+        """;
+
+    final String unresolvableDependencySourceCode = """
+        import javax.inject.Inject;
+
+        public class UnresolvableDependency {
+            @Inject
+            public UnresolvableDependency() {}
+        }
+        """;
+
+    final String errors =
+        compileSourceCode(componentSourceCode, moduleSourceCode, unresolvableDependencySourceCode)
+            .trim();
+
+    assertTrue(errors.isBlank(), "Expected no errors, but errors were found.");
+  }
 }
