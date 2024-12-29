@@ -30,136 +30,80 @@ public class SystemPropertyProcessorTest {
   @Test
   public void testAnnotationProcessor() {
     // Define the source file to test
-    JavaFileObject source = JavaFileObjects.forSourceString("com.example.ExampleComponent",
+    final JavaFileObject source = JavaFileObjects.forSourceString("com.example.ExampleComponent",
     // @formatter:off
       "package com.example;\n" +
       "\n" +
       "@dagger.Component\n" +
       "public interface ExampleComponent {\n" +
       "    @com.sigpwned.rapier.core.SystemProperty(\"FOO_BAR\")\n" +
-      "    public String getFooBar();\n" +
+      "    public Integer provisionFooBarAsInt();\n" +
       "}\n");
     // @formatter:on
 
     // Run the annotation processor
-    Compilation compilation = Compiler.javac().withProcessors(new SystemPropertyProcessor())
-        .withOptions("-Arapier.targetPackage=com.example").compile(source);
+    final Compilation compilation =
+        Compiler.javac().withProcessors(new SystemPropertyProcessor()).compile(source);
 
     // Assert the compilation succeeded
     assertThat(compilation).succeeded();
 
     // Assert generated file content
-    JavaFileObject expectedOutput =
-        JavaFileObjects.forSourceString("com.example.RapierSystemPropertyModule",
-        // @formatter:off
-      "package com.example;\n" +
-      "\n" +
-      "import static java.util.Collections.unmodifiableMap;\n" +
-      "import static java.util.stream.Collectors.toMap;\n" +
-      "\n" +
-      "import com.sigpwned.rapier.core.SystemProperty;\n" +
-      "import dagger.Module;\n" +
-      "import dagger.Provides;\n" +
-      "import java.util.Map;\n" +
-      "import java.util.Optional;\n" +
-      "import java.util.Properties;\n" +
-      "import javax.inject.Inject;\n" +
-      "\n" +
-      "@Module\n" +
-      "public class RapierSystemPropertyModule {\n" +
-      "    private final Map<String, String> properties;\n" +
-      "\n" +
-      "    @Inject\n" +
-      "    public RapierSystemPropertyModule() {\n" +
-      "        this(System.getProperties());\n" +
-      "    }\n" +
-      "\n" +
-      "    public RapierSystemPropertyModule(Properties properties) {\n" +
-      "        this(properties.entrySet()\n" +
-      "            .stream()\n" +
-      "            .collect(toMap(\n" +
-      "                e -> String.valueOf(e.getKey()),\n" +
-      "                e -> String.valueOf(e.getValue()))));\n" +
-      "    }\n" +
-      "\n" +
-      "    public RapierSystemPropertyModule(Map<String, String> properties) {\n" +
-      "        this.properties = unmodifiableMap(properties);\n" +
-      "    }\n" +
-      "\n" +
-      "    // FOO_BAR\n" +
-      "    @Provides\n" +
-      "    @SystemProperty(\"FOO_BAR\")\n" +
-      "    public String provideSystemPropertyFooBar() {\n" +
-      "        return properties.get(\"FOO_BAR\");\n" +
-      "    }\n" +
-      "\n" +
-      "    @Provides\n" +
-      "    @SystemProperty(\"FOO_BAR\")\n" +
-      "    public Byte provideSystemPropertyFooBarAsByte() {\n" +
-      "        return Optional.ofNullable(provideSystemPropertyFooBar()).map(Byte::parseByte).orElse(null);\n" +
-      "    }\n" +
-      "\n" +
-      "    @Provides\n" +
-      "    @SystemProperty(\"FOO_BAR\")\n" +
-      "    public Short provideSystemPropertyFooBarAsShort() {\n" +
-      "        return Optional.ofNullable(provideSystemPropertyFooBar()).map(Short::parseShort).orElse(null);\n" +
-      "    }\n" +
-      "\n" +
-      "    @Provides\n" +
-      "    @SystemProperty(\"FOO_BAR\")\n" +
-      "    public Integer provideSystemPropertyFooBarAsInteger() {\n" +
-      "        return Optional.ofNullable(provideSystemPropertyFooBar()).map(Integer::parseInt).orElse(null);\n" +
-      "    }\n" +
-      "\n" +
-      "    @Provides\n" +
-      "    @SystemProperty(\"FOO_BAR\")\n" +
-      "    public Long provideSystemPropertyFooBarAsLong() {\n" +
-      "        return Optional.ofNullable(provideSystemPropertyFooBar()).map(Long::parseLong).orElse(null);\n" +
-      "    }\n" +
-      "\n" +
-      "    @Provides\n" +
-      "    @SystemProperty(\"FOO_BAR\")\n" +
-      "    public Float provideSystemPropertyFooBarAsFloat() {\n" +
-      "        return Optional.ofNullable(provideSystemPropertyFooBar()).map(Float::parseFloat).orElse(null);\n" +
-      "    }\n" +
-      "\n" +
-      "    @Provides\n" +
-      "    @SystemProperty(\"FOO_BAR\")\n" +
-      "    public Double provideSystemPropertyFooBarAsDouble() {\n" +
-      "        return Optional.ofNullable(provideSystemPropertyFooBar()).map(Double::parseDouble).orElse(null);\n" +
-      "    }\n" +
-      "\n" +
-      "    @Provides\n" +
-      "    @SystemProperty(\"FOO_BAR\")\n" +
-      "    public Boolean provideSystemPropertyFooBarAsBoolean() {\n" +
-      "        return Optional.ofNullable(provideSystemPropertyFooBar()).map(Boolean::parseBoolean).orElse(null);\n" +
-      "    }\n" +
-      "}\n");
-    // @formatter:on
-    
-    /*
-        writer.println("    private final Map<String, String> properties;");
-        writer.println();
-        writer.println("    @Inject");
-        writer.println("    public RapierSystemPropertyModule() {");
-        writer.println("        this(System.getProperties());");
-        writer.println("    }");
-        writer.println();
-        writer.println("    public RapierSystemPropertyModule(Properties properties) {");
-        writer.println("        this(properties.entrySet()");
-        writer.println("            .stream()");
-        writer.println("            .collect(toMap(");
-        writer.println("                e -> String.valueOf(e.getKey()),");
-        writer.println("                e -> String.valueOf(e.getValue()))));");
-        writer.println("    }");
-        writer.println();
-        writer.println("    public RapierSystemPropertyModule(Map<String, String> properties) {");
-        writer.println("        this.properties = unmodifiableMap(properties);");
-        writer.println("    }");
-     
-     */
+    final JavaFileObject expectedOutput = JavaFileObjects.forSourceString(
+        "com.example.RapierExampleComponentSystemPropertyModule",
+        """
+            package com.example;
 
-    assertThat(compilation).generatedSourceFile("com.example.RapierSystemPropertyModule")
+            import static java.util.Collections.unmodifiableMap;
+            import static java.util.stream.Collectors.toMap;
+
+            import com.sigpwned.rapier.core.SystemProperty;
+            import dagger.Module;
+            import dagger.Provides;
+            import java.util.Map;
+            import java.util.Optional;
+            import java.util.Properties;
+            import javax.inject.Inject;
+
+            @Module
+            public class RapierExampleComponentSystemPropertyModule {
+                private final Map<String, String> props;
+
+                @Inject
+                public RapierExampleComponentSystemPropertyModule() {
+                    this(System.getProperties());
+                }
+
+                public RapierExampleComponentSystemPropertyModule(Properties props) {
+                    this(props.entrySet()
+                        .stream()
+                        .collect(toMap(
+                            e -> String.valueOf(e.getKey()),
+                            e -> String.valueOf(e.getValue()))));
+                }
+
+                public RapierExampleComponentSystemPropertyModule(Map<String, String> props) {
+                    this.props = unmodifiableMap(props);
+                }
+
+                // FOO_BAR
+                @Provides
+                @SystemProperty("FOO_BAR")
+                public String provideSystemPropertyFooBar() {
+                    return props.get("FOO_BAR");
+                }
+
+                @Provides
+                @SystemProperty("FOO_BAR")
+                public java.lang.Integer provideSystemPropertyFooBarAsInteger(@SystemProperty("FOO_BAR") String value) {
+                    return value != null ? java.lang.Integer.valueOf(value) : null;
+                }
+
+            }
+            """);
+
+    assertThat(compilation)
+        .generatedSourceFile("com.example.RapierExampleComponentSystemPropertyModule")
         .hasSourceEquivalentTo(expectedOutput);
   }
 }

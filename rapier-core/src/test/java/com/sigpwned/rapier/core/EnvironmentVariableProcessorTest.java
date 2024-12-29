@@ -30,7 +30,7 @@ public class EnvironmentVariableProcessorTest {
   @Test
   public void testAnnotationProcessor() {
     // Define the source file to test
-    JavaFileObject source = JavaFileObjects.forSourceString("com.example.ExampleComponent", """
+    final JavaFileObject source = JavaFileObjects.forSourceString("com.example.ExampleComponent", """
         package com.example;
 
         @dagger.Component
@@ -41,15 +41,15 @@ public class EnvironmentVariableProcessorTest {
         """);
 
     // Run the annotation processor
-    Compilation compilation =
+    final Compilation compilation =
         Compiler.javac().withProcessors(new EnvironmentVariableProcessor()).compile(source);
 
     // Assert the compilation succeeded
     assertThat(compilation).succeeded();
 
     // Assert generated file content
-    JavaFileObject expectedOutput = JavaFileObjects.forSourceString(
-        "com.example.RapierEnvironmentVariableModule",
+    final JavaFileObject expectedOutput = JavaFileObjects.forSourceString(
+        "com.example.RapierExampleComponentEnvironmentVariableModule",
         """
             package com.example;
 
@@ -63,11 +63,11 @@ public class EnvironmentVariableProcessorTest {
             import javax.inject.Inject;
 
             @Module
-            public class RapierEnvironmentVariableModule {
+            public class RapierExampleComponentEnvironmentVariableModule {
                 private final Map<String, String> env;
 
                 @Inject
-                public RapierEnvironmentVariableModule() {
+                public RapierExampleComponentEnvironmentVariableModule() {
                     this(System.getenv());
                 }
 
@@ -91,7 +91,8 @@ public class EnvironmentVariableProcessorTest {
             }
             """);
 
-    assertThat(compilation).generatedSourceFile("com.example.RapierEnvironmentVariableModule")
+    assertThat(compilation)
+        .generatedSourceFile("com.example.RapierExampleComponentEnvironmentVariableModule")
         .hasSourceEquivalentTo(expectedOutput);
   }
 }

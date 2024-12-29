@@ -112,8 +112,8 @@ public class EnvironmentVariableProcessor extends AbstractProcessor {
     try {
       // TODO Is this right?
       final Element[] dependentElements = new Element[] {component};
-      final JavaFileObject o = getFiler().createSourceFile(
-          componentPackageName + ".RapierEnvironmentVariableModule", dependentElements);
+      final JavaFileObject o = getFiler()
+          .createSourceFile(componentPackageName + "." + moduleClassName, dependentElements);
       try (final PrintWriter writer = new PrintWriter(o.openWriter())) {
         writer.println("package " + componentPackageName + ";");
         writer.println();
@@ -127,15 +127,15 @@ public class EnvironmentVariableProcessor extends AbstractProcessor {
         writer.println("import javax.inject.Inject;");
         writer.println();
         writer.println("@Module");
-        writer.println("public class RapierEnvironmentVariableModule {");
+        writer.println("public class " + moduleClassName + " {");
         writer.println("    private final Map<String, String> env;");
         writer.println();
         writer.println("    @Inject");
-        writer.println("    public RapierEnvironmentVariableModule() {");
+        writer.println("    public " + moduleClassName + "() {");
         writer.println("        this(System.getenv());");
         writer.println("    }");
         writer.println();
-        writer.println("    public RapierEnvironmentVariableModule(Map<String, String> env) {");
+        writer.println("    public " + moduleClassName + "(Map<String, String> env) {");
         writer.println("        this.env = unmodifiableMap(env);");
         writer.println("    }");
         writer.println();
@@ -300,32 +300,6 @@ public class EnvironmentVariableProcessor extends AbstractProcessor {
         }, null)).orElseThrow(() -> {
           return new AssertionError("No string value for @EnvironmentVariable");
         });
-  }
-
-  /**
-   * Process the annotated element. Example: Log its details.
-   */
-  private Optional<String> extractEnvironmentVariable(Element element) {
-    AnnotationMirror annotation = element.getAnnotationMirrors().stream().filter(
-        a -> a.getAnnotationType().toString().equals(EnvironmentVariable.class.getCanonicalName()))
-        .findFirst().orElse(null);
-
-    if (annotation == null)
-      return Optional.empty();
-
-    final String environmentVariableNames = annotation.getElementValues().entrySet().stream()
-        .filter(e -> e.getKey().getSimpleName().contentEquals("value")).findFirst()
-        .map(Map.Entry::getValue)
-        .map(v -> v.accept(new SimpleAnnotationValueVisitor8<String, Void>() {
-          @Override
-          public String visitString(String s, Void p) {
-            return s;
-          }
-        }, null)).orElseThrow(() -> {
-          return new AssertionError("No string value for @EnvironmentVariable");
-        });
-
-    return Optional.of(environmentVariableNames);
   }
 
   private ProcessingEnvironment getProcessingEnv() {
