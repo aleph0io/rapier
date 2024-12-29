@@ -34,6 +34,7 @@ import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
+import javax.lang.model.type.TypeMirror;
 import org.junit.jupiter.api.Test;
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
@@ -49,7 +50,7 @@ public class DaggerModuleWalkerTest {
             import dagger.Module;
             import dagger.Provides;
 
-            @Module
+            @Module(includes={IncludedModule.class})
             public class MyModule extends MyModuleParent {
                 @Provides
                 public String provideString() {
@@ -59,6 +60,10 @@ public class DaggerModuleWalkerTest {
                 public void helperMethod() {
                     // Not a @Provides method, should be ignored
                 }
+            }
+
+            @Module
+            class IncludedModule {
             }
 
             class MyModuleParent {
@@ -71,6 +76,7 @@ public class DaggerModuleWalkerTest {
 
     final AtomicReference<TypeElement> began = new AtomicReference<>();
     final AtomicReference<TypeElement> ended = new AtomicReference<>();
+    final List<TypeMirror> includedModules = new ArrayList<>();
     final List<ExecutableElement> providesMethods = new ArrayList<>();
 
     // Compile the source and check results
@@ -82,7 +88,11 @@ public class DaggerModuleWalkerTest {
         roundEnv.getElementsAnnotatedWith(Module.class).forEach(element -> {
           if (element instanceof TypeElement) {
             final TypeElement moduleElement = (TypeElement) element;
-            
+
+            // We only want to walk MyModule in this test
+            if (!moduleElement.getSimpleName().contentEquals("MyModule"))
+              return;
+
             DaggerModuleWalker walker = new DaggerModuleWalker(processingEnv);
 
             // Mock Visitor
@@ -94,6 +104,12 @@ public class DaggerModuleWalkerTest {
                 assertNull(expectedModule);
                 expectedModule = module;
                 began.set(module);
+              }
+
+              @Override
+              public void visitModuleIncludedModule(TypeElement module, TypeMirror includedModule) {
+                assertEquals(expectedModule, module);
+                includedModules.add(includedModule);
               }
 
               @Override
@@ -131,6 +147,11 @@ public class DaggerModuleWalkerTest {
 
     assertNotNull(ended.get());
     assertEquals("com.example.MyModule", ended.get().getQualifiedName().toString());
+
+    // Validate included modules
+    assertEquals(1, includedModules.size());
+    assertTrue(
+        includedModules.stream().anyMatch(m -> m.toString().equals("com.example.IncludedModule")));
 
     // Validate @Provides methods
     assertEquals(2, providesMethods.size());

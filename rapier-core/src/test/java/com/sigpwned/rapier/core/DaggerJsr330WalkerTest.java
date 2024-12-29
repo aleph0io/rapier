@@ -28,17 +28,15 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.processing.AbstractProcessor;
-import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
-import javax.lang.model.type.ExecutableType;
-import javax.lang.model.util.Types;
 import org.junit.jupiter.api.Test;
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
 
-public class Jsr330WalkerTest {
+public class DaggerJsr330WalkerTest {
   @Test
   public void givenInjectableClass_whenWalk_thenVisitExpectedInjectionSites() {
     // Source code for a mock class with JSR 330 injection annotations
@@ -90,26 +88,23 @@ public class Jsr330WalkerTest {
 
     final AtomicReference<TypeElement> began = new AtomicReference<>();
     final AtomicReference<TypeElement> ended = new AtomicReference<>();
-    final List<ExecutableType> constructorInjectionSites = new ArrayList<>();
+    final List<ExecutableElement> constructorInjectionSites = new ArrayList<>();
     final List<VariableElement> fieldInjectionSites = new ArrayList<>();
-    final List<ExecutableType> methodInjectionSites = new ArrayList<>();
+    final List<ExecutableElement> methodInjectionSites = new ArrayList<>();
 
     // Compile the source and check results
     final Compilation compilation = javac().withProcessors(new AbstractProcessor() {
       @Override
       public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-        ProcessingEnvironment processingEnv = this.processingEnv;
-        Types types = processingEnv.getTypeUtils();
-
         roundEnv.getRootElements().forEach(element -> {
           if (element instanceof TypeElement typeElement) {
             if (!typeElement.getSimpleName().toString().equals("MyClass"))
               return;
 
-            Jsr330Walker walker = new Jsr330Walker(types);
+            DaggerJsr330Walker walker = new DaggerJsr330Walker(processingEnv);
 
             // Mock Visitor
-            Jsr330Walker.Visitor visitor = new Jsr330Walker.Visitor() {
+            DaggerJsr330Walker.Visitor visitor = new DaggerJsr330Walker.Visitor() {
               @Override
               public void beginClass(TypeElement type) {
                 began.set(type);
@@ -117,7 +112,7 @@ public class Jsr330WalkerTest {
 
               @Override
               public void visitClassConstructorInjectionSite(TypeElement type,
-                  ExecutableType constructor) {
+                  ExecutableElement constructor) {
                 constructorInjectionSites.add(constructor);
               }
 
@@ -127,7 +122,8 @@ public class Jsr330WalkerTest {
               }
 
               @Override
-              public void visitClassMethodInjectionSite(TypeElement type, ExecutableType method) {
+              public void visitClassMethodInjectionSite(TypeElement type,
+                  ExecutableElement method) {
                 methodInjectionSites.add(method);
               }
 
@@ -163,7 +159,7 @@ public class Jsr330WalkerTest {
 
     // Validate constructor injection site
     assertEquals(1, constructorInjectionSites.size());
-    assertEquals("(java.lang.String)void", constructorInjectionSites.get(0).toString());
+    assertEquals("MyClass(java.lang.String)", constructorInjectionSites.get(0).toString());
 
     // Validate field injection site
     assertEquals(2, fieldInjectionSites.size());
@@ -172,7 +168,7 @@ public class Jsr330WalkerTest {
 
     // Validate method injection site
     assertEquals(2, methodInjectionSites.size());
-    assertEquals("(java.lang.String)void", methodInjectionSites.get(0).toString());
-    assertEquals("(java.lang.String)void", methodInjectionSites.get(1).toString());
+    assertEquals("setClassMethod(java.lang.String)", methodInjectionSites.get(0).toString());
+    assertEquals("setParentMethod(java.lang.String)", methodInjectionSites.get(1).toString());
   }
 }

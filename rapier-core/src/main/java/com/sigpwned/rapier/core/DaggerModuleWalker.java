@@ -22,14 +22,18 @@ package com.sigpwned.rapier.core;
 import static java.util.Objects.requireNonNull;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.SimpleAnnotationValueVisitor8;
 import com.sigpwned.rapier.core.util.AnnotationProcessing;
 import dagger.Provides;
 
@@ -42,7 +46,14 @@ public class DaggerModuleWalker {
      */
     public void beginModule(TypeElement module);
 
-    // TODO add a method for includes modules
+    /**
+     * Called for each module {@link dagger.Module#includes() included} by the given module.
+     * 
+     * @param module the module being walked
+     * @param includedModule the included module
+     */
+    public void visitModuleIncludedModule(TypeElement module, TypeMirror includedModule);
+
     // TODO add a method for subcomponents
 
     /**
@@ -53,8 +64,6 @@ public class DaggerModuleWalker {
      * 
      */
     public void visitModuleProvidesMethod(TypeElement module, ExecutableElement method);
-
-    // TODO add a method for bind methods
 
     /**
      * Called at the end of the walk.
@@ -93,6 +102,36 @@ public class DaggerModuleWalker {
   private void walkModuleAnnotation(TypeElement module, Visitor visitor,
       AnnotationMirror annotation) {
     assert annotation.getAnnotationType().toString().equals("dagger.Module");
+
+    final List<TypeMirror> includedModules = new ArrayList<>();
+    for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> e : annotation
+        .getElementValues().entrySet()) {
+      if (!e.getKey().getSimpleName().contentEquals("includes"))
+        continue;
+
+      e.getValue().accept(new SimpleAnnotationValueVisitor8<Void, Void>() {
+        @Override
+        public Void visitArray(List<? extends AnnotationValue> vals, Void p) {
+          for (AnnotationValue val : vals) {
+            val.accept(this, null);
+          }
+          return null;
+        }
+
+        @Override
+        public Void visitType(TypeMirror t, Void p) {
+          includedModules.add(t);
+          return null;
+        }
+      }, null);
+
+      break;
+    }
+
+    for (TypeMirror includedModule : includedModules) {
+      visitor.visitModuleIncludedModule(module, includedModule);
+    }
+
   }
 
   private void walkModuleClass(TypeElement module, Visitor visitor) {
@@ -113,7 +152,7 @@ public class DaggerModuleWalker {
           continue;
         if (methodElement.getModifiers().contains(Modifier.STATIC))
           continue;
-        
+
         if (methodElement.getAnnotationMirrors().stream()
             .anyMatch(a -> a.getAnnotationType().toString().equals("dagger.Provides"))
             && methodElement.getReturnType().getKind() != TypeKind.VOID) {

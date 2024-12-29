@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
@@ -40,15 +41,20 @@ import javax.lang.model.util.Types;
 import com.sigpwned.rapier.core.util.AnnotationProcessing;
 import com.sigpwned.rapier.core.util.MoreMaps;
 
-public class Jsr330Walker {
+/**
+ * Visits all the JSR 330 injection sites in the given class that are supported by Dagger. Note that
+ * this may not match the set of JSR 330 injection sites defined by the standard, or the set of JSR
+ * 330 injection sites used by other frameworks.
+ */
+public class DaggerJsr330Walker {
   public static interface Visitor {
     public void beginClass(TypeElement type);
 
-    public void visitClassConstructorInjectionSite(TypeElement type, ExecutableType constructor);
+    public void visitClassConstructorInjectionSite(TypeElement type, ExecutableElement constructor);
 
     public void visitClassFieldInjectionSite(TypeElement type, VariableElement field);
 
-    public void visitClassMethodInjectionSite(TypeElement type, ExecutableType method);
+    public void visitClassMethodInjectionSite(TypeElement type, ExecutableElement method);
 
     public void endClass(TypeElement type);
   }
@@ -103,10 +109,10 @@ public class Jsr330Walker {
     }
   }
 
-  private final Types types;
+  private final ProcessingEnvironment processingEnv;
 
-  public Jsr330Walker(Types types) {
-    this.types = requireNonNull(types);
+  public DaggerJsr330Walker(ProcessingEnvironment processingEnv) {
+    this.processingEnv = requireNonNull(processingEnv);
   }
 
   public void walk(TypeElement type, Visitor visitor) {
@@ -138,7 +144,7 @@ public class Jsr330Walker {
       MoreMaps.mergeAll(instanceMethods, ancestorInstanceMethods, (a, b) -> {
         a.addAll(b);
         return a;
-      });
+      }, ArrayList::new);
 
       final List<ExecutableElement> ancestorStaticMethods = collectStaticMethods(ancestor);
       staticMethods.addAll(ancestorStaticMethods);
@@ -150,6 +156,10 @@ public class Jsr330Walker {
         .entrySet()) {
       final MethodSignatureKey signature = entry.getKey();
       final List<ExecutableElement> methods = entry.getValue();
+
+      // Methods are visited in depth-first order. The first method in the list is the "prime"
+      // method, which is the most derived method in the inheritance hierarchy, i.e., the version
+      // of the method closest to the class being analyzed.
       final ExecutableElement primeMethod = methods.get(0);
 
       // Dagger does not support abstract methods
@@ -169,22 +179,7 @@ public class Jsr330Walker {
           .anyMatch(a -> a.getAnnotationType().toString().equals("javax.inject.Inject"))))
         continue;
 
-      visitor.visitClassMethodInjectionSite(type,
-          (ExecutableType) getTypes().asMemberOf((DeclaredType) type.asType(), primeMethod));
-    }
-
-    for (ExecutableElement method : staticMethods) {
-      // Dagger does not support private methods
-      if (method.getModifiers().contains(Modifier.PRIVATE))
-        continue;
-
-      // Only @Inject-annotated methods are injection sites
-      if (method.getAnnotationMirrors().stream()
-          .noneMatch(a -> a.getAnnotationType().toString().equals("javax.inject.Inject")))
-        continue;
-
-      visitor.visitClassMethodInjectionSite(type,
-          (ExecutableType) getTypes().asMemberOf((DeclaredType) type.asType(), method));
+      visitor.visitClassMethodInjectionSite(type, primeMethod);
     }
 
     visitor.endClass(type);
@@ -192,7 +187,7 @@ public class Jsr330Walker {
 
   private void visitClassConstructorInjectionSite(TypeElement type, Visitor visitor) {
     boolean visited = false;
-    ExecutableType resolvedDefaultConstructor = null;
+    ExecutableElement defaultConstructor = null;
     for (Element element : type.getEnclosedElements()) {
       if (element.getKind() != ElementKind.CONSTRUCTOR)
         continue;
@@ -203,11 +198,8 @@ public class Jsr330Walker {
       if (constructor.getModifiers().contains(Modifier.PRIVATE))
         continue;
 
-      ExecutableType resolvedConstructor =
-          (ExecutableType) getTypes().asMemberOf((DeclaredType) type.asType(), constructor);
-
-      if (resolvedConstructor.getParameterTypes().isEmpty()) {
-        resolvedDefaultConstructor = resolvedConstructor;
+      if (constructor.getParameters().isEmpty()) {
+        defaultConstructor = constructor;
         continue;
       }
 
@@ -215,12 +207,12 @@ public class Jsr330Walker {
           .anyMatch(a -> a.getAnnotationType().toString().equals("javax.inject.Inject"))) {
         // Only visit one constructor. If there's more than one, that's the user's problem.
         // TODO Handle this more gracefully?
-        visitor.visitClassConstructorInjectionSite(type, resolvedConstructor);
+        visitor.visitClassConstructorInjectionSite(type, constructor);
         return;
       }
     }
-    if (!visited && resolvedDefaultConstructor != null) {
-      visitor.visitClassConstructorInjectionSite(type, resolvedDefaultConstructor);
+    if (!visited && defaultConstructor != null) {
+      visitor.visitClassConstructorInjectionSite(type, defaultConstructor);
     }
   }
 
@@ -304,7 +296,11 @@ public class Jsr330Walker {
     }
   }
 
+  private ProcessingEnvironment getProcessingEnv() {
+    return processingEnv;
+  }
+
   private Types getTypes() {
-    return types;
+    return getProcessingEnv().getTypeUtils();
   }
 }
