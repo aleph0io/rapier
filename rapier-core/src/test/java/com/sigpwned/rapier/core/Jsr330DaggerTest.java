@@ -484,4 +484,113 @@ public class Jsr330DaggerTest extends DaggerTestBase {
 
     assertEquals("value.value.value", output);
   }
+
+  /**
+   * Confirm that Dagger DOES NOT support injection into static fields
+   */
+  @Test
+  public void givenComponentWithStaticFieldInjectionSite_whenCompile_thenMissingBindingError()
+      throws IOException {
+    final String componentSourceCode = """
+        import dagger.Component;
+
+        @Component(modules={ExampleModule.class})
+        public interface ExampleComponent {
+            Foo getFoo();
+        }
+        """;
+
+    final String fooSourceCode = """
+        import javax.inject.Inject;
+
+        public class Foo {
+            @Inject
+            public static String staticField;
+
+            /**
+             * Default constructor with an @Inject annotation
+             */
+            @Inject
+            public Foo() {
+            }
+        }
+        """;
+
+    final String moduleSourceCode = """
+        import dagger.Module;
+        import dagger.Provides;
+
+        @Module
+        public class ExampleModule {
+            @Provides
+            public String provideString() {
+                return "value";
+            }
+        }
+        """;
+
+    final String errors = compileSourceCode(componentSourceCode, fooSourceCode, moduleSourceCode);
+
+    assertTrue(errors.contains("[Dagger/MissingBinding]"),
+        "Expected a MissingBinding error but it was not found.");
+  }
+
+
+  /**
+   * Confirm that Dagger DOES NOT support injection into static methods
+   */
+  @Test
+  public void givenComponentWithStaticMethodInjectionSite_whenCompile_thenMissingBindingError()
+      throws IOException {
+    final String componentSourceCode = """
+        import dagger.Component;
+
+        @Component(modules={ExampleModule.class})
+        public interface ExampleComponent {
+            Foo getFoo();
+        }
+        """;
+
+    final String fooSourceCode = """
+        import javax.inject.Inject;
+
+        public class Foo {
+            private static String staticMethod;
+            
+            @Inject
+            public static void setStaticMethod(String value) {
+                staticMethod = value;
+            }
+            
+            public static String getStaticMethod() {
+                return staticMethod;
+            }
+
+            /**
+             * Default constructor with an @Inject annotation
+             */
+            @Inject
+            public Foo() {
+            }
+        }
+        """;
+
+    final String moduleSourceCode = """
+        import dagger.Module;
+        import dagger.Provides;
+
+        @Module
+        public class ExampleModule {
+            @Provides
+            public String provideString() {
+                return "value";
+            }
+        }
+        """;
+
+    final String errors = compileSourceCode(componentSourceCode, fooSourceCode, moduleSourceCode);
+
+    assertTrue(errors.contains("[Dagger/MissingBinding]"),
+        "Expected a MissingBinding error but it was not found.");
+  }
 }

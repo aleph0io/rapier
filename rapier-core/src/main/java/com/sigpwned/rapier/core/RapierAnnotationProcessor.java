@@ -30,7 +30,6 @@ import javax.lang.model.SourceVersion;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
-import javax.lang.model.util.Elements;
 import javax.tools.Diagnostic;
 import dagger.Component;
 
@@ -104,9 +103,5 @@ public class RapierAnnotationProcessor extends AbstractProcessor {
 
   private Messager getMessager() {
     return getProcessingEnv().getMessager();
-  }
-
-  private Elements getElementUtils() {
-    return getProcessingEnv().getElementUtils();
   }
 }

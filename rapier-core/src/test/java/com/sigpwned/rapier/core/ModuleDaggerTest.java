@@ -420,4 +420,78 @@ public class ModuleDaggerTest extends DaggerTestBase {
 
     assertTrue(errors.isBlank(), "Expected no errors, but errors were found.");
   }
+
+  /**
+   * Confirm that Dagger performs JSR-330 injection on @Provides method parameters
+   */
+  @Test
+  public void givenProvidesMethodWithParameterThatRequiresJsr330Injection_whenCompileAndRun_thenNoError()
+      throws IOException {
+    final String componentSourceCode = """
+        import dagger.Component;
+
+        @Component(modules={ExampleModule.class})
+        public interface ExampleComponent {
+            BravoDependency getRequiredBinding();
+        }
+        """;
+
+    final String moduleSourceCode = """
+        import dagger.Module;
+        import dagger.Provides;
+
+        @Module
+        public class ExampleModule {
+            @Provides
+            public String provideString() {
+                return "value";
+            }
+
+            @Provides
+            public BravoDependency provideRequiredBinding(AlphaDependency alpha) {
+                return new BravoDependency(alpha);
+            }
+        }
+        """;
+
+    final String alphaDependencySourceCode = """
+        import javax.inject.Inject;
+
+        public class AlphaDependency {
+            public final String value;
+
+            @Inject
+            public AlphaDependency(String value) {
+                this.value = value;
+            }
+        }
+        """;
+
+    final String bravoDependencySourceCode = """
+        public class BravoDependency {
+            public final AlphaDependency alpha;
+
+            public BravoDependency(AlphaDependency alpha) {
+                this.alpha = alpha;
+            }
+        }
+        """;
+
+    final String appSourceCode = """
+        public class ExampleApp {
+            public static void main(String[] args) {
+                // Attempt to create the DaggerExampleComponent without providing ExampleModule
+                ExampleComponent component=DaggerExampleComponent.builder().build();
+                BravoDependency bravo = component.getRequiredBinding();
+                System.out.println(bravo.alpha.value);
+            }
+        }
+        """;
+
+
+    final String output = compileAndRunSourceCode(componentSourceCode, moduleSourceCode,
+        alphaDependencySourceCode, bravoDependencySourceCode, appSourceCode).trim();
+
+    assertEquals(output, "value");
+  }
 }
