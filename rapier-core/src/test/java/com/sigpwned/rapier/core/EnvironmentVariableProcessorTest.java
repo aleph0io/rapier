@@ -30,16 +30,15 @@ public class EnvironmentVariableProcessorTest {
   @Test
   public void testAnnotationProcessor() {
     // Define the source file to test
-    JavaFileObject source = JavaFileObjects.forSourceString("com.example.ExampleComponent",
-    // @formatter:off
-      "package com.example;\n" +
-      "\n" +
-      "@dagger.Component\n" +
-      "public interface ExampleComponent {\n" +
-      "    @com.sigpwned.rapier.core.EnvironmentVariable(\"FOO_BAR\")\n" +
-      "    public String getFooBar();\n" +
-      "}\n");
-    // @formatter:on
+    JavaFileObject source = JavaFileObjects.forSourceString("com.example.ExampleComponent", """
+        package com.example;
+
+        @dagger.Component
+        public interface ExampleComponent {
+            @com.sigpwned.rapier.core.EnvironmentVariable("FOO_BAR")
+            public String getFooBar();
+        }
+        """);
 
     // Run the annotation processor
     Compilation compilation = Compiler.javac().withProcessors(new EnvironmentVariableProcessor())
@@ -49,83 +48,83 @@ public class EnvironmentVariableProcessorTest {
     assertThat(compilation).succeeded();
 
     // Assert generated file content
-    JavaFileObject expectedOutput =
-        JavaFileObjects.forSourceString("com.example.RapierEnvironmentVariableModule",
-        // @formatter:off
-      "package com.example;\n" +
-      "\n" +
-      "import static java.util.Collections.unmodifiableMap;\n" +
-      "\n" +
-      "import com.sigpwned.rapier.core.EnvironmentVariable;\n" +
-      "import dagger.Module;\n" +
-      "import dagger.Provides;\n" +
-      "import java.util.Map;\n" +
-      "import java.util.Optional;\n" +
-      "import javax.inject.Inject;\n" +
-      "\n" +
-      "@Module\n" +
-      "public class RapierEnvironmentVariableModule {\n" +
-      "    private final Map<String, String> env;\n" +
-      "\n" +
-      "    @Inject\n" +
-      "    public RapierEnvironmentVariableModule() {\n" +
-      "        this(System.getenv());\n" +
-      "    }\n" +
-      "\n" +
-      "    public RapierEnvironmentVariableModule(Map<String, String> env) {\n" +
-      "        this.env = unmodifiableMap(env);\n" +
-      "    }\n" +
-      "\n" +
-      "    // FOO_BAR\n" +
-      "    @Provides\n" +
-      "    @EnvironmentVariable(\"FOO_BAR\")\n" +
-      "    public String provideEnvironmentVariableFooBar() {\n" +
-      "        return env.get(\"FOO_BAR\");\n" +
-      "    }\n" +
-      "\n" +
-      "    @Provides\n" +
-      "    @EnvironmentVariable(\"FOO_BAR\")\n" +
-      "    public Byte provideEnvironmentVariableFooBarAsByte() {\n" +
-      "        return Optional.ofNullable(provideEnvironmentVariableFooBar()).map(Byte::parseByte).orElse(null);\n" +
-      "    }\n" +
-      "\n" +
-      "    @Provides\n" +
-      "    @EnvironmentVariable(\"FOO_BAR\")\n" +
-      "    public Short provideEnvironmentVariableFooBarAsShort() {\n" +
-      "        return Optional.ofNullable(provideEnvironmentVariableFooBar()).map(Short::parseShort).orElse(null);\n" +
-      "    }\n" +
-      "\n" +
-      "    @Provides\n" +
-      "    @EnvironmentVariable(\"FOO_BAR\")\n" +
-      "    public Integer provideEnvironmentVariableFooBarAsInteger() {\n" +
-      "        return Optional.ofNullable(provideEnvironmentVariableFooBar()).map(Integer::parseInt).orElse(null);\n" +
-      "    }\n" +
-      "\n" +
-      "    @Provides\n" +
-      "    @EnvironmentVariable(\"FOO_BAR\")\n" +
-      "    public Long provideEnvironmentVariableFooBarAsLong() {\n" +
-      "        return Optional.ofNullable(provideEnvironmentVariableFooBar()).map(Long::parseLong).orElse(null);\n" +
-      "    }\n" +
-      "\n" +
-      "    @Provides\n" +
-      "    @EnvironmentVariable(\"FOO_BAR\")\n" +
-      "    public Float provideEnvironmentVariableFooBarAsFloat() {\n" +
-      "        return Optional.ofNullable(provideEnvironmentVariableFooBar()).map(Float::parseFloat).orElse(null);\n" +
-      "    }\n" +
-      "\n" +
-      "    @Provides\n" +
-      "    @EnvironmentVariable(\"FOO_BAR\")\n" +
-      "    public Double provideEnvironmentVariableFooBarAsDouble() {\n" +
-      "        return Optional.ofNullable(provideEnvironmentVariableFooBar()).map(Double::parseDouble).orElse(null);\n" +
-      "    }\n" +
-      "\n" +
-      "    @Provides\n" +
-      "    @EnvironmentVariable(\"FOO_BAR\")\n" +
-      "    public Boolean provideEnvironmentVariableFooBarAsBoolean() {\n" +
-      "        return Optional.ofNullable(provideEnvironmentVariableFooBar()).map(Boolean::parseBoolean).orElse(null);\n" +
-      "    }\n" +
-      "}\n");
-    // @formatter:on
+    JavaFileObject expectedOutput = JavaFileObjects.forSourceString(
+        "com.example.RapierEnvironmentVariableModule",
+        """
+            package com.example;
+
+            import static java.util.Collections.unmodifiableMap;
+
+            import com.sigpwned.rapier.core.EnvironmentVariable;
+            import dagger.Module;
+            import dagger.Provides;
+            import java.util.Map;
+            import java.util.Optional;
+            import javax.inject.Inject;
+
+            @Module
+            public class RapierEnvironmentVariableModule {
+                private final Map<String, String> env;
+
+                @Inject
+                public RapierEnvironmentVariableModule() {
+                    this(System.getenv());
+                }
+
+                public RapierEnvironmentVariableModule(Map<String, String> env) {
+                    this.env = unmodifiableMap(env);
+                }
+
+                // FOO_BAR
+                @Provides
+                @EnvironmentVariable("FOO_BAR")
+                public String provideEnvironmentVariableFooBar() {
+                    return env.get("FOO_BAR");
+                }
+
+                @Provides
+                @EnvironmentVariable("FOO_BAR")
+                public Byte provideEnvironmentVariableFooBarAsByte() {
+                    return Optional.ofNullable(provideEnvironmentVariableFooBar()).map(Byte::parseByte).orElse(null);
+                }
+
+                @Provides
+                @EnvironmentVariable("FOO_BAR")
+                public Short provideEnvironmentVariableFooBarAsShort() {
+                    return Optional.ofNullable(provideEnvironmentVariableFooBar()).map(Short::parseShort).orElse(null);
+                }
+
+                @Provides
+                @EnvironmentVariable("FOO_BAR")
+                public Integer provideEnvironmentVariableFooBarAsInteger() {
+                    return Optional.ofNullable(provideEnvironmentVariableFooBar()).map(Integer::parseInt).orElse(null);
+                }
+
+                @Provides
+                @EnvironmentVariable("FOO_BAR")
+                public Long provideEnvironmentVariableFooBarAsLong() {
+                    return Optional.ofNullable(provideEnvironmentVariableFooBar()).map(Long::parseLong).orElse(null);
+                }
+
+                @Provides
+                @EnvironmentVariable("FOO_BAR")
+                public Float provideEnvironmentVariableFooBarAsFloat() {
+                    return Optional.ofNullable(provideEnvironmentVariableFooBar()).map(Float::parseFloat).orElse(null);
+                }
+
+                @Provides
+                @EnvironmentVariable("FOO_BAR")
+                public Double provideEnvironmentVariableFooBarAsDouble() {
+                    return Optional.ofNullable(provideEnvironmentVariableFooBar()).map(Double::parseDouble).orElse(null);
+                }
+
+                @Provides
+                @EnvironmentVariable("FOO_BAR")
+                public Boolean provideEnvironmentVariableFooBarAsBoolean() {
+                    return Optional.ofNullable(provideEnvironmentVariableFooBar()).map(Boolean::parseBoolean).orElse(null);
+                }
+            }
+            """);
 
     assertThat(compilation).generatedSourceFile("com.example.RapierEnvironmentVariableModule")
         .hasSourceEquivalentTo(expectedOutput);
