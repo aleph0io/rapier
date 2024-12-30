@@ -29,5 +29,9 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.CLASS)
 @Target({ElementType.PARAMETER, ElementType.FIELD, ElementType.METHOD})
 public @interface EnvironmentVariable {
+  public static final String DEFAULT_VALUE_NOT_SET = "ENVIRONMENT_VARIABLE_DEFAULT_VALUE_NOT_SET";
+
   public String value();
+
+  public String defaultValue() default DEFAULT_VALUE_NOT_SET;
 }

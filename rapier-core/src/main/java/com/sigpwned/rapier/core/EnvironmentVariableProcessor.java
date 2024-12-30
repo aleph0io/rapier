@@ -19,14 +19,18 @@
  */
 package com.sigpwned.rapier.core;
 
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
+import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
@@ -53,7 +57,11 @@ import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 import com.sigpwned.rapier.core.model.DaggerComponentAnalysis;
+import com.sigpwned.rapier.core.model.Dependency;
 import com.sigpwned.rapier.core.util.CaseFormat;
+import com.sigpwned.rapier.core.util.Hashing;
+import com.sigpwned.rapier.core.util.Hex;
+import com.sigpwned.rapier.core.util.Java;
 import dagger.Component;
 
 @SupportedAnnotationTypes("dagger.Component")
@@ -81,8 +89,130 @@ public class EnvironmentVariableProcessor extends AbstractProcessor {
       processComponent(component);
     }
 
-    // We never "claim" this annotation. Dagger has to process it, too.
+    // We never "claim" this annotation. Dagger has to process it, too. If we set true here, then
+    // component implementations are not generated.
     return false;
+  }
+
+  private static class EnvironmentVariableKey {
+    public static EnvironmentVariableKey fromDependency(Dependency dependency) {
+      final AnnotationMirror qualifier = dependency.getQualifier().orElseThrow(() -> {
+        return new IllegalArgumentException("Dependency must have qualifier");
+      });
+
+      if (!qualifier.getAnnotationType().toString()
+          .equals(EnvironmentVariable.class.getCanonicalName())) {
+        throw new IllegalArgumentException("Dependency qualifier must be @EnvironmentVariable");
+      }
+
+      final TypeMirror type = dependency.getType();
+      final String name = extractEnvironmentVariable(qualifier);
+      final String defaultValue = extractDefaultValue(qualifier);
+
+      return new EnvironmentVariableKey(type, name, defaultValue);
+    }
+
+    private final TypeMirror type;
+    private final String name;
+    private final String defaultValue;
+
+    public EnvironmentVariableKey(TypeMirror type, String name, String defaultValue) {
+      this.type = requireNonNull(type);
+      this.name = requireNonNull(name);
+      this.defaultValue = defaultValue;
+    }
+
+    public TypeMirror getType() {
+      return type;
+    }
+
+    public String getName() {
+      return name;
+    }
+
+    public Optional<String> getDefaultValue() {
+      return Optional.ofNullable(defaultValue);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(defaultValue, name, type);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj)
+        return true;
+      if (obj == null)
+        return false;
+      if (getClass() != obj.getClass())
+        return false;
+      EnvironmentVariableKey other = (EnvironmentVariableKey) obj;
+      return Objects.equals(defaultValue, other.defaultValue) && Objects.equals(name, other.name)
+          && Objects.equals(type, other.type);
+    }
+
+    @Override
+    public String toString() {
+      return "EnvironmentVariableKey [type=" + type + ", name=" + name + ", defaultValue="
+          + defaultValue + "]";
+    }
+  }
+
+
+  private static class EnvironmentVariableDefinition
+      implements Comparable<EnvironmentVariableDefinition> {
+    public static EnvironmentVariableDefinition fromKey(EnvironmentVariableKey key) {
+      return new EnvironmentVariableDefinition(key.getName(), key.getDefaultValue().orElse(null));
+    }
+
+    private final String name;
+    private final String defaultValue;
+
+    public EnvironmentVariableDefinition(String name, String defaultValue) {
+      this.name = requireNonNull(name);
+      this.defaultValue = defaultValue;
+    }
+
+    public String getName() {
+      return name;
+    }
+
+    public Optional<String> getDefaultValue() {
+      return Optional.ofNullable(defaultValue);
+    }
+
+    @Override
+    public int hashCode() {
+      return Objects.hash(defaultValue, name);
+    }
+
+    @Override
+    public boolean equals(Object obj) {
+      if (this == obj)
+        return true;
+      if (obj == null)
+        return false;
+      if (getClass() != obj.getClass())
+        return false;
+      EnvironmentVariableKey other = (EnvironmentVariableKey) obj;
+      return Objects.equals(defaultValue, other.defaultValue) && Objects.equals(name, other.name);
+    }
+
+    @Override
+    public String toString() {
+      return "EnvironmentVariableKey [name=" + name + ", defaultValue=" + defaultValue + "]";
+    }
+
+    private static final Comparator<EnvironmentVariableDefinition> COMPARATOR =
+        Comparator.comparing(EnvironmentVariableDefinition::getName)
+            .thenComparing(Comparator.comparing(d -> d.getDefaultValue().orElse(null),
+                Comparator.nullsFirst(Comparator.naturalOrder())));
+
+    @Override
+    public int compareTo(EnvironmentVariableDefinition that) {
+      return COMPARATOR.compare(this, that);
+    }
   }
 
   private void processComponent(TypeElement component) {
@@ -97,12 +227,20 @@ public class EnvironmentVariableProcessor extends AbstractProcessor {
     final DaggerComponentAnalysis analysis =
         new DaggerComponentAnalyzer(getProcessingEnv()).analyzeComponent(component);
 
-    final SortedMap<String, Set<TypeMirror>> environmentVariables = analysis.getDependencies()
-        .stream().filter(d -> d.getQualifier().isPresent())
-        .filter(d -> getTypes().isSameType(d.getQualifier().get().getAnnotationType(),
-            getElements().getTypeElement(EnvironmentVariable.class.getCanonicalName()).asType()))
-        .collect(groupingBy(d -> extractEnvironmentVariable(d.getQualifier().get()), TreeMap::new,
-            mapping(d -> d.getType(), toSet())));
+    final List<EnvironmentVariableKey> environmentVariables =
+        analysis
+            .getDependencies().stream().filter(
+                d -> d.getQualifier().isPresent())
+            .filter(
+                d -> getTypes()
+                    .isSameType(d.getQualifier().get().getAnnotationType(),
+                        getElements().getTypeElement(EnvironmentVariable.class.getCanonicalName())
+                            .asType()))
+            .map(EnvironmentVariableKey::fromDependency).collect(toList());
+
+    final SortedMap<EnvironmentVariableDefinition, Set<TypeMirror>> environmentVariablesByDefinition =
+        environmentVariables.stream().collect(groupingBy(EnvironmentVariableDefinition::fromKey,
+            TreeMap::new, mapping(EnvironmentVariableKey::getType, toSet())));
 
     try {
       // TODO Is this the right set of elements?
@@ -120,8 +258,10 @@ public class EnvironmentVariableProcessor extends AbstractProcessor {
         writer.println("import com.sigpwned.rapier.core.EnvironmentVariable;");
         writer.println("import dagger.Module;");
         writer.println("import dagger.Provides;");
+        writer.println("import dagger.Reusable;");
         writer.println("import java.util.Map;");
         writer.println("import java.util.Optional;");
+        writer.println("import javax.annotation.Nullable;");
         writer.println("import javax.inject.Inject;");
         writer.println();
         writer.println("@Module");
@@ -137,47 +277,84 @@ public class EnvironmentVariableProcessor extends AbstractProcessor {
         writer.println("        this.env = unmodifiableMap(env);");
         writer.println("    }");
         writer.println();
-        for (Map.Entry<String, Set<TypeMirror>> e : environmentVariables.entrySet()) {
-          final String environmentVariableName = e.getKey();
-          final Set<TypeMirror> requiredTypes = e.getValue();
-          final String baseMethodName = "provideEnvironmentVariable"
-              + CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, environmentVariableName);
+        for (Map.Entry<EnvironmentVariableDefinition, Set<TypeMirror>> e : environmentVariablesByDefinition
+            .entrySet()) {
+          final EnvironmentVariableDefinition definition = e.getKey();
+          final String name = definition.getName();
+          final String defaultValue = definition.getDefaultValue().orElse(null);
+          final List<TypeMirror> types = e.getValue().stream()
+              .sorted(Comparator.comparing(t -> convertType(t).toString())).collect(toList());
 
-          writer.println("    // " + environmentVariableName);
+          final StringBuilder baseMethodName =
+              new StringBuilder().append("provideEnvironmentVariable")
+                  .append(CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, name));
+          if (defaultValue != null) {
+            baseMethodName.append("WithDefaultValue").append(defaultValueSignature(defaultValue));
+          }
 
-          writer.println("    @Provides");
-          writer.println("    @EnvironmentVariable(\"" + environmentVariableName + "\")");
-          writer.println("    public String " + baseMethodName + "() {");
-          writer.println("        return env.get(\"" + environmentVariableName + "\");");
-          writer.println("    }");
+          if (defaultValue != null) {
+            writer.println("    // " + name + " default value " + defaultValue);
+          } else {
+            writer.println("    // " + name);
+          }
+
+          final boolean nullable = (defaultValue == null);
+
+          if (nullable) {
+            writer.println("    @Provides");
+            writer.println("    @Reusable");
+            writer.println("    @Nullable");
+            writer.println("    @EnvironmentVariable(\"" + name + "\")");
+            writer.println("    public String " + baseMethodName + "() {");
+            writer.println("        return env.get(\"" + name + "\");");
+            writer.println("    }");
+          } else {
+            writer.println("    @Provides");
+            writer.println("    @Reusable");
+            writer.println("    @EnvironmentVariable(value=\"" + name + "\", defaultValue=\""
+                + Java.escapeString(defaultValue) + "\")");
+            writer.println("    public String " + baseMethodName + "() {");
+            writer.println("        return Optional.ofNullable(env.get(\"" + name + "\")).orElse(\""
+                + defaultValue.replace("\"", "\\\"") + "\");");
+            writer.println("    }");
+          }
           writer.println();
 
-          for (TypeMirror requiredType : requiredTypes) {
-            requiredType = convertType(requiredType);
-
-            if (requiredType.toString().equals("java.lang.String")) {
+          for (TypeMirror type : types) {
+            if (type.toString().equals("java.lang.String")) {
               // Skip the String type since we've already provided it
               continue;
             }
 
-            final String expr = expr(requiredType).orElse(null);
+            final String expr = expr(type).orElse(null);
             if (expr == null) {
               getMessager().printMessage(Diagnostic.Kind.ERROR,
-                  "Cannot convert " + requiredType + " from a string");
+                  "Cannot convert " + type + " from a string");
               continue;
             }
 
-            final String requiredTypeSimpleName =
-                getTypes().asElement(requiredType).getSimpleName().toString();
+            final String typeSimpleName = getTypes().asElement(type).getSimpleName().toString();
 
-            writer.println("    @Provides");
-            writer.println("    @EnvironmentVariable(\"" + environmentVariableName + "\")");
-            writer.println(
-                "    public " + requiredType + " " + baseMethodName + "As" + requiredTypeSimpleName
-                    + "(@EnvironmentVariable(\"" + environmentVariableName + "\") String value) {");
-            writer.println("        return value != null ? " + expr + " : null;");
-            writer.println("    }");
-            writer.println();
+            if (nullable) {
+              writer.println("    @Provides");
+              writer.println("    @Nullable");
+              writer.println("    @EnvironmentVariable(\"" + name + "\")");
+              writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
+                  + "(@Nullable @EnvironmentVariable(\"" + name + "\") String value) {");
+              writer.println("        return value != null ? " + expr + " : null;");
+              writer.println("    }");
+              writer.println();
+            } else {
+              writer.println("    @Provides");
+              writer.println("    @EnvironmentVariable(value=\"" + name + "\", defaultValue=\""
+                  + Java.escapeString(defaultValue) + "\")");
+              writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
+                  + "(@EnvironmentVariable(value=\"" + name + "\", defaultValue=\""
+                  + Java.escapeString(defaultValue) + "\") String value) {");
+              writer.println("        return " + expr + ";");
+              writer.println("    }");
+              writer.println();
+            }
           }
         }
         writer.println("}");
@@ -284,7 +461,7 @@ public class EnvironmentVariableProcessor extends AbstractProcessor {
     }
   }
 
-  private String extractEnvironmentVariable(AnnotationMirror annotation) {
+  private static String extractEnvironmentVariable(AnnotationMirror annotation) {
     assert annotation.getAnnotationType().toString()
         .equals(EnvironmentVariable.class.getCanonicalName());
     return annotation.getElementValues().entrySet().stream()
@@ -298,6 +475,22 @@ public class EnvironmentVariableProcessor extends AbstractProcessor {
         }, null)).orElseThrow(() -> {
           return new AssertionError("No string value for @EnvironmentVariable");
         });
+  }
+
+  private static String extractDefaultValue(AnnotationMirror annotation) {
+    assert annotation.getAnnotationType().toString()
+        .equals(EnvironmentVariable.class.getCanonicalName());
+    return annotation.getElementValues().entrySet().stream()
+        .filter(e -> e.getKey().getSimpleName().contentEquals("defaultValue")).findFirst()
+        .map(Map.Entry::getValue)
+        .map(v -> v.accept(new SimpleAnnotationValueVisitor8<String, Void>() {
+          @Override
+          public String visitString(String s, Void p) {
+            if (s.equals(EnvironmentVariable.DEFAULT_VALUE_NOT_SET))
+              return null;
+            return s;
+          }
+        }, null)).orElse(null);
   }
 
   private ProcessingEnvironment getProcessingEnv() {
@@ -318,5 +511,15 @@ public class EnvironmentVariableProcessor extends AbstractProcessor {
 
   private Messager getMessager() {
     return getProcessingEnv().getMessager();
+  }
+
+  private static String defaultValueSignature(String defaultValue) {
+    if (defaultValue == null)
+      throw new NullPointerException();
+    final byte[] digest = Hashing.md5(defaultValue);
+    final String hex = Hex.encode(digest);
+    // Use the first 7 characters of the hash as the signature. If it's good enough for git, it's
+    // good enough for us!
+    return hex.substring(0, 7);
   }
 }

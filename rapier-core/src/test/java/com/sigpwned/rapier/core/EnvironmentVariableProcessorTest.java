@@ -31,7 +31,7 @@ import com.google.testing.compile.JavaFileObjects;
 
 public class EnvironmentVariableProcessorTest extends DaggerTestBase {
   @Test
-  public void givenSimpleComponentWithEnvironmentVariable_whenCompile_thenExpectedtModuleIsGenerated() {
+  public void givenSimpleComponentWithEnvironmentVariableWithoutDefaultValue_whenCompile_thenExpectedtModuleIsGenerated() {
     // Define the source file to test
     final JavaFileObject source =
         JavaFileObjects.forSourceString("com.example.ExampleComponent", """
@@ -62,8 +62,10 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
             import com.sigpwned.rapier.core.EnvironmentVariable;
             import dagger.Module;
             import dagger.Provides;
+            import dagger.Reusable;
             import java.util.Map;
             import java.util.Optional;
+            import javax.annotation.Nullable;
             import javax.inject.Inject;
 
             @Module
@@ -75,20 +77,23 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
                     this(System.getenv());
                 }
 
-                public RapierEnvironmentVariableModule(Map<String, String> env) {
+                public RapierExampleComponentEnvironmentVariableModule(Map<String, String> env) {
                     this.env = unmodifiableMap(env);
                 }
 
                 // FOO_BAR
                 @Provides
+                @Reusable
+                @Nullable
                 @EnvironmentVariable("FOO_BAR")
                 public String provideEnvironmentVariableFooBar() {
                     return env.get("FOO_BAR");
                 }
 
                 @Provides
+                @Nullable
                 @EnvironmentVariable("FOO_BAR")
-                public java.lang.Integer provideEnvironmentVariableFooBarAsInteger(@EnvironmentVariable("FOO_BAR") String value) {
+                public java.lang.Integer provideEnvironmentVariableFooBarAsInteger(@Nullable @EnvironmentVariable("FOO_BAR") String value) {
                     return value != null ? java.lang.Integer.valueOf(value) : null;
                 }
 
@@ -101,12 +106,86 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
   }
 
   @Test
-  public void givenSimpleComponentWithEnvironmentVariable_whenCompileAndRun_thenExpectedtOutput()
+  public void givenSimpleComponentWithEnvironmentVariableWithDefaultValue_whenCompile_thenExpectedtModuleIsGenerated() {
+    // Define the source file to test
+    final JavaFileObject source =
+        JavaFileObjects.forSourceString("com.example.ExampleComponent", """
+            package com.example;
+
+            @dagger.Component
+            public interface ExampleComponent {
+                @com.sigpwned.rapier.core.EnvironmentVariable(value="FOO_BAR", defaultValue="42")
+                public Integer provisionFooBarAsInt();
+            }
+            """);
+
+    // Run the annotation processor
+    final Compilation compilation =
+        Compiler.javac().withProcessors(new EnvironmentVariableProcessor()).compile(source);
+
+    // Assert the compilation succeeded
+    assertThat(compilation).succeeded();
+
+    // Assert generated file content
+    final JavaFileObject expectedOutput = JavaFileObjects.forSourceString(
+        "com.example.RapierExampleComponentEnvironmentVariableModule",
+        """
+            package com.example;
+
+            import static java.util.Collections.unmodifiableMap;
+
+            import com.sigpwned.rapier.core.EnvironmentVariable;
+            import dagger.Module;
+            import dagger.Provides;
+            import dagger.Reusable;
+            import java.util.Map;
+            import java.util.Optional;
+            import javax.annotation.Nullable;
+            import javax.inject.Inject;
+
+            @Module
+            public class RapierExampleComponentEnvironmentVariableModule {
+                private final Map<String, String> env;
+
+                @Inject
+                public RapierExampleComponentEnvironmentVariableModule() {
+                    this(System.getenv());
+                }
+
+                public RapierExampleComponentEnvironmentVariableModule(Map<String, String> env) {
+                    this.env = unmodifiableMap(env);
+                }
+
+                // FOO_BAR default value 42
+                @Provides
+                @Reusable
+                @EnvironmentVariable(value="FOO_BAR", defaultValue="42")
+                public String provideEnvironmentVariableFooBarWithDefaultValuea1d0c6e() {
+                    return Optional.ofNullable(env.get("FOO_BAR")).orElse("42");
+                }
+
+                @Provides
+                @EnvironmentVariable(value="FOO_BAR", defaultValue="42")
+                public java.lang.Integer provideEnvironmentVariableFooBarWithDefaultValuea1d0c6eAsInteger(@EnvironmentVariable(value="FOO_BAR", defaultValue="42") String value) {
+                    return java.lang.Integer.valueOf(value);
+                }
+
+            }
+            """);
+
+    assertThat(compilation)
+        .generatedSourceFile("com.example.RapierExampleComponentEnvironmentVariableModule")
+        .hasSourceEquivalentTo(expectedOutput);
+  }
+
+  @Test
+  public void givenSimpleComponentWithEnvironmentVariableWithGivenValue_whenCompileAndRun_thenExpectedtOutput()
       throws IOException {
     // Define the source file to test
     final String componentSource = """
         @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
         public interface ExampleComponent {
+            @javax.annotation.Nullable
             @com.sigpwned.rapier.core.EnvironmentVariable("FOO_BAR")
             public Integer provisionFooBarAsInt();
         }
@@ -131,5 +210,38 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
             DAGGER_COMPONENT_ANNOTATION_PROCESSOR)).trim();
 
     assertEquals("42", output);
+  }
+
+  @Test
+  public void givenSimpleComponentWithEnvironmentVariableWithDefaultValue_whenCompileAndRun_thenExpectedtOutput()
+      throws IOException {
+    // Define the source file to test
+    final String componentSource = """
+        @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
+        public interface ExampleComponent {
+            @com.sigpwned.rapier.core.EnvironmentVariable(value="FOO_BAR", defaultValue="43")
+            public Integer provisionFooBarAsInt();
+        }
+        """;
+
+    final String appSource =
+        """
+            import java.util.Map;
+
+            public class App {
+                public static void main(String[] args) {
+                    ExampleComponent component = DaggerExampleComponent.builder()
+                        .rapierExampleComponentEnvironmentVariableModule(new RapierExampleComponentEnvironmentVariableModule(Map.of()))
+                        .build();
+                    System.out.println(component.provisionFooBarAsInt());
+                }
+            }
+            """;
+
+    final String output = compileAndRunSourceCode(List.of(componentSource, appSource),
+        List.of("com.sigpwned.rapier.core.EnvironmentVariableProcessor",
+            DAGGER_COMPONENT_ANNOTATION_PROCESSOR)).trim();
+
+    assertEquals("43", output);
   }
 }

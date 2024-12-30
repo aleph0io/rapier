@@ -147,4 +147,42 @@ public final class AnnotationProcessing {
 
     return unmodifiableList(result);
   }
+
+  public static boolean isInject(AnnotationMirror annotation) {
+    return annotation.getAnnotationType().toString().endsWith(".Inject");
+  }
+
+  public static boolean isNullable(AnnotationMirror annotation) {
+    return annotation.getAnnotationType().toString().endsWith(".Nullable");
+  }
+
+  public static boolean isQualifier(AnnotationMirror annotation) {
+    return annotation.getAnnotationType().toString().endsWith(".Qualifier");
+  }
+
+  public static boolean isScope(AnnotationMirror annotation) {
+    return annotation.getAnnotationType().toString().endsWith(".Scope");
+  }
+
+  /**
+   * Returns {@code true} if the given annotation's type is itself annotated with
+   * {@link javax.inject.Qualifier}, or {@code false} otherwise.
+   */
+  public static boolean isQualifierAnnotated(Types types, AnnotationMirror annotation) {
+    final TypeMirror annotationType = annotation.getAnnotationType();
+    final TypeElement annotationTypeElement = (TypeElement) types.asElement(annotationType);
+    return annotationTypeElement.getAnnotationMirrors().stream()
+        .anyMatch(AnnotationProcessing::isQualifier);
+  }
+
+  /**
+   * Returns {@code true} if the given annotation's type is itself annotated with
+   * {@link javax.inject.Qualifier}, or {@code false} otherwise.
+   */
+  public static boolean isScopeAnnotated(Types types, AnnotationMirror annotation) {
+    final TypeMirror annotationType = annotation.getAnnotationType();
+    final TypeElement annotationTypeElement = (TypeElement) types.asElement(annotationType);
+    return annotationTypeElement.getAnnotationMirrors().stream()
+        .anyMatch(AnnotationProcessing::isQualifier);
+  }
 }

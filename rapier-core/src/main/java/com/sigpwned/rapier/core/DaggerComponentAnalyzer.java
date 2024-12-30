@@ -2,8 +2,10 @@ package com.sigpwned.rapier.core;
 
 import static java.util.Objects.requireNonNull;
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
@@ -14,6 +16,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
 import com.sigpwned.rapier.core.model.DaggerComponentAnalysis;
 import com.sigpwned.rapier.core.model.Dependency;
+import com.sigpwned.rapier.core.util.AnnotationProcessing;
 
 public class DaggerComponentAnalyzer {
   private final ProcessingEnvironment processingEnv;
@@ -40,14 +43,14 @@ public class DaggerComponentAnalyzer {
               ExecutableElement method) {
             final TypeMirror returnTypeMirror = method.getReturnType();
 
-            final AnnotationMirror qualifier = method.getAnnotationMirrors().stream().filter(am -> {
-              final TypeMirror annotationType = am.getAnnotationType();
-              final TypeElement typeElement = (TypeElement) getTypes().asElement(annotationType);
-              return typeElement.getAnnotationMirrors().stream().anyMatch(
-                  ann -> ann.getAnnotationType().toString().equals("javax.inject.Qualifier"));
-            }).findFirst().orElse(null);
+            final List<AnnotationMirror> annotations =
+                new ArrayList<>(method.getAnnotationMirrors());
 
-            dependencies.add(new Dependency(returnTypeMirror, qualifier));
+            final AnnotationMirror qualifier = annotations.stream()
+                .filter(a -> AnnotationProcessing.isQualifierAnnotated(getTypes(), a)).findFirst()
+                .orElse(null);
+
+            dependencies.add(new Dependency(returnTypeMirror, qualifier, annotations));
           }
 
           @Override
@@ -70,7 +73,7 @@ public class DaggerComponentAnalyzer {
           new DaggerModuleWalker.Visitor() {
             @Override
             public void beginModule(TypeElement module) {}
-            
+
             @Override
             public void visitModuleIncludedModule(TypeElement module, TypeMirror includedModule) {
               modulesQueue.offer(includedModule);
@@ -81,16 +84,14 @@ public class DaggerComponentAnalyzer {
               for (VariableElement parameter : method.getParameters()) {
                 final TypeMirror parameterType = parameter.asType();
 
-                final AnnotationMirror qualifier =
-                    parameter.getAnnotationMirrors().stream().filter(am -> {
-                      final TypeMirror annotationType = am.getAnnotationType();
-                      final TypeElement typeElement =
-                          (TypeElement) getTypes().asElement(annotationType);
-                      return typeElement.getAnnotationMirrors().stream().anyMatch(ann -> ann
-                          .getAnnotationType().toString().equals("javax.inject.Qualifier"));
-                    }).findFirst().orElse(null);
+                final List<AnnotationMirror> annotations =
+                    new ArrayList<>(method.getAnnotationMirrors());
 
-                dependencies.add(new Dependency(parameterType, qualifier));
+                final AnnotationMirror qualifier = annotations.stream()
+                    .filter(a -> AnnotationProcessing.isQualifierAnnotated(getTypes(), a))
+                    .findFirst().orElse(null);
+
+                dependencies.add(new Dependency(parameterType, qualifier, annotations));
               }
             }
 
@@ -114,51 +115,64 @@ public class DaggerComponentAnalyzer {
 
       final TypeElement dependencyElement = (TypeElement) getTypes().asElement(dependency);
 
-      new DaggerJsr330Walker(getProcessingEnv()).walk(dependencyElement, new DaggerJsr330Walker.Visitor() {
-        @Override
-        public void beginClass(TypeElement type) {}
+      new DaggerJsr330Walker(getProcessingEnv()).walk(dependencyElement,
+          new DaggerJsr330Walker.Visitor() {
+            @Override
+            public void beginClass(TypeElement type) {}
 
-        @Override
-        public void visitClassMethodInjectionSite(TypeElement type, ExecutableElement method) {
-          for (VariableElement parameter : method.getParameters()) {
-            final TypeMirror parameterType = parameter.asType();
+            @Override
+            public void visitClassMethodInjectionSite(TypeElement type, ExecutableElement method) {
+              for (VariableElement parameter : method.getParameters()) {
+                final TypeMirror parameterType = parameter.asType();
 
-            final AnnotationMirror qualifier = parameter.getAnnotationMirrors().stream()
-                .filter(DaggerComponentAnalyzer.this::isQualified).findFirst().orElse(null);
+                final List<AnnotationMirror> annotations =
+                    new ArrayList<>(method.getAnnotationMirrors());
 
-            dependenciesQueue.offer(parameterType);
-            dependencies.add(new Dependency(parameterType, qualifier));
-          }
-        }
+                final AnnotationMirror qualifier = annotations.stream()
+                    .filter(a -> AnnotationProcessing.isQualifierAnnotated(getTypes(), a))
+                    .findFirst().orElse(null);
 
-        @Override
-        public void visitClassFieldInjectionSite(TypeElement type, VariableElement field) {
-          final TypeMirror parameterType = field.asType();
+                dependenciesQueue.offer(parameterType);
+                dependencies.add(new Dependency(parameterType, qualifier, annotations));
+              }
+            }
 
-          final AnnotationMirror qualifier = field.getAnnotationMirrors().stream()
-              .filter(DaggerComponentAnalyzer.this::isQualified).findFirst().orElse(null);
+            @Override
+            public void visitClassFieldInjectionSite(TypeElement type, VariableElement field) {
+              final TypeMirror parameterType = field.asType();
 
-          dependenciesQueue.offer(parameterType);
-          dependencies.add(new Dependency(parameterType, qualifier));
-        }
+              final List<AnnotationMirror> annotations =
+                  new ArrayList<>(field.getAnnotationMirrors());
 
-        @Override
-        public void visitClassConstructorInjectionSite(TypeElement type,
-            ExecutableElement constructor) {
-          for (VariableElement parameter : constructor.getParameters()) {
-            final TypeMirror parameterType = parameter.asType();
+              final AnnotationMirror qualifier = annotations.stream()
+                  .filter(a -> AnnotationProcessing.isQualifierAnnotated(getTypes(), a)).findFirst()
+                  .orElse(null);
 
-            final AnnotationMirror qualifier = parameter.getAnnotationMirrors().stream()
-                .filter(DaggerComponentAnalyzer.this::isQualified).findFirst().orElse(null);
+              dependenciesQueue.offer(parameterType);
+              dependencies.add(new Dependency(parameterType, qualifier, annotations));
+            }
 
-            dependenciesQueue.offer(parameterType);
-            dependencies.add(new Dependency(parameterType, qualifier));
-          }
-        }
+            @Override
+            public void visitClassConstructorInjectionSite(TypeElement type,
+                ExecutableElement constructor) {
+              for (VariableElement parameter : constructor.getParameters()) {
+                final TypeMirror parameterType = parameter.asType();
 
-        @Override
-        public void endClass(TypeElement type) {}
-      });
+                final List<AnnotationMirror> annotations =
+                    new ArrayList<>(parameter.getAnnotationMirrors());
+
+                final AnnotationMirror qualifier = annotations.stream()
+                    .filter(a -> AnnotationProcessing.isQualifierAnnotated(getTypes(), a))
+                    .findFirst().orElse(null);
+
+                dependenciesQueue.offer(parameterType);
+                dependencies.add(new Dependency(parameterType, qualifier, annotations));
+              }
+            }
+
+            @Override
+            public void endClass(TypeElement type) {}
+          });
     }
 
     return new DaggerComponentAnalysis(componentType, dependencies);
@@ -170,16 +184,5 @@ public class DaggerComponentAnalyzer {
 
   private Types getTypes() {
     return processingEnv.getTypeUtils();
-  }
-
-  /**
-   * Returns {@code true} if the given annotation's type is itself annotated with
-   * {@link javax.inject.Qualifier}, or {@code false} otherwise.
-   */
-  private boolean isQualified(AnnotationMirror annotation) {
-    final TypeMirror annotationType = annotation.getAnnotationType();
-    final TypeElement annotationTypeElement = (TypeElement) getTypes().asElement(annotationType);
-    return annotationTypeElement.getAnnotationMirrors().stream()
-        .anyMatch(ann -> ann.getAnnotationType().toString().equals("javax.inject.Qualifier"));
   }
 }
