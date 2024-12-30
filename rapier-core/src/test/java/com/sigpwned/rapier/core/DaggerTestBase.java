@@ -92,8 +92,16 @@ public abstract class DaggerTestBase {
    */
   protected String compileAndRunSourceCode(List<String> compilationUnitSourceCodes)
       throws IOException {
+    return compileAndRunSourceCode(compilationUnitSourceCodes, DEFAULT_ANNOTATION_PROCESSORS);
+  }
+
+  /**
+   * Compiles a given source code, runs the main method and returns the output from stdout.
+   */
+  protected String compileAndRunSourceCode(List<String> compilationUnitSourceCodes,
+      List<String> annotationProcessors) throws IOException {
     try (TempDir tempDir = TempDir.createTempDirectory("dagger_test")) {
-      String errors = compileSourceCode(tempDir, compilationUnitSourceCodes);
+      String errors = compileSourceCode(tempDir, compilationUnitSourceCodes, annotationProcessors);
       if (!errors.isBlank()) {
         throw new IllegalArgumentException(
             "Compilation of invalid compilation units failed with errors: " + errors);
@@ -154,6 +162,12 @@ public abstract class DaggerTestBase {
     }
   }
 
+  protected static final String DAGGER_COMPONENT_ANNOTATION_PROCESSOR =
+      "dagger.internal.codegen.ComponentProcessor";
+
+  private static final List<String> DEFAULT_ANNOTATION_PROCESSORS =
+      List.of(DAGGER_COMPONENT_ANNOTATION_PROCESSOR);
+
   /**
    * Compiles a given source code string and returns any compilation errors.
    * 
@@ -165,6 +179,20 @@ public abstract class DaggerTestBase {
    */
   private String compileSourceCode(File tempDir, List<String> compilationUnitSourceCodes)
       throws IOException {
+    return compileSourceCode(tempDir, compilationUnitSourceCodes, DEFAULT_ANNOTATION_PROCESSORS);
+  }
+
+  /**
+   * Compiles a given source code string and returns any compilation errors.
+   * 
+   * @param tempDir the temporary directory to store the generated source files
+   * @param compilationUnitSourceCodes the source code strings to compile
+   * @return any compilation errors
+   * 
+   * @throws IOException if an I/O error occurs
+   */
+  private String compileSourceCode(File tempDir, List<String> compilationUnitSourceCodes,
+      List<String> annotationProcessors) throws IOException {
     // Get the system Java compiler
     final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
     if (compiler == null) {
@@ -192,7 +220,7 @@ public abstract class DaggerTestBase {
     DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
 
     // Configure annotation processors (include Dagger's processor)
-    List<String> options = List.of("-processor", "dagger.internal.codegen.ComponentProcessor", "-s",
+    List<String> options = List.of("-processor", String.join(",", annotationProcessors), "-s",
         tempDir.getAbsolutePath());
 
     // Compile the source file

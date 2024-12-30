@@ -59,35 +59,30 @@ import dagger.Component;
 @SupportedAnnotationTypes("dagger.Component")
 @SupportedSourceVersion(SourceVersion.RELEASE_11)
 public class EnvironmentVariableProcessor extends AbstractProcessor {
-  private List<TypeElement> components;
-
   @Override
   public synchronized void init(ProcessingEnvironment processingEnv) {
     super.init(processingEnv);
-    this.components = new ArrayList<>();
   }
 
   @Override
   public boolean process(Set<? extends TypeElement> annotations, RoundEnvironment roundEnv) {
-    final Set<? extends Element> annotatedElementsThisRound =
+    final Set<? extends Element> annotatedElements =
         roundEnv.getElementsAnnotatedWith(Component.class);
-    for (Element element : annotatedElementsThisRound) {
+
+    final List<TypeElement> components = new ArrayList<>();
+    for (Element element : annotatedElements) {
       if (element.getKind() != ElementKind.INTERFACE && element.getKind() != ElementKind.CLASS)
         continue;
       TypeElement typeElement = (TypeElement) element;
       components.add(typeElement);
     }
 
-    // Wait until processing is over to generate the module
-    if (!roundEnv.processingOver()) {
-      return false;
-    }
-
     for (TypeElement component : components) {
       processComponent(component);
     }
 
-    return true;
+    // We never "claim" this annotation. Dagger has to process it, too.
+    return false;
   }
 
   private void processComponent(TypeElement component) {
@@ -110,13 +105,16 @@ public class EnvironmentVariableProcessor extends AbstractProcessor {
             mapping(d -> d.getType(), toSet())));
 
     try {
-      // TODO Is this right?
+      // TODO Is this the right set of elements?
       final Element[] dependentElements = new Element[] {component};
-      final JavaFileObject o = getFiler()
-          .createSourceFile(componentPackageName + "." + moduleClassName, dependentElements);
+      final JavaFileObject o =
+          getFiler().createSourceFile(componentPackageName.equals("") ? moduleClassName
+              : componentPackageName + "." + moduleClassName, dependentElements);
       try (final PrintWriter writer = new PrintWriter(o.openWriter())) {
-        writer.println("package " + componentPackageName + ";");
-        writer.println();
+        if (!componentPackageName.equals("")) {
+          writer.println("package " + componentPackageName + ";");
+          writer.println();
+        }
         writer.println("import static java.util.Collections.unmodifiableMap;");
         writer.println();
         writer.println("import com.sigpwned.rapier.core.EnvironmentVariable;");

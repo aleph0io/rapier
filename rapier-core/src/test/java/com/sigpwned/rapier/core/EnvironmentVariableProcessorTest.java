@@ -20,25 +20,29 @@
 package com.sigpwned.rapier.core;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import java.io.IOException;
+import java.util.List;
 import javax.tools.JavaFileObject;
 import org.junit.jupiter.api.Test;
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.Compiler;
 import com.google.testing.compile.JavaFileObjects;
 
-public class EnvironmentVariableProcessorTest {
+public class EnvironmentVariableProcessorTest extends DaggerTestBase {
   @Test
-  public void testAnnotationProcessor() {
+  public void givenSimpleComponentWithEnvironmentVariable_whenCompile_thenExpectedtModuleIsGenerated() {
     // Define the source file to test
-    final JavaFileObject source = JavaFileObjects.forSourceString("com.example.ExampleComponent", """
-        package com.example;
+    final JavaFileObject source =
+        JavaFileObjects.forSourceString("com.example.ExampleComponent", """
+            package com.example;
 
-        @dagger.Component
-        public interface ExampleComponent {
-            @com.sigpwned.rapier.core.EnvironmentVariable("FOO_BAR")
-            public Integer provisionFooBarAsInt();
-        }
-        """);
+            @dagger.Component
+            public interface ExampleComponent {
+                @com.sigpwned.rapier.core.EnvironmentVariable("FOO_BAR")
+                public Integer provisionFooBarAsInt();
+            }
+            """);
 
     // Run the annotation processor
     final Compilation compilation =
@@ -94,5 +98,38 @@ public class EnvironmentVariableProcessorTest {
     assertThat(compilation)
         .generatedSourceFile("com.example.RapierExampleComponentEnvironmentVariableModule")
         .hasSourceEquivalentTo(expectedOutput);
+  }
+
+  @Test
+  public void givenSimpleComponentWithEnvironmentVariable_whenCompileAndRun_thenExpectedtOutput()
+      throws IOException {
+    // Define the source file to test
+    final String componentSource = """
+        @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
+        public interface ExampleComponent {
+            @com.sigpwned.rapier.core.EnvironmentVariable("FOO_BAR")
+            public Integer provisionFooBarAsInt();
+        }
+        """;
+
+    final String appSource =
+        """
+            import java.util.Map;
+
+            public class App {
+                public static void main(String[] args) {
+                    ExampleComponent component = DaggerExampleComponent.builder()
+                        .rapierExampleComponentEnvironmentVariableModule(new RapierExampleComponentEnvironmentVariableModule(Map.of("FOO_BAR", "42")))
+                        .build();
+                    System.out.println(component.provisionFooBarAsInt());
+                }
+            }
+            """;
+
+    final String output = compileAndRunSourceCode(List.of(componentSource, appSource),
+        List.of("com.sigpwned.rapier.core.EnvironmentVariableProcessor",
+            DAGGER_COMPONENT_ANNOTATION_PROCESSOR)).trim();
+
+    assertEquals("42", output);
   }
 }
