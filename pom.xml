@@ -75,6 +75,11 @@
                         </argLine>
                     </configuration>
                 </plugin>            
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-jar-plugin</artifactId>
+                    <version>3.4.2</version>
+                </plugin>            
             </plugins>
         </pluginManagement>
         <plugins>
@@ -147,11 +152,28 @@
                 <version>5.11.4</version>
                 <type>pom</type>
                 <scope>import</scope>
-            </dependency>        
+            </dependency>
+            <dependency>
+                <groupId>com.google.dagger</groupId>
+                <artifactId>dagger</artifactId>
+                <version>${dagger.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.dagger</groupId>
+                <artifactId>dagger-compiler</artifactId>
+                <version>${dagger.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.testing.compile</groupId>
+                <artifactId>compile-testing</artifactId>
+                <version>0.21.0</version>
+            </dependency>
         </dependencies>
     </dependencyManagement>
 
     <modules>
-        <module>rapier-core</module>
+        <module>rapier-processor-core</module>
+        <module>rapier-environment-variable-processor</module>
+        <module>rapier-system-property-processor</module>
     </modules>
 </project>

@@ -52,9 +52,10 @@ import javax.lang.model.util.SimpleAnnotationValueVisitor8;
 import javax.lang.model.util.Types;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
-import com.sigpwned.rapier.core.model.DaggerComponentAnalysis;
-import com.sigpwned.rapier.core.util.CaseFormat;
 import dagger.Component;
+import rapier.processor.core.DaggerComponentAnalyzer;
+import rapier.processor.core.model.DaggerComponentAnalysis;
+import rapier.processor.core.util.CaseFormat;
 
 @SupportedAnnotationTypes("com.sigpwned.rapier.core.SystemProperty")
 @SupportedSourceVersion(SourceVersion.RELEASE_11)
