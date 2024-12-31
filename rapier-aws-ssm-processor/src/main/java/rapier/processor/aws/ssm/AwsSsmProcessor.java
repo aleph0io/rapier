@@ -17,18 +17,17 @@
  * limitations under the License.
  * ==================================LICENSE_END===================================
  */
-package rapier.processor.envvar;
+package rapier.processor.aws.ssm;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -36,13 +35,14 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
-import java.util.stream.Stream;
+import java.util.concurrent.atomic.AtomicBoolean;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
@@ -62,7 +62,7 @@ import rapier.processor.core.util.Java;
 
 @SupportedAnnotationTypes("dagger.Component")
 @SupportedSourceVersion(SourceVersion.RELEASE_11)
-public class EnvironmentVariableProcessor extends RapierProcessorBase {
+public class AwsSsmProcessor extends RapierProcessorBase {
   @Override
   public synchronized void init(ProcessingEnvironment processingEnv) {
     super.init(processingEnv);
@@ -90,36 +90,76 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
     return false;
   }
 
-  private static class EnvironmentVariableKey {
-    public static EnvironmentVariableKey fromDependency(Dependency dependency) {
+  public static enum AwsSsmParameterType {
+    STRING("String", "AwsSsmStringParameter", "String"), STRING_LIST("StringList",
+        "AwsSsmStringListParameter", "List<String>");
+
+    private final String methodPart;
+    private final String annotationName;
+    private final String javaType;
+
+    private AwsSsmParameterType(String methodPart, String annotationName, String javaType) {
+      this.methodPart = requireNonNull(methodPart);
+      this.annotationName = requireNonNull(annotationName);
+      this.javaType = requireNonNull(javaType);
+    }
+
+    public String getMethodPart() {
+      return methodPart;
+    }
+
+    public String getAnnotationName() {
+      return annotationName;
+    }
+
+    public String getJavaType() {
+      return javaType;
+    }
+  }
+
+  private static class AwsSsmParameterKey {
+    public static AwsSsmParameterKey fromDependency(Dependency dependency) {
       final AnnotationMirror qualifier = dependency.getQualifier().orElseThrow(() -> {
         return new IllegalArgumentException("Dependency must have qualifier");
       });
 
-      if (!qualifier.getAnnotationType().toString()
-          .equals(EnvironmentVariable.class.getCanonicalName())) {
-        throw new IllegalArgumentException("Dependency qualifier must be @EnvironmentVariable");
+      AwsSsmParameterType parameterType;
+      if (qualifier.getAnnotationType().toString().equals(AwsSsmStringParameter.class.getName())) {
+        parameterType = AwsSsmParameterType.STRING;
+      } else if (qualifier.getAnnotationType().toString()
+          .equals(AwsSsmStringListParameter.class.getName())) {
+        parameterType = AwsSsmParameterType.STRING_LIST;
+      } else {
+        throw new IllegalArgumentException(
+            "Dependency qualifier must be @AwsSsmStringParameter or @AwsSsmStringListParameter");
       }
 
-      final TypeMirror type = dependency.getType();
-      final String name = extractEnvironmentVariableName(qualifier);
+      final TypeMirror valueType = dependency.getType();
+      final String name = extractParameterName(qualifier);
       final String defaultValue = extractEnvironmentVariableDefaultValue(qualifier);
 
-      return new EnvironmentVariableKey(type, name, defaultValue);
+      return new AwsSsmParameterKey(valueType, parameterType, name, defaultValue);
     }
 
-    private final TypeMirror type;
+    private final TypeMirror valueType;
+    private final AwsSsmParameterType parameterType;
     private final String name;
     private final String defaultValue;
 
-    public EnvironmentVariableKey(TypeMirror type, String name, String defaultValue) {
-      this.type = requireNonNull(type);
+    public AwsSsmParameterKey(TypeMirror type, AwsSsmParameterType parameterType, String name,
+        String defaultValue) {
+      this.valueType = requireNonNull(type);
+      this.parameterType = requireNonNull(parameterType);
       this.name = requireNonNull(name);
       this.defaultValue = defaultValue;
     }
 
-    public TypeMirror getType() {
-      return type;
+    public TypeMirror getValueType() {
+      return valueType;
+    }
+
+    public AwsSsmParameterType getParameterType() {
+      return parameterType;
     }
 
     public String getName() {
@@ -132,7 +172,7 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
 
     @Override
     public int hashCode() {
-      return Objects.hash(defaultValue, name, type);
+      return Objects.hash(defaultValue, name, parameterType, valueType);
     }
 
     @Override
@@ -143,29 +183,38 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
         return false;
       if (getClass() != obj.getClass())
         return false;
-      EnvironmentVariableKey other = (EnvironmentVariableKey) obj;
+      AwsSsmParameterKey other = (AwsSsmParameterKey) obj;
       return Objects.equals(defaultValue, other.defaultValue) && Objects.equals(name, other.name)
-          && Objects.equals(type, other.type);
+          && parameterType == other.parameterType && Objects.equals(valueType, other.valueType);
     }
 
     @Override
     public String toString() {
-      return "EnvironmentVariableKey [type=" + type + ", name=" + name + ", defaultValue="
-          + defaultValue + "]";
+      return "AwsSsmParameterKey [valueType=" + valueType + ", parameterType=" + parameterType
+          + ", name=" + name + ", defaultValue=" + defaultValue + "]";
     }
   }
 
 
-  private static class EnvironmentVariableDefinition
-      implements Comparable<EnvironmentVariableDefinition> {
+  private static class AwsSsmParameterDefinition implements Comparable<AwsSsmParameterDefinition> {
+    public static AwsSsmParameterDefinition fromKey(AwsSsmParameterKey key) {
+      return new AwsSsmParameterDefinition(key.getParameterType(), key.getName(),
+          key.getDefaultValue().orElse(null));
+    }
+
+    private final AwsSsmParameterType parameterType;
     private final String name;
     private final String defaultValue;
-    private final boolean nullable;
 
-    public EnvironmentVariableDefinition(String name, String defaultValue, boolean nullable) {
+    public AwsSsmParameterDefinition(AwsSsmParameterType parameterType, String name,
+        String defaultValue) {
+      this.parameterType = requireNonNull(parameterType);
       this.name = requireNonNull(name);
       this.defaultValue = defaultValue;
-      this.nullable = nullable;
+    }
+
+    public AwsSsmParameterType getParameterType() {
+      return parameterType;
     }
 
     public String getName() {
@@ -176,13 +225,9 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
       return Optional.ofNullable(defaultValue);
     }
 
-    public boolean isNullable() {
-      return nullable;
-    }
-
     @Override
     public int hashCode() {
-      return Objects.hash(defaultValue, name, nullable);
+      return Objects.hash(defaultValue, name, parameterType);
     }
 
     @Override
@@ -193,26 +238,28 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
         return false;
       if (getClass() != obj.getClass())
         return false;
-      EnvironmentVariableDefinition other = (EnvironmentVariableDefinition) obj;
+      AwsSsmParameterDefinition other = (AwsSsmParameterDefinition) obj;
       return Objects.equals(defaultValue, other.defaultValue) && Objects.equals(name, other.name)
-          && nullable == other.nullable;
+          && parameterType == other.parameterType;
     }
 
     @Override
     public String toString() {
-      return "EnvironmentVariableDefinition [name=" + name + ", defaultValue=" + defaultValue
-          + ", nullable=" + nullable + "]";
+      return "EnvironmentVariableDefinition [parameterType=" + parameterType + ", name=" + name
+          + ", defaultValue=" + defaultValue + "]";
     }
 
-    private static final Comparator<EnvironmentVariableDefinition> COMPARATOR =
-        Comparator.comparing(EnvironmentVariableDefinition::getName)
+    private static final Comparator<AwsSsmParameterDefinition> COMPARATOR =
+        Comparator.comparing(AwsSsmParameterDefinition::getParameterType)
+            .thenComparing(AwsSsmParameterDefinition::getName)
             .thenComparing(Comparator.comparing(d -> d.getDefaultValue().orElse(null),
                 Comparator.nullsFirst(Comparator.naturalOrder())));
 
     @Override
-    public int compareTo(EnvironmentVariableDefinition that) {
+    public int compareTo(AwsSsmParameterDefinition that) {
       return COMPARATOR.compare(this, that);
     }
+
   }
 
   private void processComponent(TypeElement component) {
@@ -222,46 +269,22 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
     final String componentPackageName =
         getElements().getPackageOf(component).getQualifiedName().toString();
     final String componentClassName = component.getSimpleName().toString();
-    final String moduleClassName = "Rapier" + componentClassName + "EnvironmentVariableModule";
+    final String moduleClassName = "Rapier" + componentClassName + "AwsSsmModule";
 
     final DaggerComponentAnalysis analysis =
         new DaggerComponentAnalyzer(getProcessingEnv()).analyzeComponent(component);
 
-    final Map<EnvironmentVariableKey, List<Dependency>> environmentVariables = analysis
-        .getDependencies().stream().filter(d -> d.getQualifier().isPresent())
+    final List<AwsSsmParameterKey> environmentVariables = analysis.getDependencies().stream()
+        .filter(d -> d.getQualifier().isPresent())
         .filter(d -> getTypes().isSameType(d.getQualifier().get().getAnnotationType(),
-            getElements().getTypeElement(EnvironmentVariable.class.getCanonicalName()).asType()))
-        .collect(groupingBy(EnvironmentVariableKey::fromDependency, HashMap::new, toList()));
+            getElements().getTypeElement(AwsSsmStringParameter.class.getCanonicalName()).asType())
+            || getTypes().isSameType(d.getQualifier().get().getAnnotationType(), getElements()
+                .getTypeElement(AwsSsmStringListParameter.class.getCanonicalName()).asType()))
+        .map(AwsSsmParameterKey::fromDependency).collect(toList());
 
-    final SortedMap<EnvironmentVariableDefinition, Set<TypeMirror>> environmentVariablesByDefinition =
-        environmentVariables.entrySet().stream().flatMap(entry -> {
-          final EnvironmentVariableKey key = entry.getKey();
-          final List<Dependency> dependencies = entry.getValue();
-
-          final Set<Boolean> nullables = entry.getValue().stream()
-              .map(d -> d.getAnnotations().stream()
-                  .anyMatch(a -> AnnotationProcessing.hasSimpleName(a, "Nullable")))
-              .collect(toSet());
-          if (nullables.size() > 1) {
-            getMessager().printMessage(Diagnostic.Kind.ERROR,
-                "Conflicting nullability for environment variable: " + key);
-            // TODO Print the conflicting dependencies, with element and annotation references
-            return Stream.empty();
-          }
-
-          final String name = key.getName();
-          final String defaultValue = key.getDefaultValue().orElse(null);
-          final boolean nullable = nullables.iterator().next();
-
-          final EnvironmentVariableDefinition definition =
-              new EnvironmentVariableDefinition(name, defaultValue, nullable);
-          final Set<TypeMirror> types =
-              dependencies.stream().map(Dependency::getType).collect(toSet());
-
-          return Stream.of(Map.entry(definition, types));
-        }).collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> {
-          throw new UnsupportedOperationException("duplicate key");
-        }, TreeMap::new));
+    final SortedMap<AwsSsmParameterDefinition, Set<TypeMirror>> environmentVariablesByDefinition =
+        environmentVariables.stream().collect(groupingBy(AwsSsmParameterDefinition::fromKey,
+            TreeMap::new, mapping(AwsSsmParameterKey::getValueType, toSet())));
 
     try {
       // TODO Is this the right set of elements?
@@ -276,14 +299,15 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
         }
         writer.println("import static java.util.Collections.unmodifiableMap;");
         writer.println();
-        writer.println("import " + EnvironmentVariable.class.getName() + ";");
+        writer.println("import " + AwsSsmStringParameter.class.getName() + ";");
+        writer.println("import " + AwsSsmStringListParameter.class.getName() + ";");
         writer.println("import dagger.Module;");
         writer.println("import dagger.Provides;");
-        writer.println("import dagger.Reusable;");
         writer.println("import java.util.Map;");
         writer.println("import java.util.Optional;");
         writer.println("import javax.annotation.Nullable;");
         writer.println("import javax.inject.Inject;");
+        writer.println("import javax.inject.Singleton;");
         writer.println();
         writer.println("@Module");
         writer.println("public class " + moduleClassName + " {");
@@ -298,55 +322,48 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
         writer.println("        this.env = unmodifiableMap(env);");
         writer.println("    }");
         writer.println();
-        for (Map.Entry<EnvironmentVariableDefinition, Set<TypeMirror>> e : environmentVariablesByDefinition
+        for (Map.Entry<AwsSsmParameterDefinition, Set<TypeMirror>> e : environmentVariablesByDefinition
             .entrySet()) {
-          final EnvironmentVariableDefinition definition = e.getKey();
+          final AwsSsmParameterDefinition definition = e.getKey();
+          final AwsSsmParameterType parameterType = definition.getParameterType();
           final String name = definition.getName();
           final String defaultValue = definition.getDefaultValue().orElse(null);
-          final boolean nullable = definition.isNullable();
           final List<TypeMirror> types = e.getValue().stream()
               .sorted(Comparator.comparing(t -> unpack(t).toString())).collect(toList());
 
-          final StringBuilder baseMethodName =
-              new StringBuilder().append("provideEnvironmentVariable")
-                  .append(CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, name));
+          final StringBuilder baseMethodName = new StringBuilder().append("provide")
+              .append(parameterType.getAnnotationName()).append("Parameter")
+              .append(CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, name));
           if (defaultValue != null) {
             baseMethodName.append("WithDefaultValue").append(stringSignature(defaultValue));
           }
 
           if (defaultValue != null) {
-            writer.println("    // " + name + " default value " + defaultValue);
+            writer.println("    // " + name + " " + parameterType.getMethodPart()
+                + " default value " + defaultValue);
           } else {
-            writer.println("    // " + name);
+            writer.println("    // " + name + " " + parameterType.getMethodPart());
           }
 
-          if (defaultValue != null) {
+          final boolean nullable = (defaultValue == null);
+
+          if (nullable) {
             writer.println("    @Provides");
-            writer.println("    @Reusable");
-            writer.println("    @EnvironmentVariable(value=\"" + name + "\", defaultValue=\""
-                + Java.escapeString(defaultValue) + "\")");
-            writer.println("    public String " + baseMethodName + "() {");
-            writer.println("        return Optional.ofNullable(env.get(\"" + name + "\")).orElse(\""
-                + defaultValue.replace("\"", "\\\"") + "\");");
-            writer.println("    }");
-          } else if (nullable) {
-            writer.println("    @Provides");
-            writer.println("    @Reusable");
+            writer.println("    @Singleton");
             writer.println("    @Nullable");
-            writer.println("    @EnvironmentVariable(\"" + name + "\")");
-            writer.println("    public String " + baseMethodName + "() {");
+            writer.println("    @" + parameterType.getAnnotationName() + "(\"" + name + "\")");
+            writer.println(
+                "    public " + parameterType.getJavaType() + " " + baseMethodName + "() {");
             writer.println("        return env.get(\"" + name + "\");");
             writer.println("    }");
           } else {
             writer.println("    @Provides");
-            writer.println("    @Reusable");
-            writer.println("    @EnvironmentVariable(\"" + name + "\")");
+            writer.println("    @Singleton");
+            writer.println("    @" + parameterType.getAnnotationName() + "(value=\"" + name
+                + "\", defaultValue=\"" + Java.escapeString(defaultValue) + "\")");
             writer.println("    public String " + baseMethodName + "() {");
-            writer.println("        String result=env.get(\"" + name + "\");");
-            writer.println("        if (result == null)");
-            writer.println("            throw new IllegalStateException(\"Environment variable "
-                + name + " not set\");");
-            writer.println("        return result;");
+            writer.println("        return Optional.ofNullable(env.get(\"" + name + "\")).orElse(\""
+                + defaultValue.replace("\"", "\\\"") + "\");");
             writer.println("    }");
           }
           writer.println();
@@ -366,30 +383,24 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
 
             final String typeSimpleName = getTypes().asElement(type).getSimpleName().toString();
 
-            if (defaultValue != null) {
-              writer.println("    @Provides");
-              writer.println("    @EnvironmentVariable(value=\"" + name + "\", defaultValue=\""
-                  + Java.escapeString(defaultValue) + "\")");
-              writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
-                  + "(@EnvironmentVariable(value=\"" + name + "\", defaultValue=\""
-                  + Java.escapeString(defaultValue) + "\") String value) {");
-              writer.println("        return " + expr + ";");
-              writer.println("    }");
-              writer.println();
-            } else if (nullable) {
+            if (nullable) {
               writer.println("    @Provides");
               writer.println("    @Nullable");
-              writer.println("    @EnvironmentVariable(\"" + name + "\")");
+              writer.println("    @" + parameterType.getAnnotationName() + "(\"" + name + "\")");
               writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
-                  + "(@Nullable @EnvironmentVariable(\"" + name + "\") String value) {");
+                  + "(@Nullable @" + parameterType.getAnnotationName() + "(\"" + name
+                  + "\") String value) {");
               writer.println("        return value != null ? " + expr + " : null;");
               writer.println("    }");
               writer.println();
             } else {
               writer.println("    @Provides");
-              writer.println("    @EnvironmentVariable(\"" + name + "\")");
+              writer.println("    @" + parameterType.getAnnotationName() + "(value=\"" + name
+                  + "\", defaultValue=\"" + Java.escapeString(defaultValue) + "\")");
               writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
-                  + "(@EnvironmentVariable(\"" + name + "\") String value) {");
+                  + "(@" + parameterType.getAnnotationName() + "(value=\"" + name
+                  + "\", defaultValue=\"" + Java.escapeString(defaultValue)
+                  + "\") String value) {");
               writer.println("        return " + expr + ";");
               writer.println("    }");
               writer.println();
@@ -436,9 +447,12 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
     return Optional.empty();
   }
 
-  private static String extractEnvironmentVariableName(AnnotationMirror annotation) {
-    assert annotation.getAnnotationType().toString()
-        .equals(EnvironmentVariable.class.getCanonicalName());
+  private static String extractAwsSsmParameterName(AnnotationMirror annotation) {
+    final String annotationTypeName = annotation.getAnnotationType().toString();
+
+    assert annotationTypeName.equals(AwsSsmStringParameter.class.getName())
+        || annotationTypeName.equals(AwsSsmStringListParameter.class.getName());
+
     return annotation.getElementValues().entrySet().stream()
         .filter(e -> e.getKey().getSimpleName().contentEquals("value")).findFirst()
         .map(Map.Entry::getValue)
@@ -448,23 +462,61 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
             return s;
           }
         }, null)).orElseThrow(() -> {
-          return new AssertionError("No string value for @EnvironmentVariable");
+          return new AssertionError("No string value for @" + annotationTypeName);
         });
   }
 
-  private static String extractEnvironmentVariableDefaultValue(AnnotationMirror annotation) {
-    assert annotation.getAnnotationType().toString()
-        .equals(EnvironmentVariable.class.getCanonicalName());
+  private static String extractAwsSsmStringParameterDefaultValue(AnnotationMirror annotation) {
+    final String annotationTypeName = annotation.getAnnotationType().toString();
+
+    assert annotationTypeName.equals(AwsSsmStringParameter.class.getName());
+
     return annotation.getElementValues().entrySet().stream()
         .filter(e -> e.getKey().getSimpleName().contentEquals("defaultValue")).findFirst()
         .map(Map.Entry::getValue)
         .map(v -> v.accept(new SimpleAnnotationValueVisitor8<String, Void>() {
           @Override
           public String visitString(String s, Void p) {
-            if (s.equals(EnvironmentVariable.DEFAULT_VALUE_NOT_SET))
+            if (s.equals(AwsSsmStringParameter.DEFAULT_VALUE_NOT_SET))
               return null;
             return s;
           }
         }, null)).orElse(null);
+  }
+
+  private static List<String> extractAwsSsmStringListParameterDefaultValue(
+      AnnotationMirror annotation) {
+    final String annotationTypeName = annotation.getAnnotationType().toString();
+
+    assert annotationTypeName.equals(AwsSsmStringListParameter.class.getName());
+
+    final AtomicBoolean set = new AtomicBoolean(true);
+    final List<String> values = new ArrayList<>();
+    annotation.getElementValues().entrySet().stream()
+        .filter(e -> e.getKey().getSimpleName().contentEquals("defaultValue")).findFirst()
+        .map(Map.Entry::getValue)
+        .map(v -> v.accept(new SimpleAnnotationValueVisitor8<Void, Void>() {
+          @Override
+          public Void visitArray(List<? extends AnnotationValue> vals, Void p) {
+            if (vals.size() == 1
+                && vals.get(0).getValue().equals(AwsSsmStringListParameter.DEFAULT_VALUE_NOT_SET)) {
+              set.set(false);
+            } else {
+              set.set(true);
+              for (AnnotationValue val : vals) {
+                val.accept(this, null);
+              }
+            }
+            return null;
+          }
+
+          @Override
+          public Void visitString(String s, Void p) {
+            values.add(s);
+            return null;
+          }
+        }, null)).orElse(null);
+
+    return set.get() ? values : null;
   }
 }

@@ -27,6 +27,7 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
@@ -43,10 +44,45 @@ public final class AnnotationProcessing {
       throw new NullPointerException();
 
     for (AnnotationMirror annotation : element.getAnnotationMirrors())
-      if (annotation.getAnnotationType().toString().equals(qualifiedName))
+      if (hasQualifiedName(annotation, qualifiedName))
         return Optional.of(annotation);
 
     return Optional.empty();
+  }
+
+  public static boolean hasQualifiedName(AnnotationMirror annotation, String qualifiedName) {
+    if (annotation == null)
+      throw new NullPointerException();
+    if (qualifiedName == null)
+      throw new NullPointerException();
+
+    return annotation.getAnnotationType().toString().equals(qualifiedName);
+  }
+
+  public static Optional<AnnotationMirror> findFirstAnnotationBySimpleName(Element element,
+      String simpleName) {
+    if (element == null)
+      throw new NullPointerException();
+    if (simpleName == null)
+      throw new NullPointerException();
+
+    for (AnnotationMirror annotation : element.getAnnotationMirrors())
+      if (hasSimpleName(annotation, simpleName))
+        return Optional.of(annotation);
+
+    return Optional.empty();
+  }
+
+  public static boolean hasSimpleName(AnnotationMirror annotation, String simpleName) {
+    if (annotation == null)
+      throw new NullPointerException();
+    if (simpleName == null)
+      throw new NullPointerException();
+
+    assert simpleName.indexOf('.') == -1;
+
+    return annotation.getAnnotationType().toString().equals(simpleName)
+        || annotation.getAnnotationType().toString().endsWith("." + simpleName);
   }
 
   public static boolean isDefaultConstructor(ExecutableElement constructor) {
@@ -147,6 +183,131 @@ public final class AnnotationProcessing {
 
     return unmodifiableList(result);
   }
+
+  /**
+   * Returns the first {@code public static T fromString(String)} method for the given type element,
+   * where {@code T} is the type element itself.
+   * 
+   * @param types the types utility
+   * @param typeElement the type element for which to find the method, which must be a class,
+   *        record, enum, or interface.
+   * @return the method, if found, or {@link Optional#empty()} otherwise
+   * 
+   * @throws NullPointerException if {@code types} is {@code null}
+   * @throws NullPointerException if {@code typeElement} is {@code null}
+   * @throws IllegalArgumentException if {@code typeElement} is not a class, record, enum, or
+   *         interface
+   */
+  public static Optional<ExecutableElement> findFromStringMethod(Types types,
+      TypeElement typeElement) {
+    if (types == null)
+      throw new NullPointerException();
+    if (typeElement == null)
+      throw new NullPointerException();
+    if (!typeElement.getKind().isClass() && !typeElement.getKind().isInterface())
+      throw new IllegalArgumentException("Type element must be a declared type");
+
+    for (Element enclosed : typeElement.getEnclosedElements()) {
+      if (enclosed.getKind() != ElementKind.METHOD)
+        continue;
+      final ExecutableElement method = (ExecutableElement) enclosed;
+      if (method.getSimpleName().contentEquals("fromString")
+          && method.getModifiers().contains(Modifier.PUBLIC)
+          && method.getModifiers().contains(Modifier.STATIC) && method.getParameters().size() == 1
+          && method.getParameters().get(0).asType().toString().equals("java.lang.String")
+          && types.isSameType(method.getReturnType(), typeElement.asType())) {
+        return Optional.of(method);
+      }
+    }
+
+    return Optional.empty();
+  }
+
+  /**
+   * Returns the first {@code public static T valueOf(P)} method for the given type element, where
+   * {@code T} is the type element itself and {@code P} is the given parameter type.
+   * 
+   * @param types the types utility
+   * @param typeElement the type element for which to find the method, which must be a class,
+   *        record, enum, or interface.
+   * @param parameterType the parameter type
+   * @return the method, if found, or {@link Optional#empty()} otherwise
+   * 
+   * @throws NullPointerException if {@code types} is {@code null}
+   * @throws NullPointerException if {@code typeElement} is {@code null}
+   * @throws NullPointerException if {@code parameterType} is {@code null}
+   * @throws IllegalArgumentException if {@code typeElement} is not a class, record, enum, or
+   *         interface
+   */
+  public static Optional<ExecutableElement> findValueOfMethod(Types types, TypeElement typeElement,
+      TypeMirror parameterType) {
+    if (types == null)
+      throw new NullPointerException();
+    if (typeElement == null)
+      throw new NullPointerException();
+    if (parameterType == null)
+      throw new NullPointerException();
+    if (!typeElement.getKind().isClass() && !typeElement.getKind().isInterface())
+      throw new IllegalArgumentException("Type element must be a declared type");
+
+    for (Element enclosed : typeElement.getEnclosedElements()) {
+      if (enclosed.getKind() != ElementKind.METHOD)
+        continue;
+      final ExecutableElement method = (ExecutableElement) enclosed;
+      if (method.getSimpleName().contentEquals("valueOf")
+          && method.getModifiers().contains(Modifier.PUBLIC)
+          && method.getModifiers().contains(Modifier.STATIC) && method.getParameters().size() == 1
+          && types.isSameType(method.getParameters().get(0).asType(), parameterType)
+          && types.isSameType(method.getReturnType(), typeElement.asType())) {
+        return Optional.of(method);
+      }
+    }
+
+    return Optional.empty();
+  }
+
+  /**
+   * Returns the first public constructor of the given concrete type element that takes a single
+   * parameter of the given type.
+   * 
+   * @param types the types utility
+   * @param typeElement the type element for which to find the constructor, which must be a class or
+   *        record
+   * @param parameterType the parameter type
+   * @return the constructor, if found, or {@link Optional#empty()} otherwise
+   * 
+   * @throws NullPointerException if {@code types} is {@code null}
+   * @throws NullPointerException if {@code typeElement} is {@code null}
+   * @throws NullPointerException if {@code parameterType} is {@code null}
+   * @throws IllegalArgumentException if {@code typeElement} is not a class or record type
+   * @throws IllegalArgumentException if {@code typeElement} is not a concrete type
+   */
+  public static Optional<ExecutableElement> findSingleArgumentConstructor(Types types,
+      TypeElement typeElement, TypeMirror parameterType) {
+    if (types == null)
+      throw new NullPointerException();
+    if (typeElement == null)
+      throw new NullPointerException();
+    if (parameterType == null)
+      throw new NullPointerException();
+    if (typeElement.getKind() != ElementKind.CLASS && typeElement.getKind() != ElementKind.RECORD)
+      throw new IllegalArgumentException("Type element must be a class or record type");
+    if (typeElement.getModifiers().contains(Modifier.ABSTRACT))
+      throw new IllegalArgumentException("Type element must be a concrete class or record type");
+
+    for (Element enclosed : typeElement.getEnclosedElements()) {
+      if (enclosed.getKind() != ElementKind.CONSTRUCTOR)
+        continue;
+      final ExecutableElement method = (ExecutableElement) enclosed;
+      if (method.getModifiers().contains(Modifier.PUBLIC) && method.getParameters().size() == 1
+          && types.isSameType(method.getParameters().get(0).asType(), parameterType)) {
+        return Optional.of(method);
+      }
+    }
+
+    return Optional.empty();
+  }
+
 
   public static boolean isInject(AnnotationMirror annotation) {
     return annotation.getAnnotationType().toString().endsWith(".Inject");

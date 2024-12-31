@@ -25,9 +25,18 @@ import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeMirror;
 
 public class Dependency {
+  /**
+   * The element that this dependency is declared on.
+   */
+  private final Element element;
+
+  /**
+   * The type of this dependency.
+   */
   private final TypeMirror type;
 
   /**
@@ -40,11 +49,16 @@ public class Dependency {
    */
   private final List<AnnotationMirror> annotations;
 
-  public Dependency(TypeMirror type, AnnotationMirror qualifier,
+  public Dependency(Element element, TypeMirror type, AnnotationMirror qualifier,
       List<AnnotationMirror> annotations) {
+    this.element = requireNonNull(element);
     this.type = requireNonNull(type);
     this.qualifier = qualifier;
     this.annotations = unmodifiableList(annotations);
+  }
+
+  public Element getElement() {
+    return element;
   }
 
   public TypeMirror getType() {
@@ -61,7 +75,7 @@ public class Dependency {
 
   @Override
   public int hashCode() {
-    return Objects.hash(annotations, qualifier, type);
+    return Objects.hash(annotations, element, qualifier, type);
   }
 
   @Override
@@ -73,13 +87,13 @@ public class Dependency {
     if (getClass() != obj.getClass())
       return false;
     Dependency other = (Dependency) obj;
-    return Objects.equals(annotations, other.annotations)
+    return Objects.equals(annotations, other.annotations) && Objects.equals(element, other.element)
         && Objects.equals(qualifier, other.qualifier) && Objects.equals(type, other.type);
   }
 
   @Override
   public String toString() {
-    return "Dependency [type=" + type + ", qualifier=" + qualifier + ", annotations=" + annotations
-        + "]";
+    return "Dependency [element=" + element + ", type=" + type + ", qualifier=" + qualifier
+        + ", annotations=" + annotations + "]";
   }
 }

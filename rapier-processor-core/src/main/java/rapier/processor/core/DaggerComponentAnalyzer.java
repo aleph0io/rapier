@@ -69,7 +69,7 @@ public class DaggerComponentAnalyzer {
                 .filter(a -> AnnotationProcessing.isQualifierAnnotated(getTypes(), a)).findFirst()
                 .orElse(null);
 
-            dependencies.add(new Dependency(returnTypeMirror, qualifier, annotations));
+            dependencies.add(new Dependency(method, returnTypeMirror, qualifier, annotations));
           }
 
           @Override
@@ -110,7 +110,7 @@ public class DaggerComponentAnalyzer {
                     .filter(a -> AnnotationProcessing.isQualifierAnnotated(getTypes(), a))
                     .findFirst().orElse(null);
 
-                dependencies.add(new Dependency(parameterType, qualifier, annotations));
+                dependencies.add(new Dependency(parameter, parameterType, qualifier, annotations));
               }
             }
 
@@ -152,13 +152,13 @@ public class DaggerComponentAnalyzer {
                     .findFirst().orElse(null);
 
                 dependenciesQueue.offer(parameterType);
-                dependencies.add(new Dependency(parameterType, qualifier, annotations));
+                dependencies.add(new Dependency(parameter, parameterType, qualifier, annotations));
               }
             }
 
             @Override
             public void visitClassFieldInjectionSite(TypeElement type, VariableElement field) {
-              final TypeMirror parameterType = field.asType();
+              final TypeMirror fieldType = field.asType();
 
               final List<AnnotationMirror> annotations =
                   new ArrayList<>(field.getAnnotationMirrors());
@@ -167,8 +167,8 @@ public class DaggerComponentAnalyzer {
                   .filter(a -> AnnotationProcessing.isQualifierAnnotated(getTypes(), a)).findFirst()
                   .orElse(null);
 
-              dependenciesQueue.offer(parameterType);
-              dependencies.add(new Dependency(parameterType, qualifier, annotations));
+              dependenciesQueue.offer(fieldType);
+              dependencies.add(new Dependency(field, fieldType, qualifier, annotations));
             }
 
             @Override
@@ -185,7 +185,7 @@ public class DaggerComponentAnalyzer {
                     .findFirst().orElse(null);
 
                 dependenciesQueue.offer(parameterType);
-                dependencies.add(new Dependency(parameterType, qualifier, annotations));
+                dependencies.add(new Dependency(parameter, parameterType, qualifier, annotations));
               }
             }
 

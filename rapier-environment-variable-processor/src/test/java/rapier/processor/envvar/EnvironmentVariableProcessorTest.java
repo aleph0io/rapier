@@ -85,17 +85,18 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
                 // FOO_BAR
                 @Provides
                 @Reusable
-                @Nullable
                 @EnvironmentVariable("FOO_BAR")
                 public String provideEnvironmentVariableFooBar() {
-                    return env.get("FOO_BAR");
+                    String result=env.get("FOO_BAR");
+                    if (result == null)
+                        throw new IllegalStateException("Environment variable FOO_BAR not set");
+                    return result;
                 }
 
                 @Provides
-                @Nullable
                 @EnvironmentVariable("FOO_BAR")
-                public java.lang.Integer provideEnvironmentVariableFooBarAsInteger(@Nullable @EnvironmentVariable("FOO_BAR") String value) {
-                    return value != null ? java.lang.Integer.valueOf(value) : null;
+                public java.lang.Integer provideEnvironmentVariableFooBarAsInteger(@EnvironmentVariable("FOO_BAR") String value) {
+                    return java.lang.Integer.valueOf(value);
                 }
 
             }
@@ -161,13 +162,13 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
                 @Provides
                 @Reusable
                 @EnvironmentVariable(value="FOO_BAR", defaultValue="42")
-                public String provideEnvironmentVariableFooBarWithDefaultValuea1d0c6e() {
+                public String provideEnvironmentVariableFooBarWithDefaultValue92cfceb() {
                     return Optional.ofNullable(env.get("FOO_BAR")).orElse("42");
                 }
 
                 @Provides
                 @EnvironmentVariable(value="FOO_BAR", defaultValue="42")
-                public java.lang.Integer provideEnvironmentVariableFooBarWithDefaultValuea1d0c6eAsInteger(@EnvironmentVariable(value="FOO_BAR", defaultValue="42") String value) {
+                public java.lang.Integer provideEnvironmentVariableFooBarWithDefaultValue92cfcebAsInteger(@EnvironmentVariable(value="FOO_BAR", defaultValue="42") String value) {
                     return java.lang.Integer.valueOf(value);
                 }
 
