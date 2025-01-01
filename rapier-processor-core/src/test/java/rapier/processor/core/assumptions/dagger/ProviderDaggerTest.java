@@ -334,4 +334,75 @@ public class ProviderDaggerTest extends DaggerTestBase {
     assertEquals("annotation @javax.annotation.Nullable not applicable in this type context",
         errors);
   }
+
+  /**
+   * Verify that Dagger provides a Provider<? extends String> binding when a module provides a
+   * String binding.
+   */
+  @Test
+  public void givenProviderOfWildcardDependency_whenCompile_thenCompileError() throws IOException {
+    final String componentSourceCode = """
+        import dagger.Component;
+        import javax.inject.Provider;
+
+        @Component
+        public interface ExampleComponent {
+            public Provider<?> example();
+        }
+        """;
+
+    final String errors = compileSourceCode(componentSourceCode).trim();
+
+    assertEquals(
+        "Dagger does not support injecting Provider<T>, Lazy<T>, Producer<T>, or Produced<T> when T is a wildcard type such as ?",
+        errors);
+  }
+
+  /**
+   * Verify that Dagger provides a Provider<? extends String> binding when a module provides a
+   * String binding.
+   */
+  @Test
+  public void givenProviderOfStringUpperBoundDependency_whenCompile_thenCompileError()
+      throws IOException {
+    final String componentSourceCode = """
+        import dagger.Component;
+        import javax.inject.Provider;
+
+        @Component
+        public interface ExampleComponent {
+            public Provider<? extends String> example();
+        }
+        """;
+
+    final String errors = compileSourceCode(componentSourceCode).trim();
+
+    assertEquals(
+        "Dagger does not support injecting Provider<T>, Lazy<T>, Producer<T>, or Produced<T> when T is a wildcard type such as ? extends java.lang.String",
+        errors);
+  }
+
+  /**
+   * Verify that Dagger provides a Provider<? super String> binding when a module provides a String
+   * binding.
+   */
+  @Test
+  public void givenProviderOfStringLowerBoundDependency_whenCompile_thenCompileError()
+      throws IOException {
+    final String componentSourceCode = """
+        import dagger.Component;
+        import javax.inject.Provider;
+
+        @Component
+        public interface ExampleComponent {
+            public Provider<? super String> example();
+        }
+        """;
+
+    final String errors = compileSourceCode(componentSourceCode).trim();
+
+    assertEquals(
+        "Dagger does not support injecting Provider<T>, Lazy<T>, Producer<T>, or Produced<T> when T is a wildcard type such as ? super java.lang.String",
+        errors);
+  }
 }

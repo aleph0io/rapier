@@ -170,8 +170,6 @@ public class DaggerComponentAnalyzerTest {
     // Ensure the compilation succeeded
     assertThat(compilation).succeeded();
 
-    System.out.println(dependencies);
-
     // Assertions
     assertEquals(12, dependencies.size());
     assertTrue(dependencies.stream().anyMatch(d -> d.toString().equals(

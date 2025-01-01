@@ -22,13 +22,11 @@ package rapier.processor.envvar;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -36,7 +34,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
-import java.util.stream.Stream;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
@@ -90,7 +87,7 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
     return false;
   }
 
-  private static class EnvironmentVariableKey {
+  private static class EnvironmentVariableKey implements Comparable<EnvironmentVariableKey> {
     public static EnvironmentVariableKey fromDependency(DaggerInjectionSite dependency) {
       final AnnotationMirror qualifier = dependency.getQualifier().orElseThrow(() -> {
         return new IllegalArgumentException("Dependency must have qualifier");
@@ -130,6 +127,16 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
       return Optional.ofNullable(defaultValue);
     }
 
+    private final Comparator<EnvironmentVariableKey> COMPARATOR =
+        Comparator.comparing(EnvironmentVariableKey::getName)
+            .thenComparing(Comparator.comparing(x -> x.getDefaultValue().orElse(null),
+                Comparator.nullsFirst(Comparator.naturalOrder())))
+            .thenComparing(x -> x.getType().toString());
+
+    public int compareTo(EnvironmentVariableKey that) {
+      return COMPARATOR.compare(this, that);
+    }
+
     @Override
     public int hashCode() {
       return Objects.hash(defaultValue, name, type);
@@ -155,25 +162,11 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
     }
   }
 
-
-  private static class EnvironmentVariableDefinition
-      implements Comparable<EnvironmentVariableDefinition> {
-    private final String name;
-    private final String defaultValue;
+  private static class BindingMetadata {
     private final boolean nullable;
 
-    public EnvironmentVariableDefinition(String name, String defaultValue, boolean nullable) {
-      this.name = requireNonNull(name);
-      this.defaultValue = defaultValue;
+    public BindingMetadata(boolean nullable) {
       this.nullable = nullable;
-    }
-
-    public String getName() {
-      return name;
-    }
-
-    public Optional<String> getDefaultValue() {
-      return Optional.ofNullable(defaultValue);
     }
 
     public boolean isNullable() {
@@ -182,7 +175,7 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
 
     @Override
     public int hashCode() {
-      return Objects.hash(defaultValue, name, nullable);
+      return Objects.hash(nullable);
     }
 
     @Override
@@ -193,25 +186,13 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
         return false;
       if (getClass() != obj.getClass())
         return false;
-      EnvironmentVariableDefinition other = (EnvironmentVariableDefinition) obj;
-      return Objects.equals(defaultValue, other.defaultValue) && Objects.equals(name, other.name)
-          && nullable == other.nullable;
+      BindingMetadata other = (BindingMetadata) obj;
+      return nullable == other.nullable;
     }
 
     @Override
     public String toString() {
-      return "EnvironmentVariableDefinition [name=" + name + ", defaultValue=" + defaultValue
-          + ", nullable=" + nullable + "]";
-    }
-
-    private static final Comparator<EnvironmentVariableDefinition> COMPARATOR =
-        Comparator.comparing(EnvironmentVariableDefinition::getName)
-            .thenComparing(Comparator.comparing(d -> d.getDefaultValue().orElse(null),
-                Comparator.nullsFirst(Comparator.naturalOrder())));
-
-    @Override
-    public int compareTo(EnvironmentVariableDefinition that) {
-      return COMPARATOR.compare(this, that);
+      return "BindingMetadata [nullable=" + nullable + "]";
     }
   }
 
@@ -231,37 +212,48 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
         .getDependencies().stream().filter(d -> d.getQualifier().isPresent())
         .filter(d -> getTypes().isSameType(d.getQualifier().get().getAnnotationType(),
             getElements().getTypeElement(EnvironmentVariable.class.getCanonicalName()).asType()))
-        .collect(groupingBy(EnvironmentVariableKey::fromDependency, HashMap::new, toList()));
+        .collect(groupingBy(EnvironmentVariableKey::fromDependency, toList()));
 
-    final SortedMap<EnvironmentVariableDefinition, Set<TypeMirror>> environmentVariablesByDefinition =
-        environmentVariables.entrySet().stream().flatMap(entry -> {
-          final EnvironmentVariableKey key = entry.getKey();
-          final List<DaggerInjectionSite> dependencies = entry.getValue();
 
-          final Set<Boolean> nullables = entry.getValue().stream()
-              .map(d -> d.getAnnotations().stream()
-                  .anyMatch(a -> AnnotationProcessing.hasSimpleName(a, "Nullable")))
-              .collect(toSet());
-          if (nullables.size() > 1) {
-            getMessager().printMessage(Diagnostic.Kind.ERROR,
-                "Conflicting nullability for environment variable: " + key);
-            // TODO Print the conflicting dependencies, with element and annotation references
-            return Stream.empty();
-          }
+    final SortedMap<EnvironmentVariableKey, BindingMetadata> environmentVariablesAndMetadata =
+        new TreeMap<>();
 
-          final String name = key.getName();
-          final String defaultValue = key.getDefaultValue().orElse(null);
-          final boolean nullable = nullables.iterator().next();
+    for (Map.Entry<EnvironmentVariableKey, List<DaggerInjectionSite>> e : environmentVariables
+        .entrySet()) {
+      final EnvironmentVariableKey key = e.getKey();
+      final List<DaggerInjectionSite> dependencies = e.getValue();
 
-          final EnvironmentVariableDefinition definition =
-              new EnvironmentVariableDefinition(name, defaultValue, nullable);
-          final Set<TypeMirror> types =
-              dependencies.stream().map(DaggerInjectionSite::getProvidedType).collect(toSet());
+      final Set<Boolean> nullables =
+          dependencies.stream().map(DaggerInjectionSite::isNullable).collect(toSet());
+      if (nullables.size() > 1) {
+        getMessager().printMessage(Diagnostic.Kind.ERROR,
+            "Conflicting nullability for environment variable: " + key);
+        // TODO Print the conflicting dependencies, with element and annotation references
+        continue;
+      }
 
-          return Stream.of(Map.entry(definition, types));
-        }).collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> {
-          throw new UnsupportedOperationException("duplicate key");
-        }, TreeMap::new));
+      final boolean nullable = nullables.iterator().next();
+
+      environmentVariablesAndMetadata.put(key, new BindingMetadata(nullable));
+    }
+
+    final TypeMirror stringType = getElements().getTypeElement("java.lang.String").asType();
+
+    // Make sure every environment variable has a string binding
+    for (EnvironmentVariableKey key : environmentVariables.keySet()) {
+      final BindingMetadata metadata = environmentVariablesAndMetadata.get(key);
+      if (metadata == null)
+        continue;
+      if (getTypes().isSameType(key.getType(), stringType))
+        continue;
+
+      final EnvironmentVariableKey keyAsString =
+          new EnvironmentVariableKey(stringType, key.getName(), key.getDefaultValue().orElse(null));
+
+      if (!environmentVariablesAndMetadata.containsKey(keyAsString)) {
+        environmentVariablesAndMetadata.put(keyAsString, metadata);
+      }
+    }
 
     try {
       // TODO Is this the right set of elements?
@@ -298,14 +290,14 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
         writer.println("        this.env = unmodifiableMap(env);");
         writer.println("    }");
         writer.println();
-        for (Map.Entry<EnvironmentVariableDefinition, Set<TypeMirror>> e : environmentVariablesByDefinition
+        for (Map.Entry<EnvironmentVariableKey, BindingMetadata> e : environmentVariablesAndMetadata
             .entrySet()) {
-          final EnvironmentVariableDefinition definition = e.getKey();
-          final String name = definition.getName();
-          final String defaultValue = definition.getDefaultValue().orElse(null);
-          final boolean nullable = definition.isNullable();
-          final List<TypeMirror> types = e.getValue().stream()
-              .sorted(Comparator.comparing(t -> unpack(t).toString())).collect(toList());
+          final EnvironmentVariableKey key = e.getKey();
+          final TypeMirror type = key.getType();
+          final String name = key.getName();
+          final String defaultValue = key.getDefaultValue().orElse(null);
+          final BindingMetadata metadata = e.getValue();
+          final boolean nullable = metadata.isNullable();
 
           final StringBuilder baseMethodName =
               new StringBuilder().append("provideEnvironmentVariable")
@@ -314,49 +306,45 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
             baseMethodName.append("WithDefaultValue").append(stringSignature(defaultValue));
           }
 
-          if (defaultValue != null) {
-            writer.println("    // " + name + " default value " + defaultValue);
-          } else {
-            writer.println("    // " + name);
-          }
-
-          if (defaultValue != null) {
-            writer.println("    @Provides");
-            writer.println("    @Reusable");
-            writer.println("    @EnvironmentVariable(value=\"" + name + "\", defaultValue=\""
-                + Java.escapeString(defaultValue) + "\")");
-            writer.println("    public String " + baseMethodName + "() {");
-            writer.println("        return Optional.ofNullable(env.get(\"" + name + "\")).orElse(\""
-                + defaultValue.replace("\"", "\\\"") + "\");");
-            writer.println("    }");
-          } else if (nullable) {
-            writer.println("    @Provides");
-            writer.println("    @Reusable");
-            writer.println("    @Nullable");
-            writer.println("    @EnvironmentVariable(\"" + name + "\")");
-            writer.println("    public String " + baseMethodName + "() {");
-            writer.println("        return env.get(\"" + name + "\");");
-            writer.println("    }");
-          } else {
-            writer.println("    @Provides");
-            writer.println("    @Reusable");
-            writer.println("    @EnvironmentVariable(\"" + name + "\")");
-            writer.println("    public String " + baseMethodName + "() {");
-            writer.println("        String result=env.get(\"" + name + "\");");
-            writer.println("        if (result == null)");
-            writer.println("            throw new IllegalStateException(\"Environment variable "
-                + name + " not set\");");
-            writer.println("        return result;");
-            writer.println("    }");
-          }
-          writer.println();
-
-          for (TypeMirror type : types) {
-            if (type.toString().equals("java.lang.String")) {
-              // Skip the String type since we've already provided it
-              continue;
+          if (getTypes().isSameType(type, stringType)) {
+            if (defaultValue != null) {
+              writer.println("    @Provides");
+              writer.println("    @EnvironmentVariable(value=\"" + name + "\", defaultValue=\""
+                  + Java.escapeString(defaultValue) + "\")");
+              writer.println("    public String " + baseMethodName + "AsString() {");
+              writer.println("        return Optional.ofNullable(env.get(\"" + name
+                  + "\")).orElse(\"" + Java.escapeString(defaultValue) + "\");");
+              writer.println("    }");
+              writer.println();
+            } else if (nullable) {
+              writer.println("    @Provides");
+              writer.println("    @Nullable");
+              writer.println("    @EnvironmentVariable(\"" + name + "\")");
+              writer.println("    public String " + baseMethodName + "AsString() {");
+              writer.println("        return env.get(\"" + name + "\");");
+              writer.println("    }");
+              writer.println();
+              writer.println("    @Provides");
+              writer.println("    @EnvironmentVariable(\"" + name + "\")");
+              writer.println("    public Optional<String> " + baseMethodName
+                  + "AsOptionalOfString(@Nullable @EnvironmentVariable(\"" + name + "\") String value) {");
+              writer.println("        return Optional.ofNullable(value);");
+              writer.println("    }");
+              writer.println();
+            } else {
+              writer.println("    @Provides");
+              writer.println("    @Reusable");
+              writer.println("    @EnvironmentVariable(\"" + name + "\")");
+              writer.println("    public String " + baseMethodName + "AsString() {");
+              writer.println("        String result=env.get(\"" + name + "\");");
+              writer.println("        if (result == null)");
+              writer.println("            throw new IllegalStateException(\"Environment variable "
+                  + name + " not set\");");
+              writer.println("        return result;");
+              writer.println("    }");
+              writer.println();
             }
-
+          } else {
             final String expr = expr(type).orElse(null);
             if (expr == null) {
               getMessager().printMessage(Diagnostic.Kind.ERROR,
@@ -385,12 +373,24 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
               writer.println("        return value != null ? " + expr + " : null;");
               writer.println("    }");
               writer.println();
+              writer.println("    @Provides");
+              writer.println("    @EnvironmentVariable(\"" + name + "\")");
+              writer.println("    public Optional<" + type + "> " + baseMethodName + "AsOptionalOf"
+                  + typeSimpleName + "(@EnvironmentVariable(\"" + name
+                  + "\") Optional<String> o) {");
+              writer.println("        return o.map(value -> " + expr + ");");
+              writer.println("    }");
+              writer.println();
             } else {
               writer.println("    @Provides");
               writer.println("    @EnvironmentVariable(\"" + name + "\")");
               writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
                   + "(@EnvironmentVariable(\"" + name + "\") String value) {");
-              writer.println("        return " + expr + ";");
+              writer.println("        " + type + " result= " + expr + ";");
+              writer.println("        if (result == null)");
+              writer.println("            throw new IllegalStateException(\"Environment variable "
+                  + name + " " + " as " + type + " not set\");");
+              writer.println("        return result;");
               writer.println("    }");
               writer.println();
             }

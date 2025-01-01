@@ -82,21 +82,23 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
                     this.env = unmodifiableMap(env);
                 }
 
-                // FOO_BAR
                 @Provides
-                @Reusable
                 @EnvironmentVariable("FOO_BAR")
-                public String provideEnvironmentVariableFooBar() {
-                    String result=env.get("FOO_BAR");
+                public java.lang.Integer provideEnvironmentVariableFooBarAsInteger(@EnvironmentVariable("FOO_BAR") String value) {
+                    java.lang.Integer result= java.lang.Integer.valueOf(value);
                     if (result == null)
-                        throw new IllegalStateException("Environment variable FOO_BAR not set");
+                        throw new IllegalStateException("Environment variable FOO_BAR  as java.lang.Integer not set");
                     return result;
                 }
 
                 @Provides
+                @Reusable
                 @EnvironmentVariable("FOO_BAR")
-                public java.lang.Integer provideEnvironmentVariableFooBarAsInteger(@EnvironmentVariable("FOO_BAR") String value) {
-                    return java.lang.Integer.valueOf(value);
+                public String provideEnvironmentVariableFooBarAsString() {
+                    String result=env.get("FOO_BAR");
+                    if (result == null)
+                        throw new IllegalStateException("Environment variable FOO_BAR not set");
+                    return result;
                 }
 
             }
@@ -158,18 +160,16 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
                     this.env = unmodifiableMap(env);
                 }
 
-                // FOO_BAR default value 42
-                @Provides
-                @Reusable
-                @EnvironmentVariable(value="FOO_BAR", defaultValue="42")
-                public String provideEnvironmentVariableFooBarWithDefaultValue92cfceb() {
-                    return Optional.ofNullable(env.get("FOO_BAR")).orElse("42");
-                }
-
                 @Provides
                 @EnvironmentVariable(value="FOO_BAR", defaultValue="42")
                 public java.lang.Integer provideEnvironmentVariableFooBarWithDefaultValue92cfcebAsInteger(@EnvironmentVariable(value="FOO_BAR", defaultValue="42") String value) {
                     return java.lang.Integer.valueOf(value);
+                }
+
+                @Provides
+                @EnvironmentVariable(value="FOO_BAR", defaultValue="42")
+                public String provideEnvironmentVariableFooBarWithDefaultValue92cfcebAsString() {
+                    return Optional.ofNullable(env.get("FOO_BAR")).orElse("42");
                 }
 
             }
