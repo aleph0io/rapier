@@ -55,7 +55,7 @@ import dagger.Component;
 import rapier.processor.core.DaggerComponentAnalyzer;
 import rapier.processor.core.RapierProcessorBase;
 import rapier.processor.core.model.DaggerComponentAnalysis;
-import rapier.processor.core.model.Dependency;
+import rapier.processor.core.model.DaggerInjectionSite;
 import rapier.processor.core.util.AnnotationProcessing;
 import rapier.processor.core.util.CaseFormat;
 import rapier.processor.core.util.Java;
@@ -91,7 +91,7 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
   }
 
   private static class EnvironmentVariableKey {
-    public static EnvironmentVariableKey fromDependency(Dependency dependency) {
+    public static EnvironmentVariableKey fromDependency(DaggerInjectionSite dependency) {
       final AnnotationMirror qualifier = dependency.getQualifier().orElseThrow(() -> {
         return new IllegalArgumentException("Dependency must have qualifier");
       });
@@ -227,7 +227,7 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
     final DaggerComponentAnalysis analysis =
         new DaggerComponentAnalyzer(getProcessingEnv()).analyzeComponent(component);
 
-    final Map<EnvironmentVariableKey, List<Dependency>> environmentVariables = analysis
+    final Map<EnvironmentVariableKey, List<DaggerInjectionSite>> environmentVariables = analysis
         .getDependencies().stream().filter(d -> d.getQualifier().isPresent())
         .filter(d -> getTypes().isSameType(d.getQualifier().get().getAnnotationType(),
             getElements().getTypeElement(EnvironmentVariable.class.getCanonicalName()).asType()))
@@ -236,7 +236,7 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
     final SortedMap<EnvironmentVariableDefinition, Set<TypeMirror>> environmentVariablesByDefinition =
         environmentVariables.entrySet().stream().flatMap(entry -> {
           final EnvironmentVariableKey key = entry.getKey();
-          final List<Dependency> dependencies = entry.getValue();
+          final List<DaggerInjectionSite> dependencies = entry.getValue();
 
           final Set<Boolean> nullables = entry.getValue().stream()
               .map(d -> d.getAnnotations().stream()
@@ -256,7 +256,7 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
           final EnvironmentVariableDefinition definition =
               new EnvironmentVariableDefinition(name, defaultValue, nullable);
           final Set<TypeMirror> types =
-              dependencies.stream().map(Dependency::getType).collect(toSet());
+              dependencies.stream().map(DaggerInjectionSite::getType).collect(toSet());
 
           return Stream.of(Map.entry(definition, types));
         }).collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> {

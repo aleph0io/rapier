@@ -55,7 +55,7 @@ import dagger.Component;
 import rapier.processor.core.DaggerComponentAnalyzer;
 import rapier.processor.core.RapierProcessorBase;
 import rapier.processor.core.model.DaggerComponentAnalysis;
-import rapier.processor.core.model.Dependency;
+import rapier.processor.core.model.DaggerInjectionSite;
 import rapier.processor.core.util.AnnotationProcessing;
 import rapier.processor.core.util.CaseFormat;
 import rapier.processor.core.util.Java;
@@ -118,7 +118,7 @@ public class AwsSsmProcessor extends RapierProcessorBase {
   }
 
   private static class AwsSsmParameterKey {
-    public static AwsSsmParameterKey fromDependency(Dependency dependency) {
+    public static AwsSsmParameterKey fromDependency(DaggerInjectionSite dependency) {
       final AnnotationMirror qualifier = dependency.getQualifier().orElseThrow(() -> {
         return new IllegalArgumentException("Dependency must have qualifier");
       });

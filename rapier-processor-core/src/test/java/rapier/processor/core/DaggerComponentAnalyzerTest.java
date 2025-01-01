@@ -35,7 +35,7 @@ import com.google.testing.compile.Compiler;
 import com.google.testing.compile.JavaFileObjects;
 import dagger.Component;
 import rapier.processor.core.model.DaggerComponentAnalysis;
-import rapier.processor.core.model.Dependency;
+import rapier.processor.core.model.DaggerInjectionSite;
 
 public class DaggerComponentAnalyzerTest {
 
@@ -138,7 +138,7 @@ public class DaggerComponentAnalyzerTest {
         """;
 
     // Compile the sources and process them with DaggerComponentAnalyzer
-    final Set<Dependency> dependencies = new HashSet<>();
+    final Set<DaggerInjectionSite> dependencies = new HashSet<>();
 
     Compilation compilation = Compiler.javac().withProcessors(new AbstractProcessor() {
       @Override

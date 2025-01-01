@@ -34,7 +34,7 @@ import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
 import rapier.processor.core.model.DaggerComponentAnalysis;
-import rapier.processor.core.model.Dependency;
+import rapier.processor.core.model.DaggerInjectionSite;
 import rapier.processor.core.util.AnnotationProcessing;
 
 public class DaggerComponentAnalyzer {
@@ -45,7 +45,7 @@ public class DaggerComponentAnalyzer {
   }
 
   public DaggerComponentAnalysis analyzeComponent(TypeElement componentType) {
-    final Set<Dependency> dependencies = new HashSet<>();
+    final Set<DaggerInjectionSite> dependencies = new HashSet<>();
     final Deque<TypeMirror> modulesQueue = new ArrayDeque<>();
     new DaggerComponentWalker(getProcessingEnv()).walk(componentType,
         new DaggerComponentWalker.Visitor() {
@@ -69,7 +69,7 @@ public class DaggerComponentAnalyzer {
                 .filter(a -> AnnotationProcessing.isQualifierAnnotated(getTypes(), a)).findFirst()
                 .orElse(null);
 
-            dependencies.add(new Dependency(method, returnTypeMirror, qualifier, annotations));
+            dependencies.add(new DaggerInjectionSite(method, returnTypeMirror, qualifier, annotations));
           }
 
           @Override
@@ -110,7 +110,7 @@ public class DaggerComponentAnalyzer {
                     .filter(a -> AnnotationProcessing.isQualifierAnnotated(getTypes(), a))
                     .findFirst().orElse(null);
 
-                dependencies.add(new Dependency(parameter, parameterType, qualifier, annotations));
+                dependencies.add(new DaggerInjectionSite(parameter, parameterType, qualifier, annotations));
               }
             }
 
@@ -120,7 +120,7 @@ public class DaggerComponentAnalyzer {
     }
 
     final Deque<TypeMirror> dependenciesQueue = new ArrayDeque<>();
-    for (Dependency dependency : dependencies) {
+    for (DaggerInjectionSite dependency : dependencies) {
       dependenciesQueue.offer(dependency.getType());
     }
 
@@ -152,7 +152,7 @@ public class DaggerComponentAnalyzer {
                     .findFirst().orElse(null);
 
                 dependenciesQueue.offer(parameterType);
-                dependencies.add(new Dependency(parameter, parameterType, qualifier, annotations));
+                dependencies.add(new DaggerInjectionSite(parameter, parameterType, qualifier, annotations));
               }
             }
 
@@ -168,7 +168,7 @@ public class DaggerComponentAnalyzer {
                   .orElse(null);
 
               dependenciesQueue.offer(fieldType);
-              dependencies.add(new Dependency(field, fieldType, qualifier, annotations));
+              dependencies.add(new DaggerInjectionSite(field, fieldType, qualifier, annotations));
             }
 
             @Override
@@ -185,7 +185,7 @@ public class DaggerComponentAnalyzer {
                     .findFirst().orElse(null);
 
                 dependenciesQueue.offer(parameterType);
-                dependencies.add(new Dependency(parameter, parameterType, qualifier, annotations));
+                dependencies.add(new DaggerInjectionSite(parameter, parameterType, qualifier, annotations));
               }
             }
 

@@ -27,9 +27,9 @@ import javax.lang.model.element.TypeElement;
 
 public class DaggerComponentAnalysis {
   private final TypeElement componentType;
-  private final Set<Dependency> dependencies;
+  private final Set<DaggerInjectionSite> dependencies;
 
-  public DaggerComponentAnalysis(TypeElement componentType, Set<Dependency> dependencies) {
+  public DaggerComponentAnalysis(TypeElement componentType, Set<DaggerInjectionSite> dependencies) {
     this.componentType = requireNonNull(componentType);
     this.dependencies = unmodifiableSet(dependencies);
   }
@@ -38,7 +38,7 @@ public class DaggerComponentAnalysis {
     return componentType;
   }
 
-  public Set<Dependency> getDependencies() {
+  public Set<DaggerInjectionSite> getDependencies() {
     return dependencies;
   }
 

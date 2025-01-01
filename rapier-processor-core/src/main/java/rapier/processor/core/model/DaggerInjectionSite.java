@@ -28,7 +28,7 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeMirror;
 
-public class Dependency {
+public class DaggerInjectionSite {
   /**
    * The element that this dependency is declared on.
    */
@@ -49,7 +49,7 @@ public class Dependency {
    */
   private final List<AnnotationMirror> annotations;
 
-  public Dependency(Element element, TypeMirror type, AnnotationMirror qualifier,
+  public DaggerInjectionSite(Element element, TypeMirror type, AnnotationMirror qualifier,
       List<AnnotationMirror> annotations) {
     this.element = requireNonNull(element);
     this.type = requireNonNull(type);
@@ -86,7 +86,7 @@ public class Dependency {
       return false;
     if (getClass() != obj.getClass())
       return false;
-    Dependency other = (Dependency) obj;
+    DaggerInjectionSite other = (DaggerInjectionSite) obj;
     return Objects.equals(annotations, other.annotations) && Objects.equals(element, other.element)
         && Objects.equals(qualifier, other.qualifier) && Objects.equals(type, other.type);
   }
