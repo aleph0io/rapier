@@ -35,9 +35,26 @@ public class DaggerInjectionSite {
   private final Element element;
 
   /**
-   * The type of this dependency.
+   * The type of the injection site. Useful for debugging and generating error messages.
    */
-  private final TypeMirror type;
+  private final DaggerInjectionSiteType siteType;
+
+  /**
+   * The style of provision for this dependency. Useful for analysis, debugging, and generating
+   * error messages.
+   */
+  private final DaggerProvisionStyle provisionStyle;
+
+  /**
+   * The raw provisioned type of this dependency.
+   */
+  private final TypeMirror provisionedType;
+
+  /**
+   * The processed provisioned type of this dependency. This is the type that should be used for
+   * generating code.
+   */
+  private final TypeMirror providedType;
 
   /**
    * The qualifier annotation for this dependency, if any.
@@ -49,20 +66,67 @@ public class DaggerInjectionSite {
    */
   private final List<AnnotationMirror> annotations;
 
-  public DaggerInjectionSite(Element element, TypeMirror type, AnnotationMirror qualifier,
-      List<AnnotationMirror> annotations) {
+  /**
+   * Whether or not this injection site can receive logical null values.
+   * 
+   * <p>
+   * An injection site is implicitly nullable if:
+   * 
+   * <ul>
+   * <li>It provisions an {@link DaggerProvisionStyle#OPTIONAL Optional} type</li>
+   * </ul>
+   * 
+   * <p>
+   * An injection site is implicitly non-nullable if:
+   * 
+   * <ul>
+   * <li>It provisions an {@link DaggerProvisionStyle#PRIMITIVE primitive} type</li> </u>
+   * 
+   * <p>
+   * An injection site is explicitly nullable if:
+   * 
+   * <ul>
+   * <li>It is annotated with {@code @Nullable}</li>
+   * </ul>
+   * 
+   * <p>
+   * It is an error for an injection site to be both implicity non-nullable and explicitly nullable.
+   * It is redundant, but not an error, for an injection site to be both implicitly nullable and
+   * explicitly nullable.
+   */
+  private final boolean nullable;
+
+  public DaggerInjectionSite(Element element, DaggerInjectionSiteType siteType,
+      DaggerProvisionStyle provisionStyle, TypeMirror provisionedType, TypeMirror providedType,
+      AnnotationMirror qualifier, List<AnnotationMirror> annotations, boolean nullable) {
     this.element = requireNonNull(element);
-    this.type = requireNonNull(type);
+    this.siteType = requireNonNull(siteType);
+    this.provisionStyle = requireNonNull(provisionStyle);
+    this.provisionedType = requireNonNull(provisionedType);
+    this.providedType = requireNonNull(providedType);
     this.qualifier = qualifier;
     this.annotations = unmodifiableList(annotations);
+    this.nullable = nullable;
   }
 
   public Element getElement() {
     return element;
   }
 
-  public TypeMirror getType() {
-    return type;
+  public DaggerInjectionSiteType getSiteType() {
+    return siteType;
+  }
+
+  public DaggerProvisionStyle getProvisionStyle() {
+    return provisionStyle;
+  }
+
+  public TypeMirror getProvisionedType() {
+    return provisionedType;
+  }
+
+  public TypeMirror getProvidedType() {
+    return providedType;
   }
 
   public Optional<AnnotationMirror> getQualifier() {
@@ -73,9 +137,14 @@ public class DaggerInjectionSite {
     return annotations;
   }
 
+  public boolean isNullable() {
+    return nullable;
+  }
+
   @Override
   public int hashCode() {
-    return Objects.hash(annotations, element, qualifier, type);
+    return Objects.hash(annotations, element, nullable, providedType, provisionStyle,
+        provisionedType, qualifier, siteType);
   }
 
   @Override
@@ -88,12 +157,17 @@ public class DaggerInjectionSite {
       return false;
     DaggerInjectionSite other = (DaggerInjectionSite) obj;
     return Objects.equals(annotations, other.annotations) && Objects.equals(element, other.element)
-        && Objects.equals(qualifier, other.qualifier) && Objects.equals(type, other.type);
+        && nullable == other.nullable && Objects.equals(providedType, other.providedType)
+        && provisionStyle == other.provisionStyle
+        && Objects.equals(provisionedType, other.provisionedType)
+        && Objects.equals(qualifier, other.qualifier) && siteType == other.siteType;
   }
 
   @Override
   public String toString() {
-    return "Dependency [element=" + element + ", type=" + type + ", qualifier=" + qualifier
-        + ", annotations=" + annotations + "]";
+    return "DaggerInjectionSite [element=" + element + ", siteType=" + siteType
+        + ", provisionStyle=" + provisionStyle + ", provisionedType=" + provisionedType
+        + ", providedType=" + providedType + ", qualifier=" + qualifier + ", annotations="
+        + annotations + ", nullable=" + nullable + "]";
   }
 }

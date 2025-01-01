@@ -26,15 +26,26 @@ import java.util.Deque;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.AnnotationValue;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.ArrayType;
+import javax.lang.model.type.DeclaredType;
+import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
+import javax.tools.Diagnostic;
+import javax.tools.Diagnostic.Kind;
 import rapier.processor.core.model.DaggerComponentAnalysis;
 import rapier.processor.core.model.DaggerInjectionSite;
+import rapier.processor.core.model.DaggerInjectionSiteType;
+import rapier.processor.core.model.DaggerProvisionStyle;
 import rapier.processor.core.util.AnnotationProcessing;
 
 public class DaggerComponentAnalyzer {
@@ -59,17 +70,22 @@ public class DaggerComponentAnalyzer {
 
           @Override
           public void visitComponentProvisionMethod(TypeElement component,
-              ExecutableElement method) {
-            final TypeMirror returnTypeMirror = method.getReturnType();
+              ExecutableElement methodElement) {
+            final DeclaredType componentType = (DeclaredType) component.asType();
+
+            final ExecutableType methodType =
+                (ExecutableType) getTypes().asMemberOf(componentType, methodElement);
+
+            final TypeMirror returnTypeMirror = methodType.getReturnType();
+            if (isValidInjectionSiteType(methodElement, returnTypeMirror) == false)
+              return;
 
             final List<AnnotationMirror> annotations =
-                new ArrayList<>(method.getAnnotationMirrors());
+                new ArrayList<>(methodElement.getAnnotationMirrors());
 
-            final AnnotationMirror qualifier = annotations.stream()
-                .filter(a -> AnnotationProcessing.isQualifierAnnotated(getTypes(), a)).findFirst()
-                .orElse(null);
-
-            dependencies.add(new DaggerInjectionSite(method, returnTypeMirror, qualifier, annotations));
+            dependencies
+                .add(newInjectionSite(DaggerInjectionSiteType.COMPONENT_PROVISION_METHOD_RESULT,
+                    methodElement, returnTypeMirror, annotations));
           }
 
           @Override
@@ -99,18 +115,37 @@ public class DaggerComponentAnalyzer {
             }
 
             @Override
-            public void visitModuleProvidesMethod(TypeElement module, ExecutableElement method) {
-              for (VariableElement parameter : method.getParameters()) {
-                final TypeMirror parameterType = parameter.asType();
+            public void visitModuleProvidesMethod(TypeElement module,
+                ExecutableElement methodElement) {
+              final DeclaredType moduleType = (DeclaredType) module.asType();
+
+              final ExecutableType methodType =
+                  (ExecutableType) getTypes().asMemberOf(moduleType, methodElement);
+
+              final int parameterCount = methodType.getParameterTypes().size();
+
+              assert parameterCount == methodElement.getParameters().size();
+
+              for (int i = 0; i < parameterCount; i++) {
+                // for (VariableElement parameter : methodElement.getParameters()) {
+                final VariableElement parameterElement = methodElement.getParameters().get(i);
+                final TypeMirror parameterType = methodType.getParameterTypes().get(i);
+                if (isValidInjectionSiteType(parameterElement, parameterType) == false)
+                  continue;
 
                 final List<AnnotationMirror> annotations =
-                    new ArrayList<>(parameter.getAnnotationMirrors());
+                    new ArrayList<>(parameterElement.getAnnotationMirrors());
 
-                final AnnotationMirror qualifier = annotations.stream()
-                    .filter(a -> AnnotationProcessing.isQualifierAnnotated(getTypes(), a))
-                    .findFirst().orElse(null);
+                final DaggerInjectionSiteType siteType;
+                if (methodElement.getModifiers()
+                    .contains(javax.lang.model.element.Modifier.STATIC)) {
+                  siteType = DaggerInjectionSiteType.MODULE_STATIC_PROVIDES_METHOD_PARAMETER;
+                } else {
+                  siteType = DaggerInjectionSiteType.MODULE_INSTANCE_PROVIDES_METHOD_PARAMETER;
+                }
 
-                dependencies.add(new DaggerInjectionSite(parameter, parameterType, qualifier, annotations));
+                dependencies
+                    .add(newInjectionSite(siteType, parameterElement, parameterType, annotations));
               }
             }
 
@@ -121,7 +156,7 @@ public class DaggerComponentAnalyzer {
 
     final Deque<TypeMirror> dependenciesQueue = new ArrayDeque<>();
     for (DaggerInjectionSite dependency : dependencies) {
-      dependenciesQueue.offer(dependency.getType());
+      dependenciesQueue.offer(dependency.getProvidedType());
     }
 
     final Set<TypeMirror> visitedDependencies = new HashSet<>();
@@ -140,52 +175,82 @@ public class DaggerComponentAnalyzer {
             public void beginClass(TypeElement type) {}
 
             @Override
-            public void visitClassMethodInjectionSite(TypeElement type, ExecutableElement method) {
-              for (VariableElement parameter : method.getParameters()) {
-                final TypeMirror parameterType = parameter.asType();
+            public void visitClassMethodInjectionSite(TypeElement enclosingElement,
+                ExecutableElement methodElement) {
+              final DeclaredType enclosingType = (DeclaredType) enclosingElement.asType();
+
+              final ExecutableType methodType =
+                  (ExecutableType) getTypes().asMemberOf(enclosingType, methodElement);
+
+              final int parameterCount = methodType.getParameterTypes().size();
+
+              assert parameterCount == methodElement.getParameters().size();
+
+              for (int i = 0; i < parameterCount; i++) {
+                final VariableElement parameterElement = methodElement.getParameters().get(i);
+                final TypeMirror parameterType = methodType.getParameterTypes().get(i);
+                if (isValidInjectionSiteType(parameterElement, parameterType) == false)
+                  continue;
 
                 final List<AnnotationMirror> annotations =
-                    new ArrayList<>(parameter.getAnnotationMirrors());
+                    new ArrayList<>(parameterElement.getAnnotationMirrors());
 
-                final AnnotationMirror qualifier = annotations.stream()
-                    .filter(a -> AnnotationProcessing.isQualifierAnnotated(getTypes(), a))
-                    .findFirst().orElse(null);
+                final DaggerInjectionSite site =
+                    newInjectionSite(DaggerInjectionSiteType.INJECT_INSTANCE_METHOD, methodElement,
+                        parameterType, annotations);
 
-                dependenciesQueue.offer(parameterType);
-                dependencies.add(new DaggerInjectionSite(parameter, parameterType, qualifier, annotations));
+                dependenciesQueue.offer(site.getProvidedType());
+                dependencies.add(site);
               }
             }
 
             @Override
-            public void visitClassFieldInjectionSite(TypeElement type, VariableElement field) {
-              final TypeMirror fieldType = field.asType();
+            public void visitClassFieldInjectionSite(TypeElement enclosingElement,
+                VariableElement fieldElement) {
+              final DeclaredType enclosingType = (DeclaredType) enclosingElement.asType();
+
+              final TypeMirror fieldType = getTypes().asMemberOf(enclosingType, fieldElement);
+              if (isValidInjectionSiteType(fieldElement, fieldType) == false)
+                return;
 
               final List<AnnotationMirror> annotations =
-                  new ArrayList<>(field.getAnnotationMirrors());
+                  new ArrayList<>(fieldElement.getAnnotationMirrors());
 
-              final AnnotationMirror qualifier = annotations.stream()
-                  .filter(a -> AnnotationProcessing.isQualifierAnnotated(getTypes(), a)).findFirst()
-                  .orElse(null);
+              final DaggerInjectionSite site =
+                  newInjectionSite(DaggerInjectionSiteType.INJECT_INSTANCE_FIELD, fieldElement,
+                      fieldType, annotations);
 
-              dependenciesQueue.offer(fieldType);
-              dependencies.add(new DaggerInjectionSite(field, fieldType, qualifier, annotations));
+              dependenciesQueue.offer(site.getProvidedType());
+              dependencies.add(site);
             }
 
             @Override
-            public void visitClassConstructorInjectionSite(TypeElement type,
-                ExecutableElement constructor) {
-              for (VariableElement parameter : constructor.getParameters()) {
-                final TypeMirror parameterType = parameter.asType();
+            public void visitClassConstructorInjectionSite(TypeElement enclosingElement,
+                ExecutableElement constructorElement) {
+              final DeclaredType enclosingType = (DeclaredType) enclosingElement.asType();
+
+              final ExecutableType constructorType =
+                  (ExecutableType) getTypes().asMemberOf(enclosingType, constructorElement);
+
+              final int parameterCount = constructorType.getParameterTypes().size();
+
+              assert parameterCount == constructorElement.getParameters().size();
+
+              for (int i = 0; i < parameterCount; i++) {
+                final VariableElement parameterElement = constructorElement.getParameters().get(i);
+                final TypeMirror parameterType = constructorType.getParameterTypes().get(i);
+                if (isValidInjectionSiteType(parameterElement, parameterType) == false)
+                  continue;
 
                 final List<AnnotationMirror> annotations =
-                    new ArrayList<>(parameter.getAnnotationMirrors());
+                    new ArrayList<>(parameterElement.getAnnotationMirrors());
 
-                final AnnotationMirror qualifier = annotations.stream()
-                    .filter(a -> AnnotationProcessing.isQualifierAnnotated(getTypes(), a))
-                    .findFirst().orElse(null);
+                final DaggerInjectionSite site =
+                    newInjectionSite(DaggerInjectionSiteType.INJECT_CONSTRUCTOR_PARAMETER,
+                        parameterElement, parameterType, annotations);
 
-                dependenciesQueue.offer(parameterType);
-                dependencies.add(new DaggerInjectionSite(parameter, parameterType, qualifier, annotations));
+                dependenciesQueue.offer(site.getProvidedType());
+                dependencies.add(site);
               }
             }
 
@@ -197,11 +262,190 @@ public class DaggerComponentAnalyzer {
     return new DaggerComponentAnalysis(componentType, dependencies);
   }
 
+  private DaggerInjectionSite newInjectionSite(DaggerInjectionSiteType siteType, Element element,
+      TypeMirror provisionedType, List<AnnotationMirror> annotations) {
+
+    final AnnotationMirror qualifier =
+        annotations.stream().filter(a -> AnnotationProcessing.isQualifierAnnotated(getTypes(), a))
+            .findFirst().orElse(null);
+    final boolean hasNullableAnnotation = annotations.stream()
+        .filter(a -> AnnotationProcessing.isNullable(a)).findFirst().isPresent();
+
+    if (provisionedType.getKind().isPrimitive()) {
+      if (hasNullableAnnotation) {
+        getMessager().printMessage(Diagnostic.Kind.ERROR,
+            "Primitive types cannot be annotated with @Nullable", element);
+      }
+      final TypeMirror providedType =
+          getTypes().boxedClass(getTypes().getPrimitiveType(provisionedType.getKind())).asType();
+      return new DaggerInjectionSite(element, siteType, DaggerProvisionStyle.PRIMITIVE,
+          provisionedType, providedType, qualifier, annotations, false);
+    }
+
+    final TypeMirror provisionedErasure = getTypes().erasure(provisionedType);
+    final TypeMirror literalJavaxInjectProviderType =
+        getElements().getTypeElement("javax.inject.Provider").asType();
+    final TypeMirror literalJakaInjectProviderType =
+        getElements().getTypeElement("jakarta.inject.Provider").asType();
+    final TypeMirror literalDaggerLazyType = getElements().getTypeElement("dagger.Lazy").asType();
+    final TypeMirror literalJavaUtilOptionalType =
+        getElements().getTypeElement("java.util.Optional").asType();
+
+    if (getTypes().isSameType(provisionedErasure, literalJavaxInjectProviderType)
+        || getTypes().isSameType(provisionedErasure, literalJakaInjectProviderType)) {
+      // It is safe to use the type parameters directly here because the injection sites are checked
+      // for validity using isValidInjectionSiteType.
+      final DeclaredType providerType = (DeclaredType) provisionedType;
+      return new DaggerInjectionSite(element, siteType, DaggerProvisionStyle.PROVIDER,
+          provisionedType, providerType.getTypeArguments().get(0), qualifier, annotations,
+          hasNullableAnnotation);
+    } else if (getTypes().isSameType(provisionedErasure, literalDaggerLazyType)) {
+      // It is safe to use the type parameters directly here because the injection sites are checked
+      // for validity using isValidInjectionSiteType.
+      final DeclaredType lazyType = (DeclaredType) provisionedType;
+      return new DaggerInjectionSite(element, siteType, DaggerProvisionStyle.LAZY, provisionedType,
+          lazyType.getTypeArguments().get(0), qualifier, annotations, hasNullableAnnotation);
+    } else if (getTypes().isSameType(provisionedErasure, literalJavaUtilOptionalType)) {
+      // NOTE: We do not support Guava Optional at this time
+      if (hasNullableAnnotation) {
+        // TODO Should we print this at all?
+        getMessager().printMessage(Diagnostic.Kind.NOTE,
+            "Optional types are implicitly nullable, and therefore do not require @Nullable annotation",
+            element);
+      }
+      final DeclaredType optionalType = (DeclaredType) provisionedType;
+      return new DaggerInjectionSite(element, siteType, DaggerProvisionStyle.OPTIONAL,
+          provisionedType, optionalType.getTypeArguments().get(0), qualifier, annotations, true);
+    } else {
+      return new DaggerInjectionSite(element, siteType, DaggerProvisionStyle.VERBATIM,
+          provisionedType, provisionedErasure, qualifier, annotations, hasNullableAnnotation);
+    }
+  }
+
+  /**
+   * Determines if the given type is a valid type for an injection site. If the type is invalid, an
+   * error message will be printed.
+   * 
+   * @param element the element that the type is associated. Any errors will be reported against
+   *        this element.
+   * @param type the type to validate
+   * @return {@code true} if the type is valid, {@code false} otherwise
+   */
+  private boolean isValidInjectionSiteType(Element element, TypeMirror type) {
+    return isValidInjectionSiteType(getMessager(), element, type);
+  }
+
+  /**
+   * A {@link Messager} that does nothing
+   */
+  private static class NullMessager implements Messager {
+    public static final NullMessager INSTANCE = new NullMessager();
+
+    @Override
+    public void printMessage(Kind kind, CharSequence msg) {}
+
+    @Override
+    public void printMessage(Kind kind, CharSequence msg, Element e) {}
+
+    @Override
+    public void printMessage(Kind kind, CharSequence msg, Element e, AnnotationMirror a) {}
+
+    @Override
+    public void printMessage(Kind kind, CharSequence msg, Element e, AnnotationMirror a,
+        AnnotationValue v) {}
+  }
+
+  private boolean isValidInjectionSiteType(Messager messager, Element element, TypeMirror type) {
+    if (element == null)
+      throw new NullPointerException();
+    if (type == null)
+      throw new NullPointerException();
+
+    switch (type.getKind()) {
+      case ARRAY:
+        ArrayType arrayType = (ArrayType) type;
+        if (!isValidInjectionSiteType(NullMessager.INSTANCE, element,
+            arrayType.getComponentType())) {
+          messager.printMessage(Diagnostic.Kind.ERROR,
+              "Injection site array types must have fully-reified element types", element);
+          return false;
+        }
+        return true;
+      case DECLARED:
+        final DeclaredType declaredType = (DeclaredType) type;
+        final TypeElement declaredElement = getElements().getTypeElement(declaredType.toString());
+        if (declaredType.getTypeArguments().size() != declaredElement.getTypeParameters().size()) {
+          messager.printMessage(Diagnostic.Kind.ERROR,
+              "Injection site types must not be raw generic types", element);
+          return false;
+        }
+        if (!declaredType.getTypeArguments().stream()
+            .allMatch(t -> isValidInjectionSiteType(NullMessager.INSTANCE, element, t))) {
+          messager.printMessage(Diagnostic.Kind.ERROR,
+              "Injection site generic types must have fully-reified type parameters", element);
+          return false;
+        }
+        return true;
+      case BYTE:
+      case SHORT:
+      case INT:
+      case LONG:
+      case FLOAT:
+      case DOUBLE:
+      case CHAR:
+      case BOOLEAN:
+        // These are all fine.
+        return true;
+      case VOID:
+        messager.printMessage(Diagnostic.Kind.ERROR, "Dagger injection sites cannot have void type",
+            element);
+        return false;
+      case TYPEVAR:
+      case WILDCARD:
+      case UNION:
+      case INTERSECTION:
+        messager.printMessage(Diagnostic.Kind.ERROR,
+            "Dagger injection sites must have fully-reified types", element);
+        return false;
+      case EXECUTABLE:
+        // I'm not even really sure what these are. I can't imagine how they would happen.
+        messager.printMessage(Diagnostic.Kind.ERROR,
+            "Dagger injection sites must have data type, not executable type", element);
+        return false;
+      case PACKAGE:
+        // I'm not even really sure what these are. I can't imagine how they would happen.
+        messager.printMessage(Diagnostic.Kind.ERROR,
+            "Dagger injection sites must have data type, not package type", element);
+        return false;
+      case MODULE:
+        // I'm not even really sure what these are. I can't imagine how they would happen.
+        messager.printMessage(Diagnostic.Kind.ERROR,
+            "Dagger injection sites must have data type, not module type", element);
+        return false;
+      case ERROR:
+      case NONE:
+      case NULL:
+      case OTHER:
+      default:
+        messager.printMessage(Diagnostic.Kind.ERROR,
+            "Could not resolve return type of injection site", element);
+        return false;
+    }
+  }
+
   private ProcessingEnvironment getProcessingEnv() {
     return processingEnv;
   }
 
   private Types getTypes() {
     return processingEnv.getTypeUtils();
+  }
+
+  private Elements getElements() {
+    return processingEnv.getElementUtils();
+  }
+
+  private Messager getMessager() {
+    return processingEnv.getMessager();
   }
 }

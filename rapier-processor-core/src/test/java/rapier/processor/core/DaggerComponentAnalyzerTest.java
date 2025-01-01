@@ -170,31 +170,33 @@ public class DaggerComponentAnalyzerTest {
     // Ensure the compilation succeeded
     assertThat(compilation).succeeded();
 
+    System.out.println(dependencies);
+
     // Assertions
     assertEquals(12, dependencies.size());
     assertTrue(dependencies.stream().anyMatch(d -> d.toString().equals(
-        "Dependency [type=java.lang.String, qualifier=@javax.inject.Named(\"alphaField\"), annotations=[@javax.inject.Inject, @javax.inject.Named(\"alphaField\")]]")));
+        "DaggerInjectionSite [element=alphaField, siteType=INJECT_INSTANCE_FIELD, provisionStyle=VERBATIM, provisionedType=java.lang.String, providedType=java.lang.String, qualifier=@javax.inject.Named(\"alphaField\"), annotations=[@javax.inject.Inject, @javax.inject.Named(\"alphaField\")], nullable=false]")));
     assertTrue(dependencies.stream().anyMatch(d -> d.toString().equals(
-        "Dependency [type=Bravo, qualifier=@javax.inject.Named(\"alphaConstructor\"), annotations=[@javax.inject.Named(\"alphaConstructor\")]]")));
+        "DaggerInjectionSite [element=alphaConstructor, siteType=INJECT_CONSTRUCTOR_PARAMETER, provisionStyle=VERBATIM, provisionedType=Charlie, providedType=Charlie, qualifier=@javax.inject.Named(\"bravoConstructor\"), annotations=[@javax.inject.Named(\"bravoConstructor\")], nullable=false]")));
     assertTrue(dependencies.stream().anyMatch(d -> d.toString().equals(
-        "Dependency [type=java.lang.String, qualifier=@javax.inject.Named(\"alphaMethod\"), annotations=[@javax.inject.Named(\"alphaMethod\")]]")));
+        "DaggerInjectionSite [element=setAlphaMethod(java.lang.String), siteType=INJECT_INSTANCE_METHOD, provisionStyle=VERBATIM, provisionedType=java.lang.String, providedType=java.lang.String, qualifier=@javax.inject.Named(\"alphaMethod\"), annotations=[@javax.inject.Named(\"alphaMethod\")], nullable=false]")));
     assertTrue(dependencies.stream().anyMatch(d -> d.toString().equals(
-        "Dependency [type=java.lang.String, qualifier=@javax.inject.Named(\"bravoField\"), annotations=[@javax.inject.Inject, @javax.inject.Named(\"bravoField\")]]")));
+        "DaggerInjectionSite [element=bravoField, siteType=INJECT_INSTANCE_FIELD, provisionStyle=VERBATIM, provisionedType=java.lang.String, providedType=java.lang.String, qualifier=@javax.inject.Named(\"bravoField\"), annotations=[@javax.inject.Inject, @javax.inject.Named(\"bravoField\")], nullable=false]")));
     assertTrue(dependencies.stream().anyMatch(d -> d.toString().equals(
-        "Dependency [type=Charlie, qualifier=@javax.inject.Named(\"bravoConstructor\"), annotations=[@javax.inject.Named(\"bravoConstructor\")]]")));
+        "DaggerInjectionSite [element=alphaConstructor, siteType=INJECT_CONSTRUCTOR_PARAMETER, provisionStyle=VERBATIM, provisionedType=Charlie, providedType=Charlie, qualifier=@javax.inject.Named(\"bravoConstructor\"), annotations=[@javax.inject.Named(\"bravoConstructor\")], nullable=false]")));
     assertTrue(dependencies.stream().anyMatch(d -> d.toString().equals(
-        "Dependency [type=java.lang.String, qualifier=@javax.inject.Named(\"bravoMethod\"), annotations=[@javax.inject.Named(\"bravoMethod\")]]")));
+        "DaggerInjectionSite [element=setBravoMethod(java.lang.String), siteType=INJECT_INSTANCE_METHOD, provisionStyle=VERBATIM, provisionedType=java.lang.String, providedType=java.lang.String, qualifier=@javax.inject.Named(\"bravoMethod\"), annotations=[@javax.inject.Named(\"bravoMethod\")], nullable=false]")));
     assertTrue(dependencies.stream().anyMatch(d -> d.toString().equals(
-        "Dependency [type=java.lang.String, qualifier=@javax.inject.Named(\"charlieField\"), annotations=[@javax.inject.Inject, @javax.inject.Named(\"charlieField\")]]")));
+        "DaggerInjectionSite [element=charlieField, siteType=INJECT_INSTANCE_FIELD, provisionStyle=VERBATIM, provisionedType=java.lang.String, providedType=java.lang.String, qualifier=@javax.inject.Named(\"charlieField\"), annotations=[@javax.inject.Inject, @javax.inject.Named(\"charlieField\")], nullable=false]")));
     assertTrue(dependencies.stream().anyMatch(d -> d.toString().equals(
-        "Dependency [type=java.lang.String, qualifier=@javax.inject.Named(\"charlieConstructor\"), annotations=[@javax.inject.Named(\"charlieConstructor\")]]")));
+        "DaggerInjectionSite [element=charlieConstructor, siteType=INJECT_CONSTRUCTOR_PARAMETER, provisionStyle=VERBATIM, provisionedType=java.lang.String, providedType=java.lang.String, qualifier=@javax.inject.Named(\"charlieConstructor\"), annotations=[@javax.inject.Named(\"charlieConstructor\")], nullable=false]")));
     assertTrue(dependencies.stream().anyMatch(d -> d.toString().equals(
-        "Dependency [type=java.lang.String, qualifier=@javax.inject.Named(\"charlieMethod\"), annotations=[@javax.inject.Named(\"charlieMethod\")]]")));
-    assertTrue(dependencies.stream().anyMatch(
-        d -> d.toString().equals("Dependency [type=Charlie, qualifier=null, annotations=[]]")));
-    assertTrue(dependencies.stream().anyMatch(
-        d -> d.toString().equals("Dependency [type=Bravo, qualifier=null, annotations=[]]")));
-    assertTrue(dependencies.stream().anyMatch(
-        d -> d.toString().equals("Dependency [type=Alpha, qualifier=null, annotations=[]]")));
+        "DaggerInjectionSite [element=setCharlieMethod(java.lang.String), siteType=INJECT_INSTANCE_METHOD, provisionStyle=VERBATIM, provisionedType=java.lang.String, providedType=java.lang.String, qualifier=@javax.inject.Named(\"charlieMethod\"), annotations=[@javax.inject.Named(\"charlieMethod\")], nullable=false]")));
+    assertTrue(dependencies.stream().anyMatch(d -> d.toString().equals(
+        "DaggerInjectionSite [element=charlie, siteType=MODULE_INSTANCE_PROVIDES_METHOD_PARAMETER, provisionStyle=VERBATIM, provisionedType=Charlie, providedType=Charlie, qualifier=null, annotations=[], nullable=false]")));
+    assertTrue(dependencies.stream().anyMatch(d -> d.toString().equals(
+        "DaggerInjectionSite [element=bravo, siteType=MODULE_INSTANCE_PROVIDES_METHOD_PARAMETER, provisionStyle=VERBATIM, provisionedType=Bravo, providedType=Bravo, qualifier=null, annotations=[], nullable=false]")));
+    assertTrue(dependencies.stream().anyMatch(d -> d.toString().equals(
+        "DaggerInjectionSite [element=provisionAlpha(), siteType=COMPONENT_PROVISION_METHOD_RESULT, provisionStyle=VERBATIM, provisionedType=Alpha, providedType=Alpha, qualifier=null, annotations=[], nullable=false]")));
   }
 }

@@ -101,7 +101,7 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
         throw new IllegalArgumentException("Dependency qualifier must be @EnvironmentVariable");
       }
 
-      final TypeMirror type = dependency.getType();
+      final TypeMirror type = dependency.getProvidedType();
       final String name = extractEnvironmentVariableName(qualifier);
       final String defaultValue = extractEnvironmentVariableDefaultValue(qualifier);
 
@@ -256,7 +256,7 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
           final EnvironmentVariableDefinition definition =
               new EnvironmentVariableDefinition(name, defaultValue, nullable);
           final Set<TypeMirror> types =
-              dependencies.stream().map(DaggerInjectionSite::getType).collect(toSet());
+              dependencies.stream().map(DaggerInjectionSite::getProvidedType).collect(toSet());
 
           return Stream.of(Map.entry(definition, types));
         }).collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> {

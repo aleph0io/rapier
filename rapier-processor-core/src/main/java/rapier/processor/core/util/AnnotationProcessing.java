@@ -85,6 +85,27 @@ public final class AnnotationProcessing {
         || annotation.getAnnotationType().toString().endsWith("." + simpleName);
   }
 
+  /**
+   * Returns the erased type of the given type.
+   * 
+   * @param types the types utility
+   * @param type the type for which to compute the erased type
+   * @return the computed erased type
+   * 
+   * @throws NullPointerException if {@code types} is {@code null}
+   * @throws NullPointerException if {@code type} is {@code null}
+   * @throws IllegalArgumentException if {@code type} is a primitive type
+   */
+  public static TypeMirror erasedType(Types types, TypeMirror type) {
+    if (types == null)
+      throw new NullPointerException();
+    if (type == null)
+      throw new NullPointerException();
+    if (type.getKind().isPrimitive())
+      throw new IllegalArgumentException("Primitive types do not have an erased type");
+    return types.erasure(type);
+  }
+
   public static boolean isDefaultConstructor(ExecutableElement constructor) {
     if (constructor == null)
       throw new NullPointerException();
@@ -189,14 +210,13 @@ public final class AnnotationProcessing {
    * where {@code T} is the type element itself.
    * 
    * @param types the types utility
-   * @param typeElement the type element for which to find the method, which must be a class,
-   *        record, enum, or interface.
+   * @param typeElement the type element for which to find the method, which must be a class, enum,
+   *        or interface.
    * @return the method, if found, or {@link Optional#empty()} otherwise
    * 
    * @throws NullPointerException if {@code types} is {@code null}
    * @throws NullPointerException if {@code typeElement} is {@code null}
-   * @throws IllegalArgumentException if {@code typeElement} is not a class, record, enum, or
-   *         interface
+   * @throws IllegalArgumentException if {@code typeElement} is not a class, enum, or interface
    */
   public static Optional<ExecutableElement> findFromStringMethod(Types types,
       TypeElement typeElement) {
@@ -228,16 +248,15 @@ public final class AnnotationProcessing {
    * {@code T} is the type element itself and {@code P} is the given parameter type.
    * 
    * @param types the types utility
-   * @param typeElement the type element for which to find the method, which must be a class,
-   *        record, enum, or interface.
+   * @param typeElement the type element for which to find the method, which must be a class, enum,
+   *        or interface.
    * @param parameterType the parameter type
    * @return the method, if found, or {@link Optional#empty()} otherwise
    * 
    * @throws NullPointerException if {@code types} is {@code null}
    * @throws NullPointerException if {@code typeElement} is {@code null}
    * @throws NullPointerException if {@code parameterType} is {@code null}
-   * @throws IllegalArgumentException if {@code typeElement} is not a class, record, enum, or
-   *         interface
+   * @throws IllegalArgumentException if {@code typeElement} is not a class, enum, or interface
    */
   public static Optional<ExecutableElement> findValueOfMethod(Types types, TypeElement typeElement,
       TypeMirror parameterType) {
@@ -271,15 +290,14 @@ public final class AnnotationProcessing {
    * parameter of the given type.
    * 
    * @param types the types utility
-   * @param typeElement the type element for which to find the constructor, which must be a class or
-   *        record
+   * @param typeElement the type element for which to find the constructor, which must be a class
    * @param parameterType the parameter type
    * @return the constructor, if found, or {@link Optional#empty()} otherwise
    * 
    * @throws NullPointerException if {@code types} is {@code null}
    * @throws NullPointerException if {@code typeElement} is {@code null}
    * @throws NullPointerException if {@code parameterType} is {@code null}
-   * @throws IllegalArgumentException if {@code typeElement} is not a class or record type
+   * @throws IllegalArgumentException if {@code typeElement} is not a class type
    * @throws IllegalArgumentException if {@code typeElement} is not a concrete type
    */
   public static Optional<ExecutableElement> findSingleArgumentConstructor(Types types,
@@ -290,10 +308,10 @@ public final class AnnotationProcessing {
       throw new NullPointerException();
     if (parameterType == null)
       throw new NullPointerException();
-    if (typeElement.getKind() != ElementKind.CLASS && typeElement.getKind() != ElementKind.RECORD)
-      throw new IllegalArgumentException("Type element must be a class or record type");
+    if (typeElement.getKind() != ElementKind.CLASS)
+      throw new IllegalArgumentException("Type element must be a class type");
     if (typeElement.getModifiers().contains(Modifier.ABSTRACT))
-      throw new IllegalArgumentException("Type element must be a concrete class or record type");
+      throw new IllegalArgumentException("Type element must be a concrete class type");
 
     for (Element enclosed : typeElement.getEnclosedElements()) {
       if (enclosed.getKind() != ElementKind.CONSTRUCTOR)
