@@ -34,6 +34,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.regex.Pattern;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
@@ -203,7 +204,7 @@ public class AwsSsmProcessor extends RapierProcessorBase {
     final String componentPackageName =
         getElements().getPackageOf(component).getQualifiedName().toString();
     final String componentClassName = component.getSimpleName().toString();
-    final String moduleClassName = "Rapier" + componentClassName + "AwsSsmStringParameterModule";
+    final String moduleClassName = "Rapier" + componentClassName + "AwsSsmModule";
 
     final DaggerComponentAnalysis analysis =
         new DaggerComponentAnalyzer(getProcessingEnv()).analyzeComponent(component);
@@ -301,9 +302,9 @@ public class AwsSsmProcessor extends RapierProcessorBase {
           final BindingMetadata metadata = e.getValue();
           final boolean nullable = metadata.isNullable();
 
-          final StringBuilder baseMethodName =
-              new StringBuilder().append("provideAwsSsmStringParameter")
-                  .append(CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, name));
+          final StringBuilder baseMethodName = new StringBuilder()
+              .append("provideAwsSsmStringParameter").append(CaseFormat.UPPER_UNDERSCORE
+                  .to(CaseFormat.UPPER_CAMEL, standardizeParameterName(name)));
           if (defaultValue != null) {
             baseMethodName.append("WithDefaultValue").append(stringSignature(defaultValue));
           }
@@ -497,5 +498,23 @@ public class AwsSsmProcessor extends RapierProcessorBase {
             return s;
           }
         }, null)).orElse(null);
+  }
+
+  private static final Pattern NON_ALPHANUMERIC = Pattern.compile("[^a-zA-Z0-9]+");
+
+  private static String standardizeParameterName(String name) {
+    name = NON_ALPHANUMERIC.matcher(name).replaceAll("_").toUpperCase();
+
+    int start = 0;
+    while (start < name.length() && name.charAt(start) == '_') {
+      start = start + 1;
+    }
+
+    int end = name.length();
+    while (end > start && name.charAt(end - 1) == '_') {
+      end = end - 1;
+    }
+
+    return name.substring(start, end).toUpperCase();
   }
 }
