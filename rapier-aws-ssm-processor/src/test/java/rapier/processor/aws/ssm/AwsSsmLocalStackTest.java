@@ -52,9 +52,8 @@ public class AwsSsmLocalStackTest extends DaggerTestBase {
     assertEquals(0, response.parameters().size());
   }
 
-
   @Test
-  public void givenSimpleComponentWithEnvironmentVariableWithDefaultValue_whenCompileAndRun_thenExpectedtOutput()
+  public void givenComponentWithOneRequiredParameterThatExistsValue_whenCompileAndRun_thenExpectedtOutput()
       throws IOException {
     client.putParameter(request -> request.name("foo.bar").type("String").value("42"));
     try {
@@ -111,4 +110,173 @@ public class AwsSsmLocalStackTest extends DaggerTestBase {
     }
   }
 
+  @Test
+  public void givenComponentWithOneRequiredParameterThatDoesNotExistValue_whenCompileAndRun_thenExpectedtOutput()
+      throws IOException {
+    // Define the source file to test
+    final String componentSource = """
+        @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
+        public interface ExampleComponent {
+            @rapier.processor.aws.ssm.AwsSsmStringParameter(value="foo.bar")
+            public Integer provisionFooBarAsInt();
+        }
+        """;
+
+    final String appSource =
+        """
+            import java.util.Map;
+            import java.net.URI;
+            import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+            import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+            import software.amazon.awssdk.regions.Region;
+            import software.amazon.awssdk.services.ssm.SsmClient;
+
+            public class App {
+                public static void main(String[] args) {
+                    final URI endpoint = URI.create("%ENDPOINT%");
+                    final String accessKey = "%ACCESS_KEY%";
+                    final String secretKey = "%SECRET_KEY%";
+                    final String regionName = "%REGION%";
+
+                    final SsmClient client = SsmClient.builder()
+                        .endpointOverride(endpoint)
+                        .credentialsProvider(StaticCredentialsProvider.create(
+                            AwsBasicCredentials.create(accessKey, secretKey)))
+                        .region(Region.of(regionName)).build();
+
+                    try {
+                        ExampleComponent component = DaggerExampleComponent.builder()
+                            .rapierExampleComponentAwsSsmModule(new RapierExampleComponentAwsSsmModule(client))
+                            .build();
+                        System.out.println(component.provisionFooBarAsInt());
+                    } catch (Exception e) {
+                        System.out.println(e.getClass().getName());
+                    }
+                }
+            }
+            """
+            .replace("%ENDPOINT%",
+                localstack.getEndpointOverride(LocalStackContainer.Service.SSM).toString())
+            .replace("%ACCESS_KEY%", localstack.getAccessKey())
+            .replace("%SECRET_KEY%", localstack.getSecretKey())
+            .replace("%REGION%", localstack.getRegion());
+
+    final String output = compileAndRunSourceCode(List.of(componentSource, appSource),
+        List.of(AwsSsmProcessor.class.getName(), DAGGER_COMPONENT_ANNOTATION_PROCESSOR)).trim();
+
+    assertEquals("java.lang.IllegalStateException", output);
+  }
+
+  @Test
+  public void givenComponentWithOneNullableParameterThatExistsValue_whenCompileAndRun_thenExpectedtOutput()
+      throws IOException {
+    client.putParameter(request -> request.name("foo.bar").type("String").value("42"));
+    try {
+      // Define the source file to test
+      final String componentSource = """
+          @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
+          public interface ExampleComponent {
+              @javax.annotation.Nullable
+              @rapier.processor.aws.ssm.AwsSsmStringParameter(value="foo.bar")
+              public Integer provisionFooBarAsInt();
+          }
+          """;
+
+      final String appSource =
+          """
+              import java.util.Map;
+              import java.net.URI;
+              import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+              import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+              import software.amazon.awssdk.regions.Region;
+              import software.amazon.awssdk.services.ssm.SsmClient;
+
+              public class App {
+                  public static void main(String[] args) {
+                      final URI endpoint = URI.create("%ENDPOINT%");
+                      final String accessKey = "%ACCESS_KEY%";
+                      final String secretKey = "%SECRET_KEY%";
+                      final String regionName = "%REGION%";
+
+                      final SsmClient client = SsmClient.builder()
+                          .endpointOverride(endpoint)
+                          .credentialsProvider(StaticCredentialsProvider.create(
+                              AwsBasicCredentials.create(accessKey, secretKey)))
+                          .region(Region.of(regionName)).build();
+
+                      ExampleComponent component = DaggerExampleComponent.builder()
+                          .rapierExampleComponentAwsSsmModule(new RapierExampleComponentAwsSsmModule(client))
+                          .build();
+                      System.out.println(component.provisionFooBarAsInt());
+                  }
+              }
+              """
+              .replace("%ENDPOINT%",
+                  localstack.getEndpointOverride(LocalStackContainer.Service.SSM).toString())
+              .replace("%ACCESS_KEY%", localstack.getAccessKey())
+              .replace("%SECRET_KEY%", localstack.getSecretKey())
+              .replace("%REGION%", localstack.getRegion());
+
+      final String output = compileAndRunSourceCode(List.of(componentSource, appSource),
+          List.of(AwsSsmProcessor.class.getName(), DAGGER_COMPONENT_ANNOTATION_PROCESSOR)).trim();
+
+      assertEquals("42", output);
+    } finally {
+      client.deleteParameter(request -> request.name("foo.bar"));
+    }
+  }
+
+  @Test
+  public void givenComponentWithOneNullableParameterThatDoesNotExistValue_whenCompileAndRun_thenExpectedtOutput()
+      throws IOException {
+    // Define the source file to test
+    final String componentSource = """
+        @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
+        public interface ExampleComponent {
+            @javax.annotation.Nullable
+            @rapier.processor.aws.ssm.AwsSsmStringParameter(value="foo.bar")
+            public Integer provisionFooBarAsInt();
+        }
+        """;
+
+    final String appSource =
+        """
+            import java.util.Map;
+            import java.net.URI;
+            import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+            import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+            import software.amazon.awssdk.regions.Region;
+            import software.amazon.awssdk.services.ssm.SsmClient;
+
+            public class App {
+                public static void main(String[] args) {
+                    final URI endpoint = URI.create("%ENDPOINT%");
+                    final String accessKey = "%ACCESS_KEY%";
+                    final String secretKey = "%SECRET_KEY%";
+                    final String regionName = "%REGION%";
+
+                    final SsmClient client = SsmClient.builder()
+                        .endpointOverride(endpoint)
+                        .credentialsProvider(StaticCredentialsProvider.create(
+                            AwsBasicCredentials.create(accessKey, secretKey)))
+                        .region(Region.of(regionName)).build();
+
+                    ExampleComponent component = DaggerExampleComponent.builder()
+                        .rapierExampleComponentAwsSsmModule(new RapierExampleComponentAwsSsmModule(client))
+                        .build();
+                    System.out.println(component.provisionFooBarAsInt());
+                }
+            }
+            """
+            .replace("%ENDPOINT%",
+                localstack.getEndpointOverride(LocalStackContainer.Service.SSM).toString())
+            .replace("%ACCESS_KEY%", localstack.getAccessKey())
+            .replace("%SECRET_KEY%", localstack.getSecretKey())
+            .replace("%REGION%", localstack.getRegion());
+
+    final String output = compileAndRunSourceCode(List.of(componentSource, appSource),
+        List.of(AwsSsmProcessor.class.getName(), DAGGER_COMPONENT_ANNOTATION_PROCESSOR)).trim();
+
+    assertEquals("null", output);
+  }
 }
