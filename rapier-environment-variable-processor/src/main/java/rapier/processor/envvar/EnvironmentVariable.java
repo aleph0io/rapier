@@ -24,6 +24,27 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
+/**
+ * An annotation that indicates an injection site should be populated with the value of the given
+ * {@link System#getenv() environment variable}. The value of the environment variable is read at
+ * runtime and injected into the annotated element. If the environment variable is not set, the
+ * default value is used instead, if given. If no default value is given, then the value is
+ * {@code null}.
+ * 
+ * <p>
+ * The annotated element must be one of the following types:
+ * 
+ * <ul>
+ * <li>{@link String}</li>
+ * <li>Any primitive type</li>
+ * <li>Any boxed primitive type</li>
+ * <li>Any class or interface {@code T} with a method {@code public static T valueOf(String)}</li>
+ * <li>Any class or interface {@code T} with a method
+ * {@code public static T fromString(String)}</li>
+ * <li>Any class or interface {@code T} with a constructor {@code public T(String)}</li>
+ * </ul>
+ * 
+ */
 @javax.inject.Qualifier
 @jakarta.inject.Qualifier
 @Retention(RetentionPolicy.CLASS)
