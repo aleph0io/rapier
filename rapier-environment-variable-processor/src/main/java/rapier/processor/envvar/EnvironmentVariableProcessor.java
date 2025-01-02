@@ -217,7 +217,6 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
 
     final SortedMap<EnvironmentVariableKey, BindingMetadata> environmentVariablesAndMetadata =
         new TreeMap<>();
-
     for (Map.Entry<EnvironmentVariableKey, List<DaggerInjectionSite>> e : environmentVariables
         .entrySet()) {
       final EnvironmentVariableKey key = e.getKey();
@@ -271,7 +270,6 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
         writer.println("import " + EnvironmentVariable.class.getName() + ";");
         writer.println("import dagger.Module;");
         writer.println("import dagger.Provides;");
-        writer.println("import dagger.Reusable;");
         writer.println("import java.util.Map;");
         writer.println("import java.util.Optional;");
         writer.println("import javax.annotation.Nullable;");
@@ -327,13 +325,13 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
               writer.println("    @Provides");
               writer.println("    @EnvironmentVariable(\"" + name + "\")");
               writer.println("    public Optional<String> " + baseMethodName
-                  + "AsOptionalOfString(@Nullable @EnvironmentVariable(\"" + name + "\") String value) {");
+                  + "AsOptionalOfString(@Nullable @EnvironmentVariable(\"" + name
+                  + "\") String value) {");
               writer.println("        return Optional.ofNullable(value);");
               writer.println("    }");
               writer.println();
             } else {
               writer.println("    @Provides");
-              writer.println("    @Reusable");
               writer.println("    @EnvironmentVariable(\"" + name + "\")");
               writer.println("    public String " + baseMethodName + "AsString() {");
               writer.println("        String result=env.get(\"" + name + "\");");
@@ -345,10 +343,11 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
               writer.println();
             }
           } else {
-            final String expr = expr(type).orElse(null);
-            if (expr == null) {
+            final String conversionExpr =
+                generateConversionExpr(type, stringType, "value").orElse(null);
+            if (conversionExpr == null) {
               getMessager().printMessage(Diagnostic.Kind.ERROR,
-                  "Cannot convert " + type + " from a string");
+                  "Cannot convert " + type + " from " + stringType);
               continue;
             }
 
@@ -361,7 +360,7 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
               writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
                   + "(@EnvironmentVariable(value=\"" + name + "\", defaultValue=\""
                   + Java.escapeString(defaultValue) + "\") String value) {");
-              writer.println("        return " + expr + ";");
+              writer.println("        return " + conversionExpr + ";");
               writer.println("    }");
               writer.println();
             } else if (nullable) {
@@ -370,7 +369,7 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
               writer.println("    @EnvironmentVariable(\"" + name + "\")");
               writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
                   + "(@Nullable @EnvironmentVariable(\"" + name + "\") String value) {");
-              writer.println("        return value != null ? " + expr + " : null;");
+              writer.println("        return value != null ? " + conversionExpr + " : null;");
               writer.println("    }");
               writer.println();
               writer.println("    @Provides");
@@ -378,7 +377,7 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
               writer.println("    public Optional<" + type + "> " + baseMethodName + "AsOptionalOf"
                   + typeSimpleName + "(@EnvironmentVariable(\"" + name
                   + "\") Optional<String> o) {");
-              writer.println("        return o.map(value -> " + expr + ");");
+              writer.println("        return o.map(value -> " + conversionExpr + ");");
               writer.println("    }");
               writer.println();
             } else {
@@ -386,7 +385,7 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
               writer.println("    @EnvironmentVariable(\"" + name + "\")");
               writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
                   + "(@EnvironmentVariable(\"" + name + "\") String value) {");
-              writer.println("        " + type + " result= " + expr + ";");
+              writer.println("        " + type + " result= " + conversionExpr + ";");
               writer.println("        if (result == null)");
               writer.println("            throw new IllegalStateException(\"Environment variable "
                   + name + " " + " as " + type + " not set\");");
@@ -410,27 +409,38 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
    * a string value. The expression should be of the form {@code Type.valueOf(value)} or
    * {@code Type.fromString(value)}.
    * 
-   * @param type the type
-   * @return the expression
+   * @param targetType the target type to create
+   * @param sourceType the source type to convert from
+   * @param sourceValue the name of the variable containing the source value to convert from
+   * @return the Java expression, or {@link Optional#empty()} if no conversion is possible
+   * 
    */
-  private Optional<String> expr(TypeMirror type) {
+  private Optional<String> generateConversionExpr(TypeMirror targetType, TypeMirror sourceType,
+      String sourceValue) {
     // Get the TypeElement representing the declared type
-    final TypeElement typeElement = (TypeElement) getTypes().asElement(type);
-
-    final TypeMirror stringType = getElements().getTypeElement("java.lang.String").asType();
+    final TypeElement targetElement = (TypeElement) getTypes().asElement(targetType);
 
     // Iterate through the enclosed elements to find the "valueOf" method
     Optional<ExecutableElement> maybeValueOfMethod =
-        AnnotationProcessing.findValueOfMethod(getTypes(), typeElement, stringType);
+        AnnotationProcessing.findValueOfMethod(getTypes(), targetElement, sourceType);
     if (maybeValueOfMethod.isPresent()) {
-      return Optional.of(type.toString() + ".valueOf(value)");
+      return Optional.of(targetType.toString() + ".valueOf(" + sourceValue + ")");
     }
 
     // Iterate through the enclosed elements to find the "fromString" method
-    Optional<ExecutableElement> maybeFromStringMethod =
-        AnnotationProcessing.findFromStringMethod(getTypes(), typeElement);
-    if (maybeFromStringMethod.isPresent()) {
-      return Optional.of(type.toString() + ".fromString(value)");
+    if (sourceType.toString().equals("java.lang.String")) {
+      Optional<ExecutableElement> maybeFromStringMethod =
+          AnnotationProcessing.findFromStringMethod(getTypes(), targetElement);
+      if (maybeFromStringMethod.isPresent()) {
+        return Optional.of(targetType.toString() + ".fromString(" + sourceValue + ")");
+      }
+    }
+
+    // Iterate through the enclosed elements to find the single-argument constructor
+    Optional<ExecutableElement> maybeConstructor =
+        AnnotationProcessing.findSingleArgumentConstructor(getTypes(), targetElement, sourceType);
+    if (maybeConstructor.isPresent()) {
+      return Optional.of("new " + targetType.toString() + "(" + sourceValue + ")");
     }
 
     return Optional.empty();

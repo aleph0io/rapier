@@ -63,7 +63,6 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
             import rapier.processor.envvar.EnvironmentVariable;
             import dagger.Module;
             import dagger.Provides;
-            import dagger.Reusable;
             import java.util.Map;
             import java.util.Optional;
             import javax.annotation.Nullable;
@@ -92,7 +91,6 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
                 }
 
                 @Provides
-                @Reusable
                 @EnvironmentVariable("FOO_BAR")
                 public String provideEnvironmentVariableFooBarAsString() {
                     String result=env.get("FOO_BAR");
@@ -141,7 +139,6 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
             import rapier.processor.envvar.EnvironmentVariable;
             import dagger.Module;
             import dagger.Provides;
-            import dagger.Reusable;
             import java.util.Map;
             import java.util.Optional;
             import javax.annotation.Nullable;

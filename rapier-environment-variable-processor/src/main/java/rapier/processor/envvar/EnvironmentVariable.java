@@ -29,9 +29,16 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.CLASS)
 @Target({ElementType.PARAMETER, ElementType.FIELD, ElementType.METHOD})
 public @interface EnvironmentVariable {
-  public static final String DEFAULT_VALUE_NOT_SET = "ENVIRONMENT_VARIABLE_DEFAULT_VALUE_NOT_SET";
+  public static final String DEFAULT_VALUE_NOT_SET = "__UNDEFINED__";
 
+  /**
+   * The name of the environment variable to read.
+   */
   public String value();
 
+  /**
+   * The default value to use if the environment variable is not set. If not set, the default value
+   * is {@link #DEFAULT_VALUE_NOT_SET}.
+   */
   public String defaultValue() default DEFAULT_VALUE_NOT_SET;
 }
