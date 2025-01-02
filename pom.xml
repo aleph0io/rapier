@@ -9,7 +9,7 @@
 
     <groupId>com.sigpwned</groupId>
     <artifactId>rapier</artifactId>
-    <version>0.0.0-SNAPSHOT</version>
+    <version>0.0.0-b0-SNAPSHOT</version>
     <name>rapier</name>
     <inceptionYear>2024</inceptionYear>
     <description>Code generation companion for Dagger</description>
