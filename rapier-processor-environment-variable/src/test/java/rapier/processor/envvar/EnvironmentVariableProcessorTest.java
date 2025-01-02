@@ -28,7 +28,7 @@ import org.junit.jupiter.api.Test;
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.Compiler;
 import com.google.testing.compile.JavaFileObjects;
-import rapier.processor.core.DaggerTestBase;
+import rapier.core.DaggerTestBase;
 
 public class EnvironmentVariableProcessorTest extends DaggerTestBase {
   @Test

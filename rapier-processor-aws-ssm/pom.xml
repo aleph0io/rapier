@@ -14,7 +14,7 @@
     <dependencies>
         <dependency>
             <groupId>com.sigpwned</groupId>
-            <artifactId>rapier-processor-core</artifactId>
+            <artifactId>rapier-core</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
@@ -39,7 +39,7 @@
         </dependency>
         <dependency>
             <groupId>com.sigpwned</groupId>
-            <artifactId>rapier-processor-core</artifactId>
+            <artifactId>rapier-core</artifactId>
             <version>${project.version}</version>
             <type>test-jar</type>
             <scope>test</scope>

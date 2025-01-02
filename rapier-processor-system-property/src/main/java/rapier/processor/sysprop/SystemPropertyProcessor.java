@@ -50,13 +50,13 @@ import javax.lang.model.util.SimpleAnnotationValueVisitor8;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 import dagger.Component;
-import rapier.processor.core.DaggerComponentAnalyzer;
-import rapier.processor.core.RapierProcessorBase;
-import rapier.processor.core.model.DaggerComponentAnalysis;
-import rapier.processor.core.model.DaggerInjectionSite;
-import rapier.processor.core.util.AnnotationProcessing;
-import rapier.processor.core.util.CaseFormat;
-import rapier.processor.core.util.Java;
+import rapier.core.DaggerComponentAnalyzer;
+import rapier.core.RapierProcessorBase;
+import rapier.core.model.DaggerComponentAnalysis;
+import rapier.core.model.DaggerInjectionSite;
+import rapier.core.util.AnnotationProcessing;
+import rapier.core.util.CaseFormat;
+import rapier.core.util.Java;
 
 @SupportedAnnotationTypes("dagger.Component")
 @SupportedSourceVersion(SourceVersion.RELEASE_11)

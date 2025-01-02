@@ -193,7 +193,7 @@
     </dependencyManagement>
 
     <modules>
-        <module>rapier-processor-core</module>
+        <module>rapier-core</module>
         <module>rapier-processor-environment-variable</module>
         <module>rapier-processor-system-property</module>
         <module>rapier-processor-aws-ssm</module>
