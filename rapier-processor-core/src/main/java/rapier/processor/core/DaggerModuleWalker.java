@@ -57,13 +57,22 @@ public class DaggerModuleWalker {
     // TODO add a method for subcomponents
 
     /**
-     * Called for each valid {@link Provides @Provides}-annotated method in the module.
+     * Called for each valid {@link Provides @Provides}-annotated instance method in the module.
      * 
      * @param component the logical module being visited
      * @param method the method being visited
      * 
      */
-    public void visitModuleProvidesMethod(TypeElement module, ExecutableElement method);
+    public void visitModuleInstanceProvidesMethod(TypeElement module, ExecutableElement method);
+
+    /**
+     * Called for each valid {@link Provides @Provides}-annotated static method in the module.
+     * 
+     * @param component the logical module being visited
+     * @param method the method being visited
+     * 
+     */
+    public void visitModuleStaticProvidesMethod(TypeElement module, ExecutableElement method);
 
     /**
      * Called at the end of the walk.
@@ -150,14 +159,16 @@ public class DaggerModuleWalker {
           continue;
         if (methodElement.getModifiers().contains(Modifier.ABSTRACT))
           continue;
-        if (methodElement.getModifiers().contains(Modifier.STATIC))
-          continue;
-
+        
         if (methodElement.getAnnotationMirrors().stream()
             .anyMatch(a -> a.getAnnotationType().toString().equals("dagger.Provides"))
             && methodElement.getReturnType().getKind() != TypeKind.VOID) {
           // This is a valid @Provides-annotated method
-          visitor.visitModuleProvidesMethod(module, methodElement);
+          if (methodElement.getModifiers().contains(Modifier.STATIC)) {
+            visitor.visitModuleStaticProvidesMethod(module, methodElement);
+          } else {
+            visitor.visitModuleInstanceProvidesMethod(module, methodElement);
+          }
         }
       }
     }

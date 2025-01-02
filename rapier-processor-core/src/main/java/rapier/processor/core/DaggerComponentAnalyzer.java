@@ -113,7 +113,18 @@ public class DaggerComponentAnalyzer {
             }
 
             @Override
-            public void visitModuleProvidesMethod(TypeElement module,
+            public void visitModuleStaticProvidesMethod(TypeElement module,
+                ExecutableElement methodElement) {
+              visitModuleProvidesMethod(module, methodElement);
+            }
+
+            @Override
+            public void visitModuleInstanceProvidesMethod(TypeElement module,
+                ExecutableElement methodElement) {
+              visitModuleProvidesMethod(module, methodElement);
+            }
+
+            private void visitModuleProvidesMethod(TypeElement module,
                 ExecutableElement methodElement) {
               final DeclaredType moduleType = (DeclaredType) module.asType();
 

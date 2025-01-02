@@ -113,7 +113,15 @@ public class DaggerModuleWalkerTest {
               }
 
               @Override
-              public void visitModuleProvidesMethod(TypeElement module, ExecutableElement method) {
+              public void visitModuleInstanceProvidesMethod(TypeElement module,
+                  ExecutableElement method) {
+                assertEquals(expectedModule, module);
+                providesMethods.add(method);
+              }
+
+              @Override
+              public void visitModuleStaticProvidesMethod(TypeElement module,
+                  ExecutableElement method) {
                 assertEquals(expectedModule, module);
                 providesMethods.add(method);
               }
