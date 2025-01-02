@@ -209,17 +209,16 @@ public class AwsSsmProcessor extends RapierProcessorBase {
     final DaggerComponentAnalysis analysis =
         new DaggerComponentAnalyzer(getProcessingEnv()).analyzeComponent(component);
 
-    final Map<AwsSsmStringParameterKey, List<DaggerInjectionSite>> AwsSsmStringParameters = analysis
+    final Map<AwsSsmStringParameterKey, List<DaggerInjectionSite>> parameters = analysis
         .getDependencies().stream().filter(d -> d.getQualifier().isPresent())
         .filter(d -> getTypes().isSameType(d.getQualifier().get().getAnnotationType(),
             getElements().getTypeElement(AwsSsmStringParameter.class.getCanonicalName()).asType()))
         .collect(groupingBy(AwsSsmStringParameterKey::fromDependency, toList()));
 
 
-    final SortedMap<AwsSsmStringParameterKey, BindingMetadata> AwsSsmStringParametersAndMetadata =
+    final SortedMap<AwsSsmStringParameterKey, BindingMetadata> parametersAndMetadata =
         new TreeMap<>();
-    for (Map.Entry<AwsSsmStringParameterKey, List<DaggerInjectionSite>> e : AwsSsmStringParameters
-        .entrySet()) {
+    for (Map.Entry<AwsSsmStringParameterKey, List<DaggerInjectionSite>> e : parameters.entrySet()) {
       final AwsSsmStringParameterKey key = e.getKey();
       final List<DaggerInjectionSite> dependencies = e.getValue();
 
@@ -234,14 +233,14 @@ public class AwsSsmProcessor extends RapierProcessorBase {
 
       final boolean nullable = nullables.iterator().next();
 
-      AwsSsmStringParametersAndMetadata.put(key, new BindingMetadata(nullable));
+      parametersAndMetadata.put(key, new BindingMetadata(nullable));
     }
 
     final TypeMirror stringType = getElements().getTypeElement("java.lang.String").asType();
 
     // Make sure every environment variable has a string binding
-    for (AwsSsmStringParameterKey key : AwsSsmStringParameters.keySet()) {
-      final BindingMetadata metadata = AwsSsmStringParametersAndMetadata.get(key);
+    for (AwsSsmStringParameterKey key : parameters.keySet()) {
+      final BindingMetadata metadata = parametersAndMetadata.get(key);
       if (metadata == null)
         continue;
       if (getTypes().isSameType(key.getType(), stringType))
@@ -250,8 +249,8 @@ public class AwsSsmProcessor extends RapierProcessorBase {
       final AwsSsmStringParameterKey keyAsString = new AwsSsmStringParameterKey(stringType,
           key.getName(), key.getDefaultValue().orElse(null));
 
-      if (!AwsSsmStringParametersAndMetadata.containsKey(keyAsString)) {
-        AwsSsmStringParametersAndMetadata.put(keyAsString, metadata);
+      if (!parametersAndMetadata.containsKey(keyAsString)) {
+        parametersAndMetadata.put(keyAsString, metadata);
       }
     }
 
@@ -293,7 +292,7 @@ public class AwsSsmProcessor extends RapierProcessorBase {
         writer.println("        this.client = requireNonNull(client);");
         writer.println("    }");
         writer.println();
-        for (Map.Entry<AwsSsmStringParameterKey, BindingMetadata> e : AwsSsmStringParametersAndMetadata
+        for (Map.Entry<AwsSsmStringParameterKey, BindingMetadata> e : parametersAndMetadata
             .entrySet()) {
           final AwsSsmStringParameterKey key = e.getKey();
           final TypeMirror type = key.getType();
