@@ -7,8 +7,8 @@
         <version>0.0.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>rapier-environment-variable-processor</artifactId>
-    <name>rapier-environment-variable-processor</name>
+    <artifactId>rapier-processor-system-property</artifactId>
+    <name>rapier-processor-system-property</name>
     <packaging>jar</packaging>
 
     <dependencies>
@@ -16,7 +16,7 @@
             <groupId>com.sigpwned</groupId>
             <artifactId>rapier-processor-core</artifactId>
             <version>${project.version}</version>
-        </dependency>
+        </dependency>        
 
         <dependency>
             <groupId>com.google.dagger</groupId>

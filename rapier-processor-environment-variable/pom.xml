@@ -7,8 +7,8 @@
         <version>0.0.0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>rapier-aws-ssm-processor</artifactId>
-    <name>rapier-aws-ssm-processor</name>
+    <artifactId>rapier-processor-environment-variable</artifactId>
+    <name>rapier-processor-environment-variable</name>
     <packaging>jar</packaging>
 
     <dependencies>
@@ -17,24 +17,10 @@
             <artifactId>rapier-processor-core</artifactId>
             <version>${project.version}</version>
         </dependency>
-        <dependency>
-            <groupId>software.amazon.awssdk</groupId>
-            <artifactId>ssm</artifactId>
-        </dependency>
 
         <dependency>
             <groupId>com.google.dagger</groupId>
             <artifactId>dagger-compiler</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>localstack</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.slf4j</groupId>
-            <artifactId>slf4j-simple</artifactId>
             <scope>test</scope>
         </dependency>
         <dependency>
