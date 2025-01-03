@@ -19,11 +19,12 @@
  */
 package rapier.processor.envvar;
 
+import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
+import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toMap;
-import static java.util.stream.Collectors.toSet;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
@@ -34,6 +35,7 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.stream.Collectors;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
@@ -57,10 +59,11 @@ import rapier.core.model.DaggerComponentAnalysis;
 import rapier.core.model.DaggerInjectionSite;
 import rapier.core.util.CaseFormat;
 import rapier.core.util.Java;
+import rapier.core.util.MoreSets;
 import rapier.processor.envvar.model.ParameterKey;
 import rapier.processor.envvar.model.ParameterMetadata;
 import rapier.processor.envvar.model.RepresentationKey;
-import rapier.processor.envvar.model.RepresentationMetadata;
+import rapier.processor.envvar.util.EnvironmentVariables;
 
 @SupportedAnnotationTypes("dagger.Component")
 @SupportedSourceVersion(SourceVersion.RELEASE_11)
@@ -115,102 +118,142 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
     final String componentClassName = component.getSimpleName().toString();
     final String moduleClassName = "Rapier" + componentClassName + "EnvironmentVariableModule";
 
+    // This is the annotation that we are looking for.
+    final TypeMirror relevantQualifierType =
+        getElements().getTypeElement(EnvironmentVariable.class.getName()).asType();
+
+    // Analyze the component to find all relevant injection sites.
     final DaggerComponentAnalysis analysis =
         new DaggerComponentAnalyzer(getProcessingEnv()).analyzeComponent(component);
+    final List<DaggerInjectionSite> relevantInjectionSites = analysis.getDependencies().stream()
+        .filter(d -> d.getQualifier().isPresent()).filter(d -> getTypes()
+            .isSameType(d.getQualifier().orElseThrow().getAnnotationType(), relevantQualifierType))
+        .collect(toList());
 
     // Collect all injection sites by parameter. This should include all injection sites.
     final Map<ParameterKey, List<DaggerInjectionSite>> injectionSitesByParameter =
-        analysis
-            .getDependencies().stream().filter(
-                d -> d.getQualifier().isPresent())
-            .filter(
-                d -> getTypes()
-                    .isSameType(d.getQualifier().get().getAnnotationType(),
-                        getElements().getTypeElement(EnvironmentVariable.class.getCanonicalName())
-                            .asType()))
-            .collect(groupingBy(ParameterKey::fromInjectionSite, toList()));
+        relevantInjectionSites.stream()
+            .map(dis -> Map.entry(ParameterKey.fromInjectionSite(dis), dis))
+            .collect(groupingBy(Map.Entry::getKey, mapping(Map.Entry::getValue, toList())));
 
-    // Compute per-parameter metadata. Discard any parameters that have conflicting information
-    // across their various injection sites.
+    // Compute per-parameter metadata.
     final Map<ParameterKey, ParameterMetadata> parameterMetadata =
         injectionSitesByParameter.entrySet().stream().map(e -> {
           final ParameterKey key = e.getKey();
           final List<DaggerInjectionSite> injectionSites = e.getValue();
 
-          final Set<Boolean> nullables =
-              injectionSites.stream().map(DaggerInjectionSite::isNullable).collect(toSet());
-          if (nullables.size() > 1) {
-            getMessager().printMessage(Diagnostic.Kind.ERROR,
-                "Conflicting nullability for environment variable: " + key.getName());
+          final Map<Boolean, List<DaggerInjectionSite>> injectionSitesByNullable =
+              injectionSites.stream()
+                  .collect(Collectors.partitioningBy(DaggerInjectionSite::isNullable, toList()));
+          if (injectionSitesByNullable.size() > 1) {
+            // If there is more than one opinion about nullability across all injection sites, then
+            // we should generate a warning because the user is expressing differing opinions about
+            // whether or not this parameter is nullable.
+            getMessager().printMessage(Diagnostic.Kind.WARNING,
+                "Conflicting nullability for environment variable " + key.getName()
+                    + ", will be treated as non-nullable");
             // TODO Print the conflicting dependencies, with element and annotation references
-            return null;
           }
 
-          final boolean nullable = nullables.iterator().next();
+          // The parameter is only actually nullable if all of its injection sites are nullable.
+          // If any injection site is not nullable, then the parameter writ large cannot be null,
+          // so the parameter is not nullable.
+          final boolean nullable =
+              injectionSitesByNullable.keySet().stream().noneMatch(b -> b == false);
 
-          return Map.entry(key, new ParameterMetadata(nullable));
+          final Map<Boolean, List<DaggerInjectionSite>> injectionSitesByRequired = injectionSites
+              .stream()
+              .collect(Collectors.partitioningBy(
+                  dis -> EnvironmentVariables.isRequired(dis.isNullable(), EnvironmentVariables
+                      .extractEnvironmentVariableDefaultValue(dis.getQualifier().orElseThrow())),
+                  toList()));
+          if (injectionSitesByRequired.size() > 1) {
+            // If there is more than one opinion about requiredness across all injection sites, then
+            // we should generate a warning because the user is expressing differing opinions about
+            // whether or not this parameter is required.
+            //
+            // Remember, a parameter is required if it is not nullable and does not have a default
+            // value. If a parameter is required at any injection site, then it is de-facto required
+            // at all injection sites for the application to function correctly.
+            getMessager().printMessage(Diagnostic.Kind.WARNING,
+                "Conflicting requiredness for environment variable " + key.getName()
+                    + ", will be treated as required");
+            // TODO Print the conflicting dependencies, with element and annotation references
+          }
+
+          // The parameter is required if any injection site is required.
+          final boolean required =
+              injectionSitesByRequired.keySet().stream().anyMatch(b -> b == true);
+
+          return Map.entry(key, new ParameterMetadata(required, nullable));
         }).filter(Objects::nonNull).collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-    // Collect all injection sites by representation (i.e., Type + Qualifier). Discard any injection
-    // sites that reference problematic parameters, per the above. Discard any injection sites that
-    // are internally inconsistent (e.g., nullable and with a default value).
-    final Map<RepresentationKey, List<DaggerInjectionSite>> injectionSitesByRepresentation =
-        analysis.getDependencies().stream().filter(d -> d.getQualifier().isPresent())
-            .filter(d -> getTypes().isSameType(d.getQualifier().get().getAnnotationType(),
-                getElements().getTypeElement(EnvironmentVariable.class.getCanonicalName())
-                    .asType()))
-            .filter(d -> parameterMetadata.containsKey(ParameterKey.fromInjectionSite(d)))
-            .map(dis -> Map.entry(RepresentationKey.fromInjectionSite(dis), dis)).filter(e -> {
-              final boolean nullable = e.getValue().isNullable();
-              final String defaultValue = e.getKey().getDefaultValue().orElse(null);
-              if (nullable && defaultValue != null) {
-                final Element element = e.getValue().getElement();
-                getMessager().printMessage(Diagnostic.Kind.ERROR,
-                    "Environment variable cannot be nullable and have a default value", element);
-                return false;
-              }
-              return true;
-            }).collect(groupingBy(Map.Entry::getKey, mapping(Map.Entry::getValue, toList())));
-
-    // Compute per-representation metadata. Discard any representations that were filtered out
-    // above. This should include all well-formed representations.
-    final SortedMap<RepresentationKey, RepresentationMetadata> representationMetadata =
-        injectionSitesByRepresentation.entrySet().stream().map(e -> {
-          final RepresentationKey key = e.getKey();
-          final List<DaggerInjectionSite> dependencies = e.getValue();
-
-          final Set<Boolean> nullables =
-              dependencies.stream().map(DaggerInjectionSite::isNullable).collect(toSet());
-          if (nullables.size() > 1) {
-            // This should never happen, since we checked at the parameter level
-            getMessager().printMessage(Diagnostic.Kind.ERROR,
-                "Conflicting nullability for representation: " + key);
-            // TODO Print the conflicting dependencies, with element and annotation references
-            return null;
-          }
-
-          final boolean nullable = nullables.iterator().next();
-
-          return Map.entry(key, new RepresentationMetadata(nullable));
-        }).filter(Objects::nonNull)
-            .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> {
-              throw new AssertionError("Duplicate representation key: " + a);
-            }, () -> new TreeMap<>(INJECTION_SITE_KEY_COMPARATOR)));
-
-    final TypeMirror stringType = getElements().getTypeElement("java.lang.String").asType();
+    // Collect all injection sites by representation.
+    final SortedMap<RepresentationKey, List<DaggerInjectionSite>> injectionSitesByRepresentation =
+        relevantInjectionSites.stream()
+            .map(dis -> Map.entry(RepresentationKey.fromInjectionSite(dis), dis)).collect(
+                groupingBy(Map.Entry::getKey, () -> new TreeMap<>(INJECTION_SITE_KEY_COMPARATOR),
+                    mapping(Map.Entry::getValue, toCollection(ArrayList::new))));
 
     // Make sure every representation has an equivalent representation with a string type. This is
     // a requirement because of the way we generate the module code.
-    for (RepresentationKey key : injectionSitesByRepresentation.keySet()) {
-      final RepresentationMetadata metadata = representationMetadata.get(key);
-      if (getTypes().isSameType(key.getType(), stringType))
+    for (Map.Entry<RepresentationKey, List<DaggerInjectionSite>> e : injectionSitesByRepresentation
+        .entrySet()) {
+      final RepresentationKey representation = e.getKey();
+      final List<DaggerInjectionSite> injectionSites = e.getValue();
+      final ParameterKey parameter = ParameterKey.fromRepresentationKey(representation);
+      final ParameterMetadata metadata = parameterMetadata.get(parameter);
+      final boolean parameterIsNullable = metadata.isNullable();
+      final boolean parameterIsRequired = metadata.isRequired();
+
+      for (DaggerInjectionSite injectionSite : injectionSites) {
+        final boolean injectionSiteIsNullable = injectionSite.isNullable();
+        final boolean injectionSiteIsRequired = EnvironmentVariables
+            .isRequired(injectionSiteIsNullable, representation.getDefaultValue().orElse(null));
+
+        // Are we nullability-compatible?
+        if (injectionSiteIsNullable && !parameterIsNullable) {
+          getMessager().printMessage(
+              Diagnostic.Kind.WARNING, "Effectively non-nullable environment variable "
+                  + representation.getName() + " is treated as nullable",
+              injectionSite.getElement());
+        }
+        if (!injectionSiteIsNullable && parameterIsNullable) {
+          // This should never happen, per the above logic.
+          // TODO How should we best handle this?
+          throw new AssertionError("Found non-nullable injection site for nullable parameter");
+        }
+
+        // Are we requiredness-compatible?
+        if (!injectionSiteIsRequired && parameterIsRequired) {
+          getMessager().printMessage(
+              Diagnostic.Kind.WARNING, "Effectively required environment variable "
+                  + representation.getName() + " is treated as non-required",
+              injectionSite.getElement());
+        }
+        if (injectionSiteIsRequired && !parameterIsRequired) {
+          // This should never happen, per the above logic.
+          // TODO How should we best handle this?
+          throw new AssertionError("Found required injection site for non-required parameter");
+        }
+      }
+    }
+
+    // Make sure every representation has an equivalent representation with a string type. This is
+    // a requirement because of the way we generate the module code.
+    final TypeMirror stringType = getElements().getTypeElement("java.lang.String").asType();
+    for (Map.Entry<RepresentationKey, List<DaggerInjectionSite>> e : MoreSets
+        .copyOf(injectionSitesByRepresentation.entrySet())) {
+      final RepresentationKey representation = e.getKey();
+
+      if (getTypes().isSameType(representation.getType(), stringType))
         continue;
 
-      final RepresentationKey keyAsString =
-          new RepresentationKey(stringType, key.getName(), key.getDefaultValue().orElse(null));
+      final RepresentationKey representationAsString = new RepresentationKey(stringType,
+          representation.getName(), representation.getDefaultValue().orElse(null));
 
-      if (!representationMetadata.containsKey(keyAsString)) {
-        representationMetadata.put(keyAsString, metadata);
+      if (!injectionSitesByRepresentation.containsKey(representationAsString)) {
+        injectionSitesByRepresentation.put(representationAsString, emptyList());
       }
     }
 
@@ -248,13 +291,12 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
         writer.println("        this.env = unmodifiableMap(env);");
         writer.println("    }");
         writer.println();
-        for (Map.Entry<RepresentationKey, RepresentationMetadata> e : representationMetadata
-            .entrySet()) {
-          final RepresentationKey key = e.getKey();
+        for (RepresentationKey key : injectionSitesByRepresentation.keySet()) {
           final TypeMirror type = key.getType();
           final String name = key.getName();
           final String defaultValue = key.getDefaultValue().orElse(null);
-          final RepresentationMetadata metadata = e.getValue();
+          final ParameterMetadata metadata =
+              parameterMetadata.get(ParameterKey.fromRepresentationKey(key));
           final boolean nullable = metadata.isNullable();
 
           final StringBuilder baseMethodName =

@@ -27,6 +27,24 @@ import rapier.processor.envvar.EnvironmentVariable;
 public final class EnvironmentVariables {
   private EnvironmentVariables() {}
 
+  /**
+   * An injection site is logically required if it is not nullable and has no default value. if it
+   * were nullable, then it would not be required because the application is prepared to handle a
+   * {@code null} value for the parameter. If the parameter has a default value, then it is not
+   * required because the application will never observe {@code null} for the parameter because its
+   * default value will given instead.
+   * 
+   * @param nullable {@code true} if the parameter is nullable, {@code false} otherwise. Nullability
+   *        is a Dagger-level concept.
+   * @param defaultValue the default value for the parameter, or {@code null} if there is no default
+   *        value. Default values are a Rapier-level concept.
+   * @return {@code true} if the parameter is logically required at the injection site,
+   *         {@code false} otherwise
+   */
+  public static boolean isRequired(boolean nullable, String defaultValue) {
+    return !nullable && defaultValue == null;
+  }
+
   public static String extractEnvironmentVariableName(AnnotationMirror annotation) {
     assert annotation.getAnnotationType().toString()
         .equals(EnvironmentVariable.class.getCanonicalName());

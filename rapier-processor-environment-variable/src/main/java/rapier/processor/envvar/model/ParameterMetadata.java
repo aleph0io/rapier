@@ -22,15 +22,25 @@ package rapier.processor.envvar.model;
 import java.util.Objects;
 
 public class ParameterMetadata {
+  private final boolean required;
   private final boolean nullable;
 
-  public ParameterMetadata(boolean nullable) {
+  public ParameterMetadata(boolean required, boolean nullable) {
+    this.required = required;
     this.nullable = nullable;
+  }
+
+  public boolean isRequired() {
+    return required;
+  }
+
+  public boolean isNullable() {
+    return nullable;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(nullable);
+    return Objects.hash(nullable, required);
   }
 
   @Override
@@ -42,11 +52,11 @@ public class ParameterMetadata {
     if (getClass() != obj.getClass())
       return false;
     ParameterMetadata other = (ParameterMetadata) obj;
-    return nullable == other.nullable;
+    return nullable == other.nullable && required == other.required;
   }
 
   @Override
   public String toString() {
-    return "ParameterMetadata [nullable=" + nullable + "]";
+    return "ParameterMetadata [required=" + required + ", nullable=" + nullable + "]";
   }
 }
