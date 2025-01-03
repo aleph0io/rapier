@@ -21,8 +21,10 @@ package rapier.processor.envvar;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 import javax.tools.JavaFileObject;
 import org.junit.jupiter.api.Test;
 import com.google.testing.compile.Compilation;
@@ -242,5 +244,62 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
             .trim();
 
     assertEquals("43", output);
+  }
+
+  @Test
+  public void givenComponentWithNullableEnvironmentVariableWithDefaultValue_whenCompile_thenCompileError()
+      throws IOException {
+    // Define the source file to test
+    final JavaFileObject source =
+        JavaFileObjects.forSourceString("com.example.ExampleComponent", """
+            package com.example;
+
+            @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
+            public interface ExampleComponent {
+                @javax.annotation.Nullable
+                @rapier.processor.envvar.EnvironmentVariable(value="FOO_BAR", defaultValue="43")
+                public Integer provisionFooBarAsInt();
+            }
+            """);
+
+    // Run the annotation processor
+    final Compilation compilation =
+        Compiler.javac().withProcessors(new EnvironmentVariableProcessor()).compile(source);
+
+    // Assert the compilation succeeded
+    assertThat(compilation).failed();
+
+    assertTrue(compilation.errors().stream().anyMatch(e -> e.getMessage(Locale.getDefault())
+        .equals("Environment variable cannot be nullable and have a default value")));
+  }
+
+  @Test
+  public void givenComponentWithInconsistentEnvironmentVariableNullability_whenCompile_thenCompileError()
+      throws IOException {
+    // Define the source file to test
+    final JavaFileObject source =
+        JavaFileObjects.forSourceString("com.example.ExampleComponent", """
+            package com.example;
+
+            @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
+            public interface ExampleComponent {
+                @javax.annotation.Nullable
+                @rapier.processor.envvar.EnvironmentVariable(value="FOO_BAR")
+                public Integer provisionFooBarAsInt();
+
+                @rapier.processor.envvar.EnvironmentVariable(value="FOO_BAR")
+                public String provisionFooBarAsString();
+            }
+            """);
+
+    // Run the annotation processor
+    final Compilation compilation =
+        Compiler.javac().withProcessors(new EnvironmentVariableProcessor()).compile(source);
+
+    // Assert the compilation succeeded
+    assertThat(compilation).failed();
+
+    assertTrue(compilation.errors().stream().anyMatch(e -> e.getMessage(Locale.getDefault())
+        .equals("Conflicting nullability for environment variable: FOO_BAR")));
   }
 }

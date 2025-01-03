@@ -19,9 +19,10 @@
  */
 package rapier.processor.envvar;
 
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.groupingBy;
+import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toList;
+import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -30,7 +31,6 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -39,30 +39,41 @@ import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
 import javax.annotation.processing.SupportedSourceVersion;
 import javax.lang.model.SourceVersion;
-import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
-import javax.lang.model.util.SimpleAnnotationValueVisitor8;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 import dagger.Component;
+import rapier.core.ConversionExprFactory;
 import rapier.core.DaggerComponentAnalyzer;
 import rapier.core.RapierProcessorBase;
+import rapier.core.conversion.expr.ConversionExprFactoryChain;
+import rapier.core.conversion.expr.FromStringConversionExprFactory;
+import rapier.core.conversion.expr.SingleArgumentConstructorConversionExprFactory;
+import rapier.core.conversion.expr.ValueOfConversionExprFactory;
 import rapier.core.model.DaggerComponentAnalysis;
 import rapier.core.model.DaggerInjectionSite;
-import rapier.core.util.AnnotationProcessing;
 import rapier.core.util.CaseFormat;
 import rapier.core.util.Java;
+import rapier.processor.envvar.model.ParameterKey;
+import rapier.processor.envvar.model.ParameterMetadata;
+import rapier.processor.envvar.model.RepresentationKey;
+import rapier.processor.envvar.model.RepresentationMetadata;
 
 @SupportedAnnotationTypes("dagger.Component")
 @SupportedSourceVersion(SourceVersion.RELEASE_11)
 public class EnvironmentVariableProcessor extends RapierProcessorBase {
+  private ConversionExprFactory converter;
+
   @Override
   public synchronized void init(ProcessingEnvironment processingEnv) {
     super.init(processingEnv);
+
+    converter = new ConversionExprFactoryChain(new ValueOfConversionExprFactory(getTypes()),
+        new FromStringConversionExprFactory(getTypes()),
+        new SingleArgumentConstructorConversionExprFactory(getTypes()));
   }
 
   @Override
@@ -87,114 +98,13 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
     return false;
   }
 
-  private static class EnvironmentVariableKey implements Comparable<EnvironmentVariableKey> {
-    public static EnvironmentVariableKey fromDependency(DaggerInjectionSite dependency) {
-      final AnnotationMirror qualifier = dependency.getQualifier().orElseThrow(() -> {
-        return new IllegalArgumentException("Dependency must have qualifier");
-      });
+  private static final Comparator<RepresentationKey> INJECTION_SITE_KEY_COMPARATOR =
+      Comparator.comparing(RepresentationKey::getName)
+          .thenComparing(Comparator.comparing(x -> x.getDefaultValue().orElse(null),
+              Comparator.nullsFirst(Comparator.naturalOrder())))
+          .thenComparing(x -> x.getType().toString());
 
-      if (!qualifier.getAnnotationType().toString()
-          .equals(EnvironmentVariable.class.getCanonicalName())) {
-        throw new IllegalArgumentException("Dependency qualifier must be @EnvironmentVariable");
-      }
 
-      final TypeMirror type = dependency.getProvidedType();
-      final String name = extractEnvironmentVariableName(qualifier);
-      final String defaultValue = extractEnvironmentVariableDefaultValue(qualifier);
-
-      return new EnvironmentVariableKey(type, name, defaultValue);
-    }
-
-    private final TypeMirror type;
-    private final String name;
-    private final String defaultValue;
-
-    public EnvironmentVariableKey(TypeMirror type, String name, String defaultValue) {
-      this.type = requireNonNull(type);
-      this.name = requireNonNull(name);
-      this.defaultValue = defaultValue;
-    }
-
-    public TypeMirror getType() {
-      return type;
-    }
-
-    public String getName() {
-      return name;
-    }
-
-    public Optional<String> getDefaultValue() {
-      return Optional.ofNullable(defaultValue);
-    }
-
-    private final Comparator<EnvironmentVariableKey> COMPARATOR =
-        Comparator.comparing(EnvironmentVariableKey::getName)
-            .thenComparing(Comparator.comparing(x -> x.getDefaultValue().orElse(null),
-                Comparator.nullsFirst(Comparator.naturalOrder())))
-            .thenComparing(x -> x.getType().toString());
-
-    public int compareTo(EnvironmentVariableKey that) {
-      return COMPARATOR.compare(this, that);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(defaultValue, name, type);
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (this == obj)
-        return true;
-      if (obj == null)
-        return false;
-      if (getClass() != obj.getClass())
-        return false;
-      EnvironmentVariableKey other = (EnvironmentVariableKey) obj;
-      return Objects.equals(defaultValue, other.defaultValue) && Objects.equals(name, other.name)
-          && Objects.equals(type, other.type);
-    }
-
-    @Override
-    public String toString() {
-      return "EnvironmentVariableKey [type=" + type + ", name=" + name + ", defaultValue="
-          + defaultValue + "]";
-    }
-  }
-
-  private static class BindingMetadata {
-    private final boolean nullable;
-
-    public BindingMetadata(boolean nullable) {
-      this.nullable = nullable;
-    }
-
-    public boolean isNullable() {
-      return nullable;
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(nullable);
-    }
-
-    @Override
-    public boolean equals(Object obj) {
-      if (this == obj)
-        return true;
-      if (obj == null)
-        return false;
-      if (getClass() != obj.getClass())
-        return false;
-      BindingMetadata other = (BindingMetadata) obj;
-      return nullable == other.nullable;
-    }
-
-    @Override
-    public String toString() {
-      return "BindingMetadata [nullable=" + nullable + "]";
-    }
-  }
 
   private void processComponent(TypeElement component) {
     getMessager().printMessage(Diagnostic.Kind.NOTE,
@@ -208,49 +118,99 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
     final DaggerComponentAnalysis analysis =
         new DaggerComponentAnalyzer(getProcessingEnv()).analyzeComponent(component);
 
-    final Map<EnvironmentVariableKey, List<DaggerInjectionSite>> environmentVariables = analysis
-        .getDependencies().stream().filter(d -> d.getQualifier().isPresent())
-        .filter(d -> getTypes().isSameType(d.getQualifier().get().getAnnotationType(),
-            getElements().getTypeElement(EnvironmentVariable.class.getCanonicalName()).asType()))
-        .collect(groupingBy(EnvironmentVariableKey::fromDependency, toList()));
+    // Collect all injection sites by parameter. This should include all injection sites.
+    final Map<ParameterKey, List<DaggerInjectionSite>> injectionSitesByParameter =
+        analysis
+            .getDependencies().stream().filter(
+                d -> d.getQualifier().isPresent())
+            .filter(
+                d -> getTypes()
+                    .isSameType(d.getQualifier().get().getAnnotationType(),
+                        getElements().getTypeElement(EnvironmentVariable.class.getCanonicalName())
+                            .asType()))
+            .collect(groupingBy(ParameterKey::fromInjectionSite, toList()));
 
+    // Compute per-parameter metadata. Discard any parameters that have conflicting information
+    // across their various injection sites.
+    final Map<ParameterKey, ParameterMetadata> parameterMetadata =
+        injectionSitesByParameter.entrySet().stream().map(e -> {
+          final ParameterKey key = e.getKey();
+          final List<DaggerInjectionSite> injectionSites = e.getValue();
 
-    final SortedMap<EnvironmentVariableKey, BindingMetadata> environmentVariablesAndMetadata =
-        new TreeMap<>();
-    for (Map.Entry<EnvironmentVariableKey, List<DaggerInjectionSite>> e : environmentVariables
-        .entrySet()) {
-      final EnvironmentVariableKey key = e.getKey();
-      final List<DaggerInjectionSite> dependencies = e.getValue();
+          final Set<Boolean> nullables =
+              injectionSites.stream().map(DaggerInjectionSite::isNullable).collect(toSet());
+          if (nullables.size() > 1) {
+            getMessager().printMessage(Diagnostic.Kind.ERROR,
+                "Conflicting nullability for environment variable: " + key.getName());
+            // TODO Print the conflicting dependencies, with element and annotation references
+            return null;
+          }
 
-      final Set<Boolean> nullables =
-          dependencies.stream().map(DaggerInjectionSite::isNullable).collect(toSet());
-      if (nullables.size() > 1) {
-        getMessager().printMessage(Diagnostic.Kind.ERROR,
-            "Conflicting nullability for environment variable: " + key);
-        // TODO Print the conflicting dependencies, with element and annotation references
-        continue;
-      }
+          final boolean nullable = nullables.iterator().next();
 
-      final boolean nullable = nullables.iterator().next();
+          return Map.entry(key, new ParameterMetadata(nullable));
+        }).filter(Objects::nonNull).collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
 
-      environmentVariablesAndMetadata.put(key, new BindingMetadata(nullable));
-    }
+    // Collect all injection sites by representation (i.e., Type + Qualifier). Discard any injection
+    // sites that reference problematic parameters, per the above. Discard any injection sites that
+    // are internally inconsistent (e.g., nullable and with a default value).
+    final Map<RepresentationKey, List<DaggerInjectionSite>> injectionSitesByRepresentation =
+        analysis.getDependencies().stream().filter(d -> d.getQualifier().isPresent())
+            .filter(d -> getTypes().isSameType(d.getQualifier().get().getAnnotationType(),
+                getElements().getTypeElement(EnvironmentVariable.class.getCanonicalName())
+                    .asType()))
+            .filter(d -> parameterMetadata.containsKey(ParameterKey.fromInjectionSite(d)))
+            .map(dis -> Map.entry(RepresentationKey.fromInjectionSite(dis), dis)).filter(e -> {
+              final boolean nullable = e.getValue().isNullable();
+              final String defaultValue = e.getKey().getDefaultValue().orElse(null);
+              if (nullable && defaultValue != null) {
+                final Element element = e.getValue().getElement();
+                getMessager().printMessage(Diagnostic.Kind.ERROR,
+                    "Environment variable cannot be nullable and have a default value", element);
+                return false;
+              }
+              return true;
+            }).collect(groupingBy(Map.Entry::getKey, mapping(Map.Entry::getValue, toList())));
+
+    // Compute per-representation metadata. Discard any representations that were filtered out
+    // above. This should include all well-formed representations.
+    final SortedMap<RepresentationKey, RepresentationMetadata> representationMetadata =
+        injectionSitesByRepresentation.entrySet().stream().map(e -> {
+          final RepresentationKey key = e.getKey();
+          final List<DaggerInjectionSite> dependencies = e.getValue();
+
+          final Set<Boolean> nullables =
+              dependencies.stream().map(DaggerInjectionSite::isNullable).collect(toSet());
+          if (nullables.size() > 1) {
+            // This should never happen, since we checked at the parameter level
+            getMessager().printMessage(Diagnostic.Kind.ERROR,
+                "Conflicting nullability for representation: " + key);
+            // TODO Print the conflicting dependencies, with element and annotation references
+            return null;
+          }
+
+          final boolean nullable = nullables.iterator().next();
+
+          return Map.entry(key, new RepresentationMetadata(nullable));
+        }).filter(Objects::nonNull)
+            .collect(toMap(Map.Entry::getKey, Map.Entry::getValue, (a, b) -> {
+              throw new AssertionError("Duplicate representation key: " + a);
+            }, () -> new TreeMap<>(INJECTION_SITE_KEY_COMPARATOR)));
 
     final TypeMirror stringType = getElements().getTypeElement("java.lang.String").asType();
 
-    // Make sure every environment variable has a string binding
-    for (EnvironmentVariableKey key : environmentVariables.keySet()) {
-      final BindingMetadata metadata = environmentVariablesAndMetadata.get(key);
-      if (metadata == null)
-        continue;
+    // Make sure every representation has an equivalent representation with a string type. This is
+    // a requirement because of the way we generate the module code.
+    for (RepresentationKey key : injectionSitesByRepresentation.keySet()) {
+      final RepresentationMetadata metadata = representationMetadata.get(key);
       if (getTypes().isSameType(key.getType(), stringType))
         continue;
 
-      final EnvironmentVariableKey keyAsString =
-          new EnvironmentVariableKey(stringType, key.getName(), key.getDefaultValue().orElse(null));
+      final RepresentationKey keyAsString =
+          new RepresentationKey(stringType, key.getName(), key.getDefaultValue().orElse(null));
 
-      if (!environmentVariablesAndMetadata.containsKey(keyAsString)) {
-        environmentVariablesAndMetadata.put(keyAsString, metadata);
+      if (!representationMetadata.containsKey(keyAsString)) {
+        representationMetadata.put(keyAsString, metadata);
       }
     }
 
@@ -288,13 +248,13 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
         writer.println("        this.env = unmodifiableMap(env);");
         writer.println("    }");
         writer.println();
-        for (Map.Entry<EnvironmentVariableKey, BindingMetadata> e : environmentVariablesAndMetadata
+        for (Map.Entry<RepresentationKey, RepresentationMetadata> e : representationMetadata
             .entrySet()) {
-          final EnvironmentVariableKey key = e.getKey();
+          final RepresentationKey key = e.getKey();
           final TypeMirror type = key.getType();
           final String name = key.getName();
           final String defaultValue = key.getDefaultValue().orElse(null);
-          final BindingMetadata metadata = e.getValue();
+          final RepresentationMetadata metadata = e.getValue();
           final boolean nullable = metadata.isNullable();
 
           final StringBuilder baseMethodName =
@@ -344,7 +304,7 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
             }
           } else {
             final String conversionExpr =
-                generateConversionExpr(type, stringType, "value").orElse(null);
+                getConverter().generateConversionExpr(type, stringType, "value").orElse(null);
             if (conversionExpr == null) {
               getMessager().printMessage(Diagnostic.Kind.ERROR,
                   "Cannot convert " + type + " from " + stringType);
@@ -404,77 +364,7 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
     }
   }
 
-  /**
-   * Returns a string representing a Java expression that creates an instance of the given type from
-   * a string value. The expression should be of the form {@code Type.valueOf(value)} or
-   * {@code Type.fromString(value)}.
-   * 
-   * @param targetType the target type to create
-   * @param sourceType the source type to convert from
-   * @param sourceValue the name of the variable containing the source value to convert from
-   * @return the Java expression, or {@link Optional#empty()} if no conversion is possible
-   * 
-   */
-  private Optional<String> generateConversionExpr(TypeMirror targetType, TypeMirror sourceType,
-      String sourceValue) {
-    // Get the TypeElement representing the declared type
-    final TypeElement targetElement = (TypeElement) getTypes().asElement(targetType);
-
-    // Iterate through the enclosed elements to find the "valueOf" method
-    Optional<ExecutableElement> maybeValueOfMethod =
-        AnnotationProcessing.findValueOfMethod(getTypes(), targetElement, sourceType);
-    if (maybeValueOfMethod.isPresent()) {
-      return Optional.of(targetType.toString() + ".valueOf(" + sourceValue + ")");
-    }
-
-    // Iterate through the enclosed elements to find the "fromString" method
-    if (sourceType.toString().equals("java.lang.String")) {
-      Optional<ExecutableElement> maybeFromStringMethod =
-          AnnotationProcessing.findFromStringMethod(getTypes(), targetElement);
-      if (maybeFromStringMethod.isPresent()) {
-        return Optional.of(targetType.toString() + ".fromString(" + sourceValue + ")");
-      }
-    }
-
-    // Iterate through the enclosed elements to find the single-argument constructor
-    Optional<ExecutableElement> maybeConstructor =
-        AnnotationProcessing.findSingleArgumentConstructor(getTypes(), targetElement, sourceType);
-    if (maybeConstructor.isPresent()) {
-      return Optional.of("new " + targetType.toString() + "(" + sourceValue + ")");
-    }
-
-    return Optional.empty();
-  }
-
-  private static String extractEnvironmentVariableName(AnnotationMirror annotation) {
-    assert annotation.getAnnotationType().toString()
-        .equals(EnvironmentVariable.class.getCanonicalName());
-    return annotation.getElementValues().entrySet().stream()
-        .filter(e -> e.getKey().getSimpleName().contentEquals("value")).findFirst()
-        .map(Map.Entry::getValue)
-        .map(v -> v.accept(new SimpleAnnotationValueVisitor8<String, Void>() {
-          @Override
-          public String visitString(String s, Void p) {
-            return s;
-          }
-        }, null)).orElseThrow(() -> {
-          return new AssertionError("No string value for @EnvironmentVariable");
-        });
-  }
-
-  private static String extractEnvironmentVariableDefaultValue(AnnotationMirror annotation) {
-    assert annotation.getAnnotationType().toString()
-        .equals(EnvironmentVariable.class.getCanonicalName());
-    return annotation.getElementValues().entrySet().stream()
-        .filter(e -> e.getKey().getSimpleName().contentEquals("defaultValue")).findFirst()
-        .map(Map.Entry::getValue)
-        .map(v -> v.accept(new SimpleAnnotationValueVisitor8<String, Void>() {
-          @Override
-          public String visitString(String s, Void p) {
-            if (s.equals(EnvironmentVariable.DEFAULT_VALUE_NOT_SET))
-              return null;
-            return s;
-          }
-        }, null)).orElse(null);
+  private ConversionExprFactory getConverter() {
+    return converter;
   }
 }

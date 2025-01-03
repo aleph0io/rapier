@@ -218,5 +218,6 @@
         <module>rapier-processor-environment-variable</module>
         <module>rapier-processor-system-property</module>
         <module>rapier-processor-aws-ssm</module>
+        <module>rapier-processor-cli</module>
     </modules>
 </project>
