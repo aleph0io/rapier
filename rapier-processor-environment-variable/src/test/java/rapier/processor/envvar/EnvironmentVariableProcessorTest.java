@@ -86,7 +86,10 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
                 @Provides
                 @EnvironmentVariable("FOO_BAR")
                 public java.lang.Integer provideEnvironmentVariableFooBarAsInteger(@EnvironmentVariable("FOO_BAR") String value) {
-                    return java.lang.Integer.valueOf(value);
+                    java.lang.Integer result = java.lang.Integer.valueOf(value);
+                    if (result == null)
+                        throw new IllegalStateException("Environment variable FOO_BAR representation java.lang.Integer not set");
+                    return result;
                 }
 
                 @Provides
@@ -99,6 +102,7 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
                 }
 
             }
+
             """);
 
     assertThat(compilation)

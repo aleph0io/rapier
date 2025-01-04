@@ -190,8 +190,8 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
             // opinions about whether or not this parameter is nullable. However, we don't because:
             //
             // - If there are different opinions about nullability at the representation level, then
-            // there are also different opinions about requiredness at the parameter level, too.
-            // We have already warned about those, so this would be redundant.
+            // there are necessarily different opinions about requiredness at the parameter level,
+            // too. We have already warned about those, so this would be redundant.
             // - If there is a material problem with nullability, then Dagger will fail the compile
             // anyway, so let Dagger handle it.
             //
@@ -263,7 +263,8 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
         // if the environment variable is not set.
         //
         // If the underlying parameter is not required, and the representation does not have a
-        // default value, then the new string representation is nullable.
+        // default value, then the new string representation is nullable. This allows us to support
+        // any other nullable representations with different types.
         final ParameterKey parameter = ParameterKey.fromRepresentationKey(representation);
         final ParameterMetadata parameterMetadata = metadataForParameters.get(parameter);
         final boolean parameterIsRequired = parameterMetadata.isRequired();
@@ -408,7 +409,11 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
               writer.println("    @EnvironmentVariable(\"" + name + "\")");
               writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
                   + "(@EnvironmentVariable(\"" + name + "\") String value) {");
-              writer.println("        return " + conversionExpr + ";");
+              writer.println("        " + type + " result = " + conversionExpr + ";");
+              writer.println("        if (result == null)");
+              writer.println("            throw new IllegalStateException(\"Environment variable "
+                  + name + " representation " + type + " not set\");");
+              writer.println("        return result;");
               writer.println("    }");
               writer.println();
             }
