@@ -22,16 +22,10 @@ package rapier.processor.envvar.model;
 import java.util.Objects;
 
 public class RepresentationMetadata {
-  private final boolean required;
   private final boolean nullable;
 
-  public RepresentationMetadata(boolean required, boolean nullable) {
-    this.required = required;
+  public RepresentationMetadata(boolean nullable) {
     this.nullable = nullable;
-  }
-
-  public boolean isRequired() {
-    return required;
   }
 
   public boolean isNullable() {
@@ -40,7 +34,7 @@ public class RepresentationMetadata {
 
   @Override
   public int hashCode() {
-    return Objects.hash(nullable, required);
+    return Objects.hash(nullable);
   }
 
   @Override
@@ -52,11 +46,11 @@ public class RepresentationMetadata {
     if (getClass() != obj.getClass())
       return false;
     RepresentationMetadata other = (RepresentationMetadata) obj;
-    return nullable == other.nullable && required == other.required;
+    return nullable == other.nullable;
   }
 
   @Override
   public String toString() {
-    return "ParameterMetadata [required=" + required + ", nullable=" + nullable + "]";
+    return "ParameterMetadata [nullable=" + nullable + "]";
   }
 }

@@ -31,7 +31,6 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -63,6 +62,7 @@ import rapier.core.util.MoreSets;
 import rapier.processor.envvar.model.ParameterKey;
 import rapier.processor.envvar.model.ParameterMetadata;
 import rapier.processor.envvar.model.RepresentationKey;
+import rapier.processor.envvar.model.RepresentationMetadata;
 import rapier.processor.envvar.util.EnvironmentVariables;
 
 @SupportedAnnotationTypes("dagger.Component")
@@ -108,7 +108,6 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
           .thenComparing(x -> x.getType().toString());
 
 
-
   private void processComponent(TypeElement component) {
     getMessager().printMessage(Diagnostic.Kind.NOTE,
         "Found @Component: " + component.getQualifiedName());
@@ -130,40 +129,23 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
             .isSameType(d.getQualifier().orElseThrow().getAnnotationType(), relevantQualifierType))
         .collect(toList());
 
-    // Collect all injection sites by parameter. This should include all injection sites.
+    // Collect all injection sites by parameter. This should include all injection sites for the
+    // annotation being analyzed.
     final Map<ParameterKey, List<DaggerInjectionSite>> injectionSitesByParameter =
         relevantInjectionSites.stream()
             .map(dis -> Map.entry(ParameterKey.fromInjectionSite(dis), dis))
             .collect(groupingBy(Map.Entry::getKey, mapping(Map.Entry::getValue, toList())));
 
-    // Compute per-parameter metadata.
-    final Map<ParameterKey, ParameterMetadata> parameterMetadata =
+    // Compute per-parameter metadata. Remember, a "parameter" is the logical parameter here, so
+    // all injection sites that share the same input.
+    final Map<ParameterKey, ParameterMetadata> metadataForParameters =
         injectionSitesByParameter.entrySet().stream().map(e -> {
           final ParameterKey key = e.getKey();
           final List<DaggerInjectionSite> injectionSites = e.getValue();
 
-          final Map<Boolean, List<DaggerInjectionSite>> injectionSitesByNullable =
-              injectionSites.stream()
-                  .collect(Collectors.partitioningBy(DaggerInjectionSite::isNullable, toList()));
-          if (injectionSitesByNullable.size() > 1) {
-            // If there is more than one opinion about nullability across all injection sites, then
-            // we should generate a warning because the user is expressing differing opinions about
-            // whether or not this parameter is nullable.
-            getMessager().printMessage(Diagnostic.Kind.WARNING,
-                "Conflicting nullability for environment variable " + key.getName()
-                    + ", will be treated as non-nullable");
-            // TODO Print the conflicting dependencies, with element and annotation references
-          }
-
-          // The parameter is only actually nullable if all of its injection sites are nullable.
-          // If any injection site is not nullable, then the parameter writ large cannot be null,
-          // so the parameter is not nullable.
-          final boolean nullable =
-              injectionSitesByNullable.keySet().stream().noneMatch(b -> b == false);
-
           final Map<Boolean, List<DaggerInjectionSite>> injectionSitesByRequired = injectionSites
               .stream()
-              .collect(Collectors.partitioningBy(
+              .collect(Collectors.groupingBy(
                   dis -> EnvironmentVariables.isRequired(dis.isNullable(), EnvironmentVariables
                       .extractEnvironmentVariableDefaultValue(dis.getQualifier().orElseThrow())),
                   toList()));
@@ -185,8 +167,8 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
           final boolean required =
               injectionSitesByRequired.keySet().stream().anyMatch(b -> b == true);
 
-          return Map.entry(key, new ParameterMetadata(required, nullable));
-        }).filter(Objects::nonNull).collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
+          return Map.entry(key, new ParameterMetadata(required));
+        }).collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
 
     // Collect all injection sites by representation.
     final SortedMap<RepresentationKey, List<DaggerInjectionSite>> injectionSitesByRepresentation =
@@ -195,65 +177,103 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
                 groupingBy(Map.Entry::getKey, () -> new TreeMap<>(INJECTION_SITE_KEY_COMPARATOR),
                     mapping(Map.Entry::getValue, toCollection(ArrayList::new))));
 
+    final Map<RepresentationKey, RepresentationMetadata> metadataForRepresentations =
+        injectionSitesByRepresentation.entrySet().stream().map(e -> {
+          final RepresentationKey key = e.getKey();
+          final List<DaggerInjectionSite> injectionSites = e.getValue();
+
+          final Map<Boolean, List<DaggerInjectionSite>> injectionSitesByNullable = injectionSites
+              .stream().collect(Collectors.groupingBy(dis -> dis.isNullable(), toList()));
+          if (injectionSitesByNullable.size() > 1) {
+            // If there is more than one opinion about nullability across all injection sites, then
+            // on face, we should generate a warning because the user is expressing differing
+            // opinions about whether or not this parameter is nullable. However, we don't because:
+            //
+            // - If there are different opinions about nullability at the representation level, then
+            // there are also different opinions about requiredness at the parameter level, too.
+            // We have already warned about those, so this would be redundant.
+            // - If there is a material problem with nullability, then Dagger will fail the compile
+            // anyway, so let Dagger handle it.
+            //
+            // One day we may want to print BETTER error messages than Dagger, but leave it for now.
+          }
+
+          // The parameter is nullable if and only if all injection sites are nullable
+          final boolean nullable =
+              injectionSitesByNullable.keySet().stream().allMatch(b -> b == true);
+
+          return Map.entry(key, new RepresentationMetadata(nullable));
+        }).collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
+
     // Make sure every representation has an equivalent representation with a string type. This is
     // a requirement because of the way we generate the module code.
     for (Map.Entry<RepresentationKey, List<DaggerInjectionSite>> e : injectionSitesByRepresentation
         .entrySet()) {
       final RepresentationKey representation = e.getKey();
-      final List<DaggerInjectionSite> injectionSites = e.getValue();
+
       final ParameterKey parameter = ParameterKey.fromRepresentationKey(representation);
-      final ParameterMetadata metadata = parameterMetadata.get(parameter);
-      final boolean parameterIsNullable = metadata.isNullable();
-      final boolean parameterIsRequired = metadata.isRequired();
+      final ParameterMetadata parameterMetadata = metadataForParameters.get(parameter);
+      final boolean parameterIsRequired = parameterMetadata.isRequired();
+
+      final List<DaggerInjectionSite> injectionSites = e.getValue();
 
       for (DaggerInjectionSite injectionSite : injectionSites) {
         final boolean injectionSiteIsNullable = injectionSite.isNullable();
-        final boolean injectionSiteIsRequired = EnvironmentVariables
-            .isRequired(injectionSiteIsNullable, representation.getDefaultValue().orElse(null));
+        final boolean injectionSiteHasDefaultValue = representation.getDefaultValue().isPresent();
 
-        // Are we nullability-compatible?
-        if (injectionSiteIsNullable && !parameterIsNullable) {
+        if (parameterIsRequired && injectionSiteIsNullable) {
           getMessager().printMessage(
-              Diagnostic.Kind.WARNING, "Effectively non-nullable environment variable "
+              Diagnostic.Kind.WARNING, "Effectively required environment variable "
                   + representation.getName() + " is treated as nullable",
               injectionSite.getElement());
         }
-        if (!injectionSiteIsNullable && parameterIsNullable) {
-          // This should never happen, per the above logic.
-          // TODO How should we best handle this?
-          throw new AssertionError("Found non-nullable injection site for nullable parameter");
-        }
 
-        // Are we requiredness-compatible?
-        if (!injectionSiteIsRequired && parameterIsRequired) {
-          getMessager().printMessage(
-              Diagnostic.Kind.WARNING, "Effectively required environment variable "
-                  + representation.getName() + " is treated as non-required",
-              injectionSite.getElement());
-        }
-        if (injectionSiteIsRequired && !parameterIsRequired) {
-          // This should never happen, per the above logic.
-          // TODO How should we best handle this?
-          throw new AssertionError("Found required injection site for non-required parameter");
+        if (parameterIsRequired && injectionSiteHasDefaultValue) {
+          getMessager()
+              .printMessage(
+                  Diagnostic.Kind.WARNING, "Effectively required environment variable "
+                      + representation.getName() + " has default value",
+                  injectionSite.getElement());
         }
       }
     }
 
     // Make sure every representation has an equivalent representation with a string type. This is
     // a requirement because of the way we generate the module code.
-    final TypeMirror stringType = getElements().getTypeElement("java.lang.String").asType();
     for (Map.Entry<RepresentationKey, List<DaggerInjectionSite>> e : MoreSets
         .copyOf(injectionSitesByRepresentation.entrySet())) {
       final RepresentationKey representation = e.getKey();
 
-      if (getTypes().isSameType(representation.getType(), stringType))
+      if (getTypes().isSameType(representation.getType(), getStringType()))
         continue;
 
-      final RepresentationKey representationAsString = new RepresentationKey(stringType,
-          representation.getName(), representation.getDefaultValue().orElse(null));
+      final RepresentationKey representationAsString = toStringRepresentation(representation);
 
       if (!injectionSitesByRepresentation.containsKey(representationAsString)) {
+        // Our code generation strategy involves injecting the environment variable as a string, and
+        // then converting it to the desired type. Since there is no injection site for the string
+        // representation, we will create one here. Since this is a new representation, we will also
+        // create a metadata entry for it. However, is this new representation nullable?
+        //
+        // If the underlying parameter is required, then the new string representation is required,
+        // too, and therefore not nullable.
+        //
+        // If the underlying parameter is not required, but the representation has a default value,
+        // then the new string representation is not nullable, since the default value will be used
+        // if the environment variable is not set.
+        //
+        // If the underlying parameter is not required, and the representation does not have a
+        // default value, then the new string representation is nullable.
+        final ParameterKey parameter = ParameterKey.fromRepresentationKey(representation);
+        final ParameterMetadata parameterMetadata = metadataForParameters.get(parameter);
+        final boolean parameterIsRequired = parameterMetadata.isRequired();
+        final boolean representationHasDefaultValue = representation.getDefaultValue().isPresent();
+        final boolean representationIsNullable =
+            !parameterIsRequired && !representationHasDefaultValue;
+
         injectionSitesByRepresentation.put(representationAsString, emptyList());
+        metadataForRepresentations.put(representationAsString,
+            new RepresentationMetadata(representationIsNullable));
       }
     }
 
@@ -291,45 +311,41 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
         writer.println("        this.env = unmodifiableMap(env);");
         writer.println("    }");
         writer.println();
-        for (RepresentationKey key : injectionSitesByRepresentation.keySet()) {
-          final TypeMirror type = key.getType();
-          final String name = key.getName();
-          final String defaultValue = key.getDefaultValue().orElse(null);
-          final ParameterMetadata metadata =
-              parameterMetadata.get(ParameterKey.fromRepresentationKey(key));
-          final boolean nullable = metadata.isNullable();
+        for (RepresentationKey representation : injectionSitesByRepresentation.keySet()) {
+          final TypeMirror type = representation.getType();
+          final String name = representation.getName();
+          final String representationDefaultValue = representation.getDefaultValue().orElse(null);
+          final RepresentationMetadata representationMetadata =
+              metadataForRepresentations.get(representation);
+          final boolean representationIsNullable = representationMetadata.isNullable();
+          final ParameterKey parameter = ParameterKey.fromRepresentationKey(representation);
+          final ParameterMetadata parameterMetadata = metadataForParameters.get(parameter);
+          final boolean parameterIsRequired = parameterMetadata.isRequired();
 
           final StringBuilder baseMethodName =
               new StringBuilder().append("provideEnvironmentVariable")
                   .append(CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, name));
-          if (defaultValue != null) {
-            baseMethodName.append("WithDefaultValue").append(stringSignature(defaultValue));
+          if (representationDefaultValue != null) {
+            baseMethodName.append("WithDefaultValue")
+                .append(stringSignature(representationDefaultValue));
           }
 
-          if (getTypes().isSameType(type, stringType)) {
-            if (defaultValue != null) {
+          if (getTypes().isSameType(type, getStringType())) {
+            if (representationDefaultValue != null) {
               writer.println("    @Provides");
               writer.println("    @EnvironmentVariable(value=\"" + name + "\", defaultValue=\""
-                  + Java.escapeString(defaultValue) + "\")");
+                  + Java.escapeString(representationDefaultValue) + "\")");
               writer.println("    public String " + baseMethodName + "AsString() {");
               writer.println("        return Optional.ofNullable(env.get(\"" + name
-                  + "\")).orElse(\"" + Java.escapeString(defaultValue) + "\");");
+                  + "\")).orElse(\"" + Java.escapeString(representationDefaultValue) + "\");");
               writer.println("    }");
               writer.println();
-            } else if (nullable) {
+            } else if (representationIsNullable && !parameterIsRequired) {
               writer.println("    @Provides");
               writer.println("    @Nullable");
               writer.println("    @EnvironmentVariable(\"" + name + "\")");
               writer.println("    public String " + baseMethodName + "AsString() {");
               writer.println("        return env.get(\"" + name + "\");");
-              writer.println("    }");
-              writer.println();
-              writer.println("    @Provides");
-              writer.println("    @EnvironmentVariable(\"" + name + "\")");
-              writer.println("    public Optional<String> " + baseMethodName
-                  + "AsOptionalOfString(@Nullable @EnvironmentVariable(\"" + name
-                  + "\") String value) {");
-              writer.println("        return Optional.ofNullable(value);");
               writer.println("    }");
               writer.println();
             } else {
@@ -344,28 +360,41 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
               writer.println("    }");
               writer.println();
             }
+
+            if (representationIsNullable) {
+              writer.println("    @Provides");
+              writer.println("    @EnvironmentVariable(\"" + name + "\")");
+              writer.println("    public Optional<String> " + baseMethodName
+                  + "AsOptionalOfString(@Nullable @EnvironmentVariable(\"" + name
+                  + "\") String value) {");
+              writer.println("        return Optional.ofNullable(value);");
+              writer.println("    }");
+              writer.println();
+            }
           } else {
             final String conversionExpr =
-                getConverter().generateConversionExpr(type, stringType, "value").orElse(null);
+                getConverter().generateConversionExpr(type, getStringType(), "value").orElse(null);
             if (conversionExpr == null) {
               getMessager().printMessage(Diagnostic.Kind.ERROR,
-                  "Cannot convert " + type + " from " + stringType);
+                  "Cannot convert " + type + " from " + getStringType());
               continue;
             }
 
             final String typeSimpleName = getTypes().asElement(type).getSimpleName().toString();
 
-            if (defaultValue != null) {
+            if (representationDefaultValue != null) {
+              // We don't need to check nullability here because the default value "protects" us
+              // from any possible null values.
               writer.println("    @Provides");
               writer.println("    @EnvironmentVariable(value=\"" + name + "\", defaultValue=\""
-                  + Java.escapeString(defaultValue) + "\")");
+                  + Java.escapeString(representationDefaultValue) + "\")");
               writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
                   + "(@EnvironmentVariable(value=\"" + name + "\", defaultValue=\""
-                  + Java.escapeString(defaultValue) + "\") String value) {");
+                  + Java.escapeString(representationDefaultValue) + "\") String value) {");
               writer.println("        return " + conversionExpr + ";");
               writer.println("    }");
               writer.println();
-            } else if (nullable) {
+            } else if (representationIsNullable && !parameterIsRequired) {
               writer.println("    @Provides");
               writer.println("    @Nullable");
               writer.println("    @EnvironmentVariable(\"" + name + "\")");
@@ -374,24 +403,23 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
               writer.println("        return value != null ? " + conversionExpr + " : null;");
               writer.println("    }");
               writer.println();
+            } else {
+              writer.println("    @Provides");
+              writer.println("    @EnvironmentVariable(\"" + name + "\")");
+              writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
+                  + "(@EnvironmentVariable(\"" + name + "\") String value) {");
+              writer.println("        return " + conversionExpr + ";");
+              writer.println("    }");
+              writer.println();
+            }
+
+            if (representationIsNullable) {
               writer.println("    @Provides");
               writer.println("    @EnvironmentVariable(\"" + name + "\")");
               writer.println("    public Optional<" + type + "> " + baseMethodName + "AsOptionalOf"
                   + typeSimpleName + "(@EnvironmentVariable(\"" + name
                   + "\") Optional<String> o) {");
               writer.println("        return o.map(value -> " + conversionExpr + ");");
-              writer.println("    }");
-              writer.println();
-            } else {
-              writer.println("    @Provides");
-              writer.println("    @EnvironmentVariable(\"" + name + "\")");
-              writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
-                  + "(@EnvironmentVariable(\"" + name + "\") String value) {");
-              writer.println("        " + type + " result= " + conversionExpr + ";");
-              writer.println("        if (result == null)");
-              writer.println("            throw new IllegalStateException(\"Environment variable "
-                  + name + " " + " as " + type + " not set\");");
-              writer.println("        return result;");
               writer.println("    }");
               writer.println();
             }
@@ -404,6 +432,20 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
       getMessager().printMessage(Diagnostic.Kind.ERROR,
           "Failed to create source file: " + e.getMessage());
     }
+  }
+
+  private RepresentationKey toStringRepresentation(RepresentationKey key) {
+    return new RepresentationKey(getStringType(), key.getName(),
+        key.getDefaultValue().orElse(null));
+  }
+
+  private transient TypeMirror stringType;
+
+  private TypeMirror getStringType() {
+    if (stringType == null) {
+      stringType = getElements().getTypeElement("java.lang.String").asType();
+    }
+    return stringType;
   }
 
   private ConversionExprFactory getConverter() {
