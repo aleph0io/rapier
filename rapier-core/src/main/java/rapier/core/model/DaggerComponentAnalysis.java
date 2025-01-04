@@ -27,24 +27,24 @@ import javax.lang.model.element.TypeElement;
 
 public class DaggerComponentAnalysis {
   private final TypeElement componentType;
-  private final Set<DaggerInjectionSite> dependencies;
+  private final Set<DaggerInjectionSite> injectionSites;
 
   public DaggerComponentAnalysis(TypeElement componentType, Set<DaggerInjectionSite> dependencies) {
     this.componentType = requireNonNull(componentType);
-    this.dependencies = unmodifiableSet(dependencies);
+    this.injectionSites = unmodifiableSet(dependencies);
   }
 
   public TypeElement getComponentType() {
     return componentType;
   }
 
-  public Set<DaggerInjectionSite> getDependencies() {
-    return dependencies;
+  public Set<DaggerInjectionSite> getInjectionSites() {
+    return injectionSites;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(componentType, dependencies);
+    return Objects.hash(componentType, injectionSites);
   }
 
   @Override
@@ -57,12 +57,12 @@ public class DaggerComponentAnalysis {
       return false;
     DaggerComponentAnalysis other = (DaggerComponentAnalysis) obj;
     return Objects.equals(componentType, other.componentType)
-        && Objects.equals(dependencies, other.dependencies);
+        && Objects.equals(injectionSites, other.injectionSites);
   }
 
   @Override
   public String toString() {
     return "DaggerComponentAnalysis [componentType=" + componentType + ", dependencies="
-        + dependencies + "]";
+        + injectionSites + "]";
   }
 }

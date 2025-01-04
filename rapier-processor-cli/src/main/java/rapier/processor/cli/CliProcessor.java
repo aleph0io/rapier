@@ -101,7 +101,7 @@ public class CliProcessor extends RapierProcessorBase {
     final DaggerComponentAnalysis analysis =
         new DaggerComponentAnalyzer(getProcessingEnv()).analyzeComponent(component);
 
-    final Map<PositionalKey, List<DaggerInjectionSite>> positionals = analysis.getDependencies()
+    final Map<PositionalKey, List<DaggerInjectionSite>> positionals = analysis.getInjectionSites()
         .stream().filter(d -> d.getQualifier().isPresent())
         .filter(d -> getTypes().isSameType(d.getQualifier().get().getAnnotationType(),
             getElements().getTypeElement(PositionalCliParameter.class.getCanonicalName()).asType()))
@@ -116,7 +116,7 @@ public class CliProcessor extends RapierProcessorBase {
         .collect(groupingBy(Map.Entry::getKey, mapping(Map.Entry::getValue, toList())));
 
     final Map<NamedKey, List<DaggerInjectionSite>> nameds =
-        analysis.getDependencies().stream().filter(d -> d.getQualifier().isPresent())
+        analysis.getInjectionSites().stream().filter(d -> d.getQualifier().isPresent())
             .filter(d -> getTypes().isSameType(d.getQualifier().get().getAnnotationType(),
                 getElements().getTypeElement(NamedCliParameter.class.getCanonicalName()).asType()))
             .map(d -> {
@@ -130,7 +130,7 @@ public class CliProcessor extends RapierProcessorBase {
             .collect(groupingBy(Map.Entry::getKey, mapping(Map.Entry::getValue, toList())));
 
     final Map<FlagKey, List<DaggerInjectionSite>> flags =
-        analysis.getDependencies().stream().filter(d -> d.getQualifier().isPresent())
+        analysis.getInjectionSites().stream().filter(d -> d.getQualifier().isPresent())
             .filter(d -> getTypes().isSameType(d.getQualifier().get().getAnnotationType(),
                 getElements().getTypeElement(FlagCliParameter.class.getCanonicalName()).asType()))
             .map(d -> {
@@ -236,7 +236,7 @@ public class CliProcessor extends RapierProcessorBase {
     }
 
     final Map<EnvironmentVariableKey, List<DaggerInjectionSite>> environmentVariables = analysis
-        .getDependencies().stream().filter(d -> d.getQualifier().isPresent())
+        .getInjectionSites().stream().filter(d -> d.getQualifier().isPresent())
         .filter(d -> getTypes().isSameType(d.getQualifier().get().getAnnotationType(),
             getElements().getTypeElement(EnvironmentVariable.class.getCanonicalName()).asType()))
         .collect(groupingBy(EnvironmentVariableKey::fromDependency, toList()));

@@ -19,21 +19,26 @@
  */
 package rapier.processor.envvar;
 
-import static java.util.Collections.emptyList;
+import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
-import static java.util.stream.Collectors.toMap;
 import java.io.IOException;
 import java.io.PrintWriter;
+import java.io.StringWriter;
+import java.io.Writer;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.SortedSet;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
@@ -54,15 +59,14 @@ import rapier.core.conversion.expr.ConversionExprFactoryChain;
 import rapier.core.conversion.expr.FromStringConversionExprFactory;
 import rapier.core.conversion.expr.SingleArgumentConstructorConversionExprFactory;
 import rapier.core.conversion.expr.ValueOfConversionExprFactory;
-import rapier.core.model.DaggerComponentAnalysis;
 import rapier.core.model.DaggerInjectionSite;
+import rapier.core.util.AnnotationProcessing;
 import rapier.core.util.CaseFormat;
 import rapier.core.util.Java;
 import rapier.core.util.MoreSets;
 import rapier.processor.envvar.model.ParameterKey;
 import rapier.processor.envvar.model.ParameterMetadata;
 import rapier.processor.envvar.model.RepresentationKey;
-import rapier.processor.envvar.model.RepresentationMetadata;
 import rapier.processor.envvar.util.EnvironmentVariables;
 
 @SupportedAnnotationTypes("dagger.Component")
@@ -101,123 +105,123 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
     return false;
   }
 
-  private static final Comparator<RepresentationKey> INJECTION_SITE_KEY_COMPARATOR =
-      Comparator.comparing(RepresentationKey::getName)
-          .thenComparing(Comparator.comparing(x -> x.getDefaultValue().orElse(null),
-              Comparator.nullsFirst(Comparator.naturalOrder())))
-          .thenComparing(x -> x.getType().toString());
-
-
   private void processComponent(TypeElement component) {
     getMessager().printMessage(Diagnostic.Kind.NOTE,
         "Found @Component: " + component.getQualifiedName());
+
+    // Analyze the component to find all relevant injection sites.
+    final List<DaggerInjectionSite> injectionSites = getRelevantInjectionSites(component);
+
+    // Compute per-parameter metadata. A "parameter" is the logical parameter here, so all injection
+    // sites that share the same input.
+    final ParameterMetadataService parameterMetadataService =
+        createParameterMetadataService(injectionSites);
+
+    // Print warnings for any injection sites that are effectively required but are treated as
+    // nullable or have a default value.
+    emitCompilerWarnings(injectionSites, parameterMetadataService);
+
+    // Collect all injection sites by representation.
+    final Set<RepresentationKey> representations =
+        this.computeRepresentationsToGenerate(injectionSites);
 
     final String componentPackageName =
         getElements().getPackageOf(component).getQualifiedName().toString();
     final String componentClassName = component.getSimpleName().toString();
     final String moduleClassName = "Rapier" + componentClassName + "EnvironmentVariableModule";
 
-    // This is the annotation that we are looking for.
-    final TypeMirror relevantQualifierType =
-        getElements().getTypeElement(EnvironmentVariable.class.getName()).asType();
+    final String sourceCode = generateSourceCode(componentPackageName, moduleClassName,
+        representations, parameterMetadataService);
 
-    // Analyze the component to find all relevant injection sites.
-    final DaggerComponentAnalysis analysis =
-        new DaggerComponentAnalyzer(getProcessingEnv()).analyzeComponent(component);
-    final List<DaggerInjectionSite> relevantInjectionSites = analysis.getDependencies().stream()
-        .filter(d -> d.getQualifier().isPresent()).filter(d -> getTypes()
-            .isSameType(d.getQualifier().orElseThrow().getAnnotationType(), relevantQualifierType))
-        .collect(toList());
+    // Write the generated source code to a file.
+    try {
+      // TODO Is component the right set of dependent elements?
+      writeSourceCode(
+          AnnotationProcessing.qualifiedClassName(componentPackageName, moduleClassName),
+          sourceCode, component);
+    } catch (IOException e) {
+      e.printStackTrace();
+      getMessager().printMessage(Diagnostic.Kind.ERROR,
+          "Failed to create source file: " + e.getMessage());
+    }
+  }
 
-    // Collect all injection sites by parameter. This should include all injection sites for the
-    // annotation being analyzed.
-    final Map<ParameterKey, List<DaggerInjectionSite>> injectionSitesByParameter =
-        relevantInjectionSites.stream()
-            .map(dis -> Map.entry(ParameterKey.fromInjectionSite(dis), dis))
-            .collect(groupingBy(Map.Entry::getKey, mapping(Map.Entry::getValue, toList())));
+  /**
+   * Writes the given source code to a file. The file is created in the same package as the
+   * component, with the given class name.
+   * 
+   * @param qualifiedClassName the qualified class name
+   * @param sourceCode the source code
+   * 
+   * @throws IOException if an I/O error occurs
+   */
+  private void writeSourceCode(final String qualifiedClassName, final String sourceCode,
+      Element... dependentElements) throws IOException {
+    // TODO Is this the right set of elements?
+    final JavaFileObject jfo = getFiler().createSourceFile(qualifiedClassName, dependentElements);
+    try (Writer w = jfo.openWriter()) {
+      w.write(sourceCode);
+    }
+  }
 
-    // Compute per-parameter metadata. Remember, a "parameter" is the logical parameter here, so
-    // all injection sites that share the same input.
-    final Map<ParameterKey, ParameterMetadata> metadataForParameters =
-        injectionSitesByParameter.entrySet().stream().map(e -> {
-          final ParameterKey key = e.getKey();
-          final List<DaggerInjectionSite> injectionSites = e.getValue();
+  /**
+   * Determine the unique set of representations that need to be generated. This is the union of all
+   * representations in the given injection sites, plus any additional representations that are
+   * required to support the conversion of the representation to code, e.g., a string
+   * representation.
+   * 
+   * @param injectionSites the injection sites
+   * @return the set of representations to generate
+   */
+  private Set<RepresentationKey> computeRepresentationsToGenerate(
+      List<DaggerInjectionSite> injectionSites) {
+    final Set<RepresentationKey> representations = injectionSites.stream()
+        .map(dis -> RepresentationKey.fromInjectionSite(dis)).collect(toCollection(HashSet::new));
 
-          final Map<Boolean, List<DaggerInjectionSite>> injectionSitesByRequired = injectionSites
-              .stream()
-              .collect(Collectors.groupingBy(
-                  dis -> EnvironmentVariables.isRequired(dis.isNullable(), EnvironmentVariables
-                      .extractEnvironmentVariableDefaultValue(dis.getQualifier().orElseThrow())),
-                  toList()));
-          if (injectionSitesByRequired.size() > 1) {
-            // If there is more than one opinion about requiredness across all injection sites, then
-            // we should generate a warning because the user is expressing differing opinions about
-            // whether or not this parameter is required.
-            //
-            // Remember, a parameter is required if it is not nullable and does not have a default
-            // value. If a parameter is required at any injection site, then it is de-facto required
-            // at all injection sites for the application to function correctly.
-            getMessager().printMessage(Diagnostic.Kind.WARNING,
-                "Conflicting requiredness for environment variable " + key.getName()
-                    + ", will be treated as required");
-            // TODO Print the conflicting dependencies, with element and annotation references
-          }
+    for (RepresentationKey representation : MoreSets.copyOf(representations)) {
+      if (getTypes().isSameType(representation.getType(), getStringType()))
+        continue;
 
-          // The parameter is required if any injection site is required.
-          final boolean required =
-              injectionSitesByRequired.keySet().stream().anyMatch(b -> b == true);
+      final RepresentationKey representationAsString = toStringRepresentation(representation);
 
-          return Map.entry(key, new ParameterMetadata(required));
-        }).collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
+      if (!representations.contains(representationAsString))
+        representations.add(representationAsString);
+    }
 
-    // Collect all injection sites by representation.
+    return unmodifiableSet(representations);
+  }
+
+  private static final Comparator<RepresentationKey> REPRESENTATION_KEY_COMPARATOR =
+      Comparator.comparing(RepresentationKey::getName)
+          .thenComparing(Comparator.comparing(x -> x.getDefaultValue().orElse(null),
+              Comparator.nullsFirst(Comparator.naturalOrder())))
+          .thenComparing(x -> x.getType().toString());
+
+  /**
+   * Prints compiler warnings for injection sites with local constraints that do not match global
+   * realities, e.g., treating a required environment variable as nullable.
+   * 
+   * @param injectionSitesByRepresentation the injection sites by representation
+   */
+  private void emitCompilerWarnings(List<DaggerInjectionSite> injectionSites,
+      ParameterMetadataService parameterMetadataService) {
     final SortedMap<RepresentationKey, List<DaggerInjectionSite>> injectionSitesByRepresentation =
-        relevantInjectionSites.stream()
-            .map(dis -> Map.entry(RepresentationKey.fromInjectionSite(dis), dis)).collect(
-                groupingBy(Map.Entry::getKey, () -> new TreeMap<>(INJECTION_SITE_KEY_COMPARATOR),
+        injectionSites.stream().map(dis -> Map.entry(RepresentationKey.fromInjectionSite(dis), dis))
+            .collect(
+                groupingBy(Map.Entry::getKey, () -> new TreeMap<>(REPRESENTATION_KEY_COMPARATOR),
                     mapping(Map.Entry::getValue, toCollection(ArrayList::new))));
 
-    final Map<RepresentationKey, RepresentationMetadata> metadataForRepresentations =
-        injectionSitesByRepresentation.entrySet().stream().map(e -> {
-          final RepresentationKey key = e.getKey();
-          final List<DaggerInjectionSite> injectionSites = e.getValue();
-
-          final Map<Boolean, List<DaggerInjectionSite>> injectionSitesByNullable = injectionSites
-              .stream().collect(Collectors.groupingBy(dis -> dis.isNullable(), toList()));
-          if (injectionSitesByNullable.size() > 1) {
-            // If there is more than one opinion about nullability across all injection sites, then
-            // on face, we should generate a warning because the user is expressing differing
-            // opinions about whether or not this parameter is nullable. However, we don't because:
-            //
-            // - If there are different opinions about nullability at the representation level, then
-            // there are necessarily different opinions about requiredness at the parameter level,
-            // too. We have already warned about those, so this would be redundant.
-            // - If there is a material problem with nullability, then Dagger will fail the compile
-            // anyway, so let Dagger handle it.
-            //
-            // One day we may want to print BETTER error messages than Dagger, but leave it for now.
-          }
-
-          // The parameter is nullable if and only if all injection sites are nullable
-          final boolean nullable =
-              injectionSitesByNullable.keySet().stream().allMatch(b -> b == true);
-
-          return Map.entry(key, new RepresentationMetadata(nullable));
-        }).collect(toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-    // Make sure every representation has an equivalent representation with a string type. This is
-    // a requirement because of the way we generate the module code.
     for (Map.Entry<RepresentationKey, List<DaggerInjectionSite>> e : injectionSitesByRepresentation
         .entrySet()) {
       final RepresentationKey representation = e.getKey();
+      final List<DaggerInjectionSite> representationInjectionSites = e.getValue();
 
       final ParameterKey parameter = ParameterKey.fromRepresentationKey(representation);
-      final ParameterMetadata parameterMetadata = metadataForParameters.get(parameter);
+      final ParameterMetadata parameterMetadata =
+          parameterMetadataService.getParameterMetadata(parameter);
       final boolean parameterIsRequired = parameterMetadata.isRequired();
 
-      final List<DaggerInjectionSite> injectionSites = e.getValue();
-
-      for (DaggerInjectionSite injectionSite : injectionSites) {
+      for (DaggerInjectionSite injectionSite : representationInjectionSites) {
         final boolean injectionSiteIsNullable = injectionSite.isNullable();
         final boolean injectionSiteHasDefaultValue = representation.getDefaultValue().isPresent();
 
@@ -237,206 +241,231 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
         }
       }
     }
+  }
 
-    // Make sure every representation has an equivalent representation with a string type. This is
-    // a requirement because of the way we generate the module code.
-    for (Map.Entry<RepresentationKey, List<DaggerInjectionSite>> e : MoreSets
-        .copyOf(injectionSitesByRepresentation.entrySet())) {
-      final RepresentationKey representation = e.getKey();
+  /**
+   * Analyzes the given component and returns all relevant injection sites. An injection site is
+   * considered relevant if it has a qualifier annotation that matches the expected qualifier
+   * annotation for this processor.
+   * 
+   * @param component the component to analyze
+   * @return all relevant injection sites
+   */
+  private List<DaggerInjectionSite> getRelevantInjectionSites(TypeElement component) {
+    return new DaggerComponentAnalyzer(getProcessingEnv())
+        .analyzeComponent(component).getInjectionSites().stream()
+        .filter(d -> d.getQualifier().isPresent()).filter(d -> getTypes()
+            .isSameType(d.getQualifier().orElseThrow().getAnnotationType(), getQualifierType()))
+        .collect(toList());
+  }
 
-      if (getTypes().isSameType(representation.getType(), getStringType()))
-        continue;
+  private ParameterMetadataService createParameterMetadataService(
+      List<DaggerInjectionSite> injectionSites) {
+    final Map<ParameterKey, List<DaggerInjectionSite>> injectionSitesByParameter =
+        injectionSites.stream().map(dis -> Map.entry(ParameterKey.fromInjectionSite(dis), dis))
+            .collect(groupingBy(Map.Entry::getKey, mapping(Map.Entry::getValue, toList())));
 
-      final RepresentationKey representationAsString = toStringRepresentation(representation);
+    final Map<ParameterKey, ParameterMetadata> metadataForParameters = new HashMap<>();
+    for (Map.Entry<ParameterKey, List<DaggerInjectionSite>> entry : injectionSitesByParameter
+        .entrySet()) {
+      final ParameterKey key = entry.getKey();
+      final List<DaggerInjectionSite> parameterInjectionSites = entry.getValue();
 
-      if (!injectionSitesByRepresentation.containsKey(representationAsString)) {
-        // Our code generation strategy involves injecting the environment variable as a string, and
-        // then converting it to the desired type. Since there is no injection site for the string
-        // representation, we will create one here. Since this is a new representation, we will also
-        // create a metadata entry for it. However, is this new representation nullable?
-        //
-        // If the underlying parameter is required, then the new string representation is required,
-        // too, and therefore not nullable.
-        //
-        // If the underlying parameter is not required, but the representation has a default value,
-        // then the new string representation is not nullable, since the default value will be used
-        // if the environment variable is not set.
-        //
-        // If the underlying parameter is not required, and the representation does not have a
-        // default value, then the new string representation is nullable. This allows us to support
-        // any other nullable representations with different types.
+      // Group injection sites by requiredness
+      final Map<Boolean, List<DaggerInjectionSite>> injectionSitesByRequired =
+          parameterInjectionSites.stream().collect(Collectors.groupingBy(
+              dis -> EnvironmentVariables.isRequired(dis.isNullable(),
+                  EnvironmentVariables
+                      .extractEnvironmentVariableDefaultValue(dis.getQualifier().orElseThrow())),
+              toList()));
+
+      // Check for conflicting requiredness
+      if (injectionSitesByRequired.size() > 1) {
+        getMessager().printMessage(Diagnostic.Kind.WARNING,
+            "Conflicting requiredness for environment variable " + key.getName()
+                + ", will be treated as required");
+        // TODO Print the conflicting dependencies, with element and annotation references
+      }
+
+      // Determine if the parameter is required
+      final boolean required = injectionSitesByRequired.keySet().stream().anyMatch(b -> b == true);
+
+      metadataForParameters.put(key, new ParameterMetadata(required));
+    }
+    return metadataForParameters::get;
+  }
+
+  @FunctionalInterface
+  public static interface ParameterMetadataService {
+    public ParameterMetadata getParameterMetadata(ParameterKey key);
+  }
+
+  /**
+   * Generates the source code for the given representations.
+   * 
+   * @param component
+   * @param representations
+   * @param metadataForParameters
+   * @throws IOException
+   */
+  private String generateSourceCode(String componentPackageName, String moduleClassName,
+      Set<RepresentationKey> representations, ParameterMetadataService metadataForParameters) {
+    final StringWriter result = new StringWriter();
+
+    final SortedSet<RepresentationKey> representationsInOrder =
+        new TreeSet<>(REPRESENTATION_KEY_COMPARATOR);
+    representationsInOrder.addAll(representations);
+
+    try (final PrintWriter writer = new PrintWriter(result)) {
+      if (!componentPackageName.equals("")) {
+        writer.println("package " + componentPackageName + ";");
+        writer.println();
+      }
+      writer.println("import static java.util.Collections.unmodifiableMap;");
+      writer.println();
+      writer.println("import " + EnvironmentVariable.class.getName() + ";");
+      writer.println("import dagger.Module;");
+      writer.println("import dagger.Provides;");
+      writer.println("import java.util.Map;");
+      writer.println("import java.util.Optional;");
+      writer.println("import javax.annotation.Nullable;");
+      writer.println("import javax.inject.Inject;");
+      writer.println();
+      writer.println("@Module");
+      writer.println("public class " + moduleClassName + " {");
+      writer.println("    private final Map<String, String> env;");
+      writer.println();
+      writer.println("    @Inject");
+      writer.println("    public " + moduleClassName + "() {");
+      writer.println("        this(System.getenv());");
+      writer.println("    }");
+      writer.println();
+      writer.println("    public " + moduleClassName + "(Map<String, String> env) {");
+      writer.println("        this.env = unmodifiableMap(env);");
+      writer.println("    }");
+      writer.println();
+      for (RepresentationKey representation : representationsInOrder) {
+        final TypeMirror type = representation.getType();
+        final String name = representation.getName();
+        final String representationDefaultValue = representation.getDefaultValue().orElse(null);
         final ParameterKey parameter = ParameterKey.fromRepresentationKey(representation);
-        final ParameterMetadata parameterMetadata = metadataForParameters.get(parameter);
+        final ParameterMetadata parameterMetadata =
+            metadataForParameters.getParameterMetadata(parameter);
         final boolean parameterIsRequired = parameterMetadata.isRequired();
-        final boolean representationHasDefaultValue = representation.getDefaultValue().isPresent();
-        final boolean representationIsNullable =
-            !parameterIsRequired && !representationHasDefaultValue;
 
-        injectionSitesByRepresentation.put(representationAsString, emptyList());
-        metadataForRepresentations.put(representationAsString,
-            new RepresentationMetadata(representationIsNullable));
-      }
-    }
-
-    try {
-      // TODO Is this the right set of elements?
-      final Element[] dependentElements = new Element[] {component};
-      final JavaFileObject o =
-          getFiler().createSourceFile(componentPackageName.equals("") ? moduleClassName
-              : componentPackageName + "." + moduleClassName, dependentElements);
-      try (final PrintWriter writer = new PrintWriter(o.openWriter())) {
-        if (!componentPackageName.equals("")) {
-          writer.println("package " + componentPackageName + ";");
-          writer.println();
+        final StringBuilder baseMethodName =
+            new StringBuilder().append("provideEnvironmentVariable")
+                .append(CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, name));
+        if (representationDefaultValue != null) {
+          baseMethodName.append("WithDefaultValue")
+              .append(stringSignature(representationDefaultValue));
         }
-        writer.println("import static java.util.Collections.unmodifiableMap;");
-        writer.println();
-        writer.println("import " + EnvironmentVariable.class.getName() + ";");
-        writer.println("import dagger.Module;");
-        writer.println("import dagger.Provides;");
-        writer.println("import java.util.Map;");
-        writer.println("import java.util.Optional;");
-        writer.println("import javax.annotation.Nullable;");
-        writer.println("import javax.inject.Inject;");
-        writer.println();
-        writer.println("@Module");
-        writer.println("public class " + moduleClassName + " {");
-        writer.println("    private final Map<String, String> env;");
-        writer.println();
-        writer.println("    @Inject");
-        writer.println("    public " + moduleClassName + "() {");
-        writer.println("        this(System.getenv());");
-        writer.println("    }");
-        writer.println();
-        writer.println("    public " + moduleClassName + "(Map<String, String> env) {");
-        writer.println("        this.env = unmodifiableMap(env);");
-        writer.println("    }");
-        writer.println();
-        for (RepresentationKey representation : injectionSitesByRepresentation.keySet()) {
-          final TypeMirror type = representation.getType();
-          final String name = representation.getName();
-          final String representationDefaultValue = representation.getDefaultValue().orElse(null);
-          final RepresentationMetadata representationMetadata =
-              metadataForRepresentations.get(representation);
-          final boolean representationIsNullable = representationMetadata.isNullable();
-          final ParameterKey parameter = ParameterKey.fromRepresentationKey(representation);
-          final ParameterMetadata parameterMetadata = metadataForParameters.get(parameter);
-          final boolean parameterIsRequired = parameterMetadata.isRequired();
 
-          final StringBuilder baseMethodName =
-              new StringBuilder().append("provideEnvironmentVariable")
-                  .append(CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, name));
+        if (getTypes().isSameType(type, getStringType())) {
           if (representationDefaultValue != null) {
-            baseMethodName.append("WithDefaultValue")
-                .append(stringSignature(representationDefaultValue));
+            writer.println("    @Provides");
+            writer.println("    @EnvironmentVariable(value=\"" + name + "\", defaultValue=\""
+                + Java.escapeString(representationDefaultValue) + "\")");
+            writer.println("    public String " + baseMethodName + "AsString() {");
+            writer.println("        return Optional.ofNullable(env.get(\"" + name + "\")).orElse(\""
+                + Java.escapeString(representationDefaultValue) + "\");");
+            writer.println("    }");
+            writer.println();
+          } else if (parameterIsRequired) {
+            writer.println("    @Provides");
+            writer.println("    @EnvironmentVariable(\"" + name + "\")");
+            writer.println("    public String " + baseMethodName + "AsString() {");
+            writer.println("        String result=env.get(\"" + name + "\");");
+            writer.println("        if (result == null)");
+            writer.println("            throw new IllegalStateException(\"Environment variable "
+                + name + " not set\");");
+            writer.println("        return result;");
+            writer.println("    }");
+            writer.println();
+          } else {
+            writer.println("    @Provides");
+            writer.println("    @Nullable");
+            writer.println("    @EnvironmentVariable(\"" + name + "\")");
+            writer.println("    public String " + baseMethodName + "AsString() {");
+            writer.println("        return env.get(\"" + name + "\");");
+            writer.println("    }");
+            writer.println();
+            writer.println("    @Provides");
+            writer.println("    @EnvironmentVariable(\"" + name + "\")");
+            writer.println("    public Optional<String> " + baseMethodName
+                + "AsOptionalOfString(@Nullable @EnvironmentVariable(\"" + name
+                + "\") String value) {");
+            writer.println("        return Optional.ofNullable(value);");
+            writer.println("    }");
+            writer.println();
+          }
+        } else {
+          final String conversionExpr =
+              getConverter().generateConversionExpr(type, getStringType(), "value").orElse(null);
+          if (conversionExpr == null) {
+            getMessager().printMessage(Diagnostic.Kind.ERROR,
+                "Cannot convert " + type + " from " + getStringType());
+            continue;
           }
 
-          if (getTypes().isSameType(type, getStringType())) {
-            if (representationDefaultValue != null) {
-              writer.println("    @Provides");
-              writer.println("    @EnvironmentVariable(value=\"" + name + "\", defaultValue=\""
-                  + Java.escapeString(representationDefaultValue) + "\")");
-              writer.println("    public String " + baseMethodName + "AsString() {");
-              writer.println("        return Optional.ofNullable(env.get(\"" + name
-                  + "\")).orElse(\"" + Java.escapeString(representationDefaultValue) + "\");");
-              writer.println("    }");
-              writer.println();
-            } else if (representationIsNullable && !parameterIsRequired) {
-              writer.println("    @Provides");
-              writer.println("    @Nullable");
-              writer.println("    @EnvironmentVariable(\"" + name + "\")");
-              writer.println("    public String " + baseMethodName + "AsString() {");
-              writer.println("        return env.get(\"" + name + "\");");
-              writer.println("    }");
-              writer.println();
-            } else {
-              writer.println("    @Provides");
-              writer.println("    @EnvironmentVariable(\"" + name + "\")");
-              writer.println("    public String " + baseMethodName + "AsString() {");
-              writer.println("        String result=env.get(\"" + name + "\");");
-              writer.println("        if (result == null)");
-              writer.println("            throw new IllegalStateException(\"Environment variable "
-                  + name + " not set\");");
-              writer.println("        return result;");
-              writer.println("    }");
-              writer.println();
-            }
+          final String typeSimpleName = getTypes().asElement(type).getSimpleName().toString();
 
-            if (representationIsNullable) {
-              writer.println("    @Provides");
-              writer.println("    @EnvironmentVariable(\"" + name + "\")");
-              writer.println("    public Optional<String> " + baseMethodName
-                  + "AsOptionalOfString(@Nullable @EnvironmentVariable(\"" + name
-                  + "\") String value) {");
-              writer.println("        return Optional.ofNullable(value);");
-              writer.println("    }");
-              writer.println();
-            }
+          if (representationDefaultValue != null) {
+            // We don't need to check nullability here because the default value "protects" us
+            // from any possible null values.
+            writer.println("    @Provides");
+            writer.println("    @EnvironmentVariable(value=\"" + name + "\", defaultValue=\""
+                + Java.escapeString(representationDefaultValue) + "\")");
+            writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
+                + "(@EnvironmentVariable(value=\"" + name + "\", defaultValue=\""
+                + Java.escapeString(representationDefaultValue) + "\") String value) {");
+            writer.println("        return " + conversionExpr + ";");
+            writer.println("    }");
+            writer.println();
+          } else if (parameterIsRequired) {
+            writer.println("    @Provides");
+            writer.println("    @EnvironmentVariable(\"" + name + "\")");
+            writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
+                + "(@EnvironmentVariable(\"" + name + "\") String value) {");
+            writer.println("        " + type + " result = " + conversionExpr + ";");
+            writer.println("        if (result == null)");
+            writer.println("            throw new IllegalStateException(\"Environment variable "
+                + name + " representation " + type + " not set\");");
+            writer.println("        return result;");
+            writer.println("    }");
+            writer.println();
           } else {
-            final String conversionExpr =
-                getConverter().generateConversionExpr(type, getStringType(), "value").orElse(null);
-            if (conversionExpr == null) {
-              getMessager().printMessage(Diagnostic.Kind.ERROR,
-                  "Cannot convert " + type + " from " + getStringType());
-              continue;
-            }
-
-            final String typeSimpleName = getTypes().asElement(type).getSimpleName().toString();
-
-            if (representationDefaultValue != null) {
-              // We don't need to check nullability here because the default value "protects" us
-              // from any possible null values.
-              writer.println("    @Provides");
-              writer.println("    @EnvironmentVariable(value=\"" + name + "\", defaultValue=\""
-                  + Java.escapeString(representationDefaultValue) + "\")");
-              writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
-                  + "(@EnvironmentVariable(value=\"" + name + "\", defaultValue=\""
-                  + Java.escapeString(representationDefaultValue) + "\") String value) {");
-              writer.println("        return " + conversionExpr + ";");
-              writer.println("    }");
-              writer.println();
-            } else if (representationIsNullable && !parameterIsRequired) {
-              writer.println("    @Provides");
-              writer.println("    @Nullable");
-              writer.println("    @EnvironmentVariable(\"" + name + "\")");
-              writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
-                  + "(@Nullable @EnvironmentVariable(\"" + name + "\") String value) {");
-              writer.println("        return value != null ? " + conversionExpr + " : null;");
-              writer.println("    }");
-              writer.println();
-            } else {
-              writer.println("    @Provides");
-              writer.println("    @EnvironmentVariable(\"" + name + "\")");
-              writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
-                  + "(@EnvironmentVariable(\"" + name + "\") String value) {");
-              writer.println("        " + type + " result = " + conversionExpr + ";");
-              writer.println("        if (result == null)");
-              writer.println("            throw new IllegalStateException(\"Environment variable "
-                  + name + " representation " + type + " not set\");");
-              writer.println("        return result;");
-              writer.println("    }");
-              writer.println();
-            }
-
-            if (representationIsNullable) {
-              writer.println("    @Provides");
-              writer.println("    @EnvironmentVariable(\"" + name + "\")");
-              writer.println("    public Optional<" + type + "> " + baseMethodName + "AsOptionalOf"
-                  + typeSimpleName + "(@EnvironmentVariable(\"" + name
-                  + "\") Optional<String> o) {");
-              writer.println("        return o.map(value -> " + conversionExpr + ");");
-              writer.println("    }");
-              writer.println();
-            }
+            writer.println("    @Provides");
+            writer.println("    @Nullable");
+            writer.println("    @EnvironmentVariable(\"" + name + "\")");
+            writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
+                + "(@Nullable @EnvironmentVariable(\"" + name + "\") String value) {");
+            writer.println("        return value != null ? " + conversionExpr + " : null;");
+            writer.println("    }");
+            writer.println();
+            writer.println("    @Provides");
+            writer.println("    @EnvironmentVariable(\"" + name + "\")");
+            writer.println("    public Optional<" + type + "> " + baseMethodName + "AsOptionalOf"
+                + typeSimpleName + "(@EnvironmentVariable(\"" + name + "\") Optional<String> o) {");
+            writer.println("        return o.map(value -> " + conversionExpr + ");");
+            writer.println("    }");
+            writer.println();
           }
         }
-        writer.println("}");
       }
-    } catch (IOException e) {
-      e.printStackTrace();
-      getMessager().printMessage(Diagnostic.Kind.ERROR,
-          "Failed to create source file: " + e.getMessage());
+      writer.println("}");
     }
+
+    return result.toString();
+  }
+
+  private transient TypeMirror qualifierType;
+
+  private TypeMirror getQualifierType() {
+    if (qualifierType == null) {
+      qualifierType = getElements().getTypeElement(EnvironmentVariable.class.getName()).asType();
+    }
+    return qualifierType;
   }
 
   private RepresentationKey toStringRepresentation(RepresentationKey key) {
