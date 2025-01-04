@@ -109,19 +109,20 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
     getMessager().printMessage(Diagnostic.Kind.NOTE,
         "Found @Component: " + component.getQualifiedName());
 
-    // Analyze the component to find all relevant injection sites.
-    final List<DaggerInjectionSite> injectionSites = getRelevantInjectionSites(component);
+    // Analyze the component to find all injection sites decorated with this processor's qualifier
+    // annotation, @EnvironmentVariable.
+    final List<DaggerInjectionSite> injectionSites = computeRelevantInjectionSites(component);
 
     // Compute per-parameter metadata. A "parameter" is the logical parameter here, so all injection
     // sites that share the same input.
     final ParameterMetadataService parameterMetadataService =
         createParameterMetadataService(injectionSites);
 
-    // Print warnings for any injection sites that are effectively required but are treated as
+    // Emit warnings for any injection sites that are effectively required but are treated as
     // nullable or have a default value.
     emitCompilerWarnings(injectionSites, parameterMetadataService);
 
-    // Collect all injection sites by representation.
+    // Determine all the various and sundry representations to generate bindings for
     final Set<RepresentationKey> representations =
         this.computeRepresentationsToGenerate(injectionSites);
 
@@ -147,55 +148,61 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
   }
 
   /**
-   * Writes the given source code to a file. The file is created in the same package as the
-   * component, with the given class name.
+   * Analyzes the given component and returns all relevant injection sites. An injection site is
+   * considered relevant if it has a qualifier annotation that matches the expected qualifier
+   * annotation for this processor.
    * 
-   * @param qualifiedClassName the qualified class name
-   * @param sourceCode the source code
-   * 
-   * @throws IOException if an I/O error occurs
+   * @param component the component to analyze
+   * @return all relevant injection sites
    */
-  private void writeSourceCode(final String qualifiedClassName, final String sourceCode,
-      Element... dependentElements) throws IOException {
-    // TODO Is this the right set of elements?
-    final JavaFileObject jfo = getFiler().createSourceFile(qualifiedClassName, dependentElements);
-    try (Writer w = jfo.openWriter()) {
-      w.write(sourceCode);
-    }
+  private List<DaggerInjectionSite> computeRelevantInjectionSites(TypeElement component) {
+    return new DaggerComponentAnalyzer(getProcessingEnv())
+        .analyzeComponent(component).getInjectionSites().stream()
+        .filter(d -> d.getQualifier().isPresent()).filter(d -> getTypes()
+            .isSameType(d.getQualifier().orElseThrow().getAnnotationType(), getQualifierType()))
+        .collect(toList());
   }
 
-  /**
-   * Determine the unique set of representations that need to be generated. This is the union of all
-   * representations in the given injection sites, plus any additional representations that are
-   * required to support the conversion of the representation to code, e.g., a string
-   * representation.
-   * 
-   * @param injectionSites the injection sites
-   * @return the set of representations to generate
-   */
-  private Set<RepresentationKey> computeRepresentationsToGenerate(
+  @FunctionalInterface
+  public static interface ParameterMetadataService {
+    public ParameterMetadata getParameterMetadata(ParameterKey key);
+  }
+
+  private ParameterMetadataService createParameterMetadataService(
       List<DaggerInjectionSite> injectionSites) {
-    final Set<RepresentationKey> representations = injectionSites.stream()
-        .map(dis -> RepresentationKey.fromInjectionSite(dis)).collect(toCollection(HashSet::new));
+    final Map<ParameterKey, List<DaggerInjectionSite>> injectionSitesByParameter =
+        injectionSites.stream().map(dis -> Map.entry(ParameterKey.fromInjectionSite(dis), dis))
+            .collect(groupingBy(Map.Entry::getKey, mapping(Map.Entry::getValue, toList())));
 
-    for (RepresentationKey representation : MoreSets.copyOf(representations)) {
-      if (getTypes().isSameType(representation.getType(), getStringType()))
-        continue;
+    final Map<ParameterKey, ParameterMetadata> metadataForParameters = new HashMap<>();
+    for (Map.Entry<ParameterKey, List<DaggerInjectionSite>> entry : injectionSitesByParameter
+        .entrySet()) {
+      final ParameterKey key = entry.getKey();
+      final List<DaggerInjectionSite> parameterInjectionSites = entry.getValue();
 
-      final RepresentationKey representationAsString = toStringRepresentation(representation);
+      // Group injection sites by requiredness
+      final Map<Boolean, List<DaggerInjectionSite>> injectionSitesByRequired =
+          parameterInjectionSites.stream().collect(Collectors.groupingBy(
+              dis -> EnvironmentVariables.isRequired(dis.isNullable(),
+                  EnvironmentVariables
+                      .extractEnvironmentVariableDefaultValue(dis.getQualifier().orElseThrow())),
+              toList()));
 
-      if (!representations.contains(representationAsString))
-        representations.add(representationAsString);
+      // Check for conflicting requiredness
+      if (injectionSitesByRequired.size() > 1) {
+        getMessager().printMessage(Diagnostic.Kind.WARNING,
+            "Conflicting requiredness for environment variable " + key.getName()
+                + ", will be treated as required");
+        // TODO Print the conflicting dependencies, with element and annotation references
+      }
+
+      // Determine if the parameter is required
+      final boolean required = injectionSitesByRequired.keySet().stream().anyMatch(b -> b == true);
+
+      metadataForParameters.put(key, new ParameterMetadata(required));
     }
-
-    return unmodifiableSet(representations);
+    return metadataForParameters::get;
   }
-
-  private static final Comparator<RepresentationKey> REPRESENTATION_KEY_COMPARATOR =
-      Comparator.comparing(RepresentationKey::getName)
-          .thenComparing(Comparator.comparing(x -> x.getDefaultValue().orElse(null),
-              Comparator.nullsFirst(Comparator.naturalOrder())))
-          .thenComparing(x -> x.getType().toString());
 
   /**
    * Prints compiler warnings for injection sites with local constraints that do not match global
@@ -244,61 +251,37 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
   }
 
   /**
-   * Analyzes the given component and returns all relevant injection sites. An injection site is
-   * considered relevant if it has a qualifier annotation that matches the expected qualifier
-   * annotation for this processor.
+   * Determine the unique set of representations that need to be generated. This is the union of all
+   * representations in the given injection sites, plus any additional representations that are
+   * required to support the conversion of the representation to code, e.g., a string
+   * representation.
    * 
-   * @param component the component to analyze
-   * @return all relevant injection sites
+   * @param injectionSites the injection sites
+   * @return the set of representations to generate
    */
-  private List<DaggerInjectionSite> getRelevantInjectionSites(TypeElement component) {
-    return new DaggerComponentAnalyzer(getProcessingEnv())
-        .analyzeComponent(component).getInjectionSites().stream()
-        .filter(d -> d.getQualifier().isPresent()).filter(d -> getTypes()
-            .isSameType(d.getQualifier().orElseThrow().getAnnotationType(), getQualifierType()))
-        .collect(toList());
-  }
-
-  private ParameterMetadataService createParameterMetadataService(
+  private Set<RepresentationKey> computeRepresentationsToGenerate(
       List<DaggerInjectionSite> injectionSites) {
-    final Map<ParameterKey, List<DaggerInjectionSite>> injectionSitesByParameter =
-        injectionSites.stream().map(dis -> Map.entry(ParameterKey.fromInjectionSite(dis), dis))
-            .collect(groupingBy(Map.Entry::getKey, mapping(Map.Entry::getValue, toList())));
+    final Set<RepresentationKey> representations = injectionSites.stream()
+        .map(dis -> RepresentationKey.fromInjectionSite(dis)).collect(toCollection(HashSet::new));
 
-    final Map<ParameterKey, ParameterMetadata> metadataForParameters = new HashMap<>();
-    for (Map.Entry<ParameterKey, List<DaggerInjectionSite>> entry : injectionSitesByParameter
-        .entrySet()) {
-      final ParameterKey key = entry.getKey();
-      final List<DaggerInjectionSite> parameterInjectionSites = entry.getValue();
+    for (RepresentationKey representation : MoreSets.copyOf(representations)) {
+      if (getTypes().isSameType(representation.getType(), getStringType()))
+        continue;
 
-      // Group injection sites by requiredness
-      final Map<Boolean, List<DaggerInjectionSite>> injectionSitesByRequired =
-          parameterInjectionSites.stream().collect(Collectors.groupingBy(
-              dis -> EnvironmentVariables.isRequired(dis.isNullable(),
-                  EnvironmentVariables
-                      .extractEnvironmentVariableDefaultValue(dis.getQualifier().orElseThrow())),
-              toList()));
+      final RepresentationKey representationAsString = toStringRepresentation(representation);
 
-      // Check for conflicting requiredness
-      if (injectionSitesByRequired.size() > 1) {
-        getMessager().printMessage(Diagnostic.Kind.WARNING,
-            "Conflicting requiredness for environment variable " + key.getName()
-                + ", will be treated as required");
-        // TODO Print the conflicting dependencies, with element and annotation references
-      }
-
-      // Determine if the parameter is required
-      final boolean required = injectionSitesByRequired.keySet().stream().anyMatch(b -> b == true);
-
-      metadataForParameters.put(key, new ParameterMetadata(required));
+      if (!representations.contains(representationAsString))
+        representations.add(representationAsString);
     }
-    return metadataForParameters::get;
+
+    return unmodifiableSet(representations);
   }
 
-  @FunctionalInterface
-  public static interface ParameterMetadataService {
-    public ParameterMetadata getParameterMetadata(ParameterKey key);
-  }
+  private static final Comparator<RepresentationKey> REPRESENTATION_KEY_COMPARATOR =
+      Comparator.comparing(RepresentationKey::getName)
+          .thenComparing(Comparator.comparing(x -> x.getDefaultValue().orElse(null),
+              Comparator.nullsFirst(Comparator.naturalOrder())))
+          .thenComparing(x -> x.getType().toString());
 
   /**
    * Generates the source code for the given representations.
@@ -459,6 +442,29 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
     return result.toString();
   }
 
+  /**
+   * Writes the given source code to a file. The file is created in the same package as the
+   * component, with the given class name.
+   * 
+   * @param qualifiedClassName the qualified class name
+   * @param sourceCode the source code
+   * 
+   * @throws IOException if an I/O error occurs
+   */
+  private void writeSourceCode(final String qualifiedClassName, final String sourceCode,
+      Element... dependentElements) throws IOException {
+    // TODO Is this the right set of elements?
+    final JavaFileObject jfo = getFiler().createSourceFile(qualifiedClassName, dependentElements);
+    try (Writer w = jfo.openWriter()) {
+      w.write(sourceCode);
+    }
+  }
+
+  private RepresentationKey toStringRepresentation(RepresentationKey key) {
+    return new RepresentationKey(getStringType(), key.getName(),
+        key.getDefaultValue().orElse(null));
+  }
+
   private transient TypeMirror qualifierType;
 
   private TypeMirror getQualifierType() {
@@ -466,11 +472,6 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
       qualifierType = getElements().getTypeElement(EnvironmentVariable.class.getName()).asType();
     }
     return qualifierType;
-  }
-
-  private RepresentationKey toStringRepresentation(RepresentationKey key) {
-    return new RepresentationKey(getStringType(), key.getName(),
-        key.getDefaultValue().orElse(null));
   }
 
   private transient TypeMirror stringType;
