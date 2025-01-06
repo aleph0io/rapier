@@ -34,7 +34,6 @@ import com.google.testing.compile.Compilation;
 import com.google.testing.compile.Compiler;
 import com.google.testing.compile.JavaFileObjects;
 import dagger.Component;
-import rapier.core.DaggerComponentAnalyzer;
 import rapier.core.model.DaggerComponentAnalysis;
 import rapier.core.model.DaggerInjectionSite;
 

@@ -35,7 +35,6 @@ import javax.lang.model.element.VariableElement;
 import org.junit.jupiter.api.Test;
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
-import rapier.core.DaggerJsr330Walker;
 
 public class DaggerJsr330WalkerTest {
   @Test

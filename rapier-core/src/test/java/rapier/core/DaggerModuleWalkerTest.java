@@ -39,7 +39,6 @@ import org.junit.jupiter.api.Test;
 import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
 import dagger.Module;
-import rapier.core.DaggerModuleWalker;
 
 public class DaggerModuleWalkerTest {
   @Test
