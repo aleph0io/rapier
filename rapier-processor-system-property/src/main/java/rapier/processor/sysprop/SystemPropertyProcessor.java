@@ -210,7 +210,7 @@ public class SystemPropertyProcessor extends RapierProcessorBase {
         new DaggerComponentAnalyzer(getProcessingEnv()).analyzeComponent(component);
 
     final Map<SystemPropertyKey, List<DaggerInjectionSite>> systemPropertys =
-        analysis.getDependencies().stream().filter(d -> d.getQualifier().isPresent())
+        analysis.getInjectionSites().stream().filter(d -> d.getQualifier().isPresent())
             .filter(d -> getTypes().isSameType(d.getQualifier().get().getAnnotationType(),
                 getElements().getTypeElement(SystemProperty.class.getCanonicalName()).asType()))
             .collect(groupingBy(SystemPropertyKey::fromDependency, toList()));

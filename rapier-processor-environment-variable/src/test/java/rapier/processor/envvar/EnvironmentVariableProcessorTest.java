@@ -21,8 +21,10 @@ package rapier.processor.envvar;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import java.util.List;
+import java.util.Locale;
 import javax.tools.JavaFileObject;
 import org.junit.jupiter.api.Test;
 import com.google.testing.compile.Compilation;
@@ -84,9 +86,9 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
                 @Provides
                 @EnvironmentVariable("FOO_BAR")
                 public java.lang.Integer provideEnvironmentVariableFooBarAsInteger(@EnvironmentVariable("FOO_BAR") String value) {
-                    java.lang.Integer result= java.lang.Integer.valueOf(value);
+                    java.lang.Integer result = java.lang.Integer.valueOf(value);
                     if (result == null)
-                        throw new IllegalStateException("Environment variable FOO_BAR  as java.lang.Integer not set");
+                        throw new IllegalStateException("Environment variable FOO_BAR representation java.lang.Integer not set");
                     return result;
                 }
 
@@ -100,6 +102,7 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
                 }
 
             }
+
             """);
 
     assertThat(compilation)
@@ -242,5 +245,70 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
             .trim();
 
     assertEquals("43", output);
+  }
+
+  @Test
+  public void givenComponentWithInconsistentEnvironmentVariableParameterRequirednessFromNullable_whenCompile_thenCompileWarning()
+      throws IOException {
+    // Define the source file to test
+    final JavaFileObject source =
+        JavaFileObjects.forSourceString("com.example.ExampleComponent", """
+            package com.example;
+
+            @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
+            public interface ExampleComponent {
+                @javax.annotation.Nullable
+                @rapier.processor.envvar.EnvironmentVariable(value="FOO_BAR")
+                public Integer provisionFooBarAsInt();
+
+                @rapier.processor.envvar.EnvironmentVariable(value="FOO_BAR")
+                public String provisionFooBarAsString();
+            }
+            """);
+
+    // Run the annotation processor
+    final Compilation compilation =
+        Compiler.javac().withProcessors(new EnvironmentVariableProcessor()).compile(source);
+
+    // Assert the compilation succeeded
+    assertThat(compilation).succeeded();
+
+    assertTrue(
+        compilation.warnings().stream().anyMatch(e -> e.getMessage(Locale.getDefault()).equals(
+            "Conflicting requiredness for environment variable FOO_BAR, will be treated as required")));
+    assertTrue(compilation.warnings().stream().anyMatch(e -> e.getMessage(Locale.getDefault())
+        .equals("Effectively required environment variable FOO_BAR is treated as nullable")));
+  }
+
+  @Test
+  public void givenComponentWithInconsistentEnvironmentVariableParameterRequirednessFromDefaultValue_whenCompile_thenCompileWarning()
+      throws IOException {
+    // Define the source file to test
+    final JavaFileObject source =
+        JavaFileObjects.forSourceString("com.example.ExampleComponent", """
+            package com.example;
+
+            @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
+            public interface ExampleComponent {
+                @rapier.processor.envvar.EnvironmentVariable(value="FOO_BAR")
+                public Integer provisionFooBarAsInt();
+
+                @rapier.processor.envvar.EnvironmentVariable(value="FOO_BAR", defaultValue="42")
+                public String provisionFooBarAsString();
+            }
+            """);
+
+    // Run the annotation processor
+    final Compilation compilation =
+        Compiler.javac().withProcessors(new EnvironmentVariableProcessor()).compile(source);
+
+    // Assert the compilation succeeded
+    assertThat(compilation).succeeded();
+
+    assertTrue(
+        compilation.warnings().stream().anyMatch(e -> e.getMessage(Locale.getDefault()).equals(
+            "Conflicting requiredness for environment variable FOO_BAR, will be treated as required")));
+    assertTrue(compilation.warnings().stream().anyMatch(e -> e.getMessage(Locale.getDefault())
+        .equals("Effectively required environment variable FOO_BAR has default value")));
   }
 }

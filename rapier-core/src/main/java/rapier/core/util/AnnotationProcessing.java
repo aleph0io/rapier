@@ -326,6 +326,13 @@ public final class AnnotationProcessing {
     return Optional.empty();
   }
 
+  public static String qualifiedClassName(String packageName, String className) {
+    if (packageName == null)
+      throw new NullPointerException();
+    if (className == null)
+      throw new NullPointerException();
+    return packageName.equals("") ? className : packageName + "." + className;
+  }
 
   public static boolean isInject(AnnotationMirror annotation) {
     return annotation.getAnnotationType().toString().endsWith(".Inject");

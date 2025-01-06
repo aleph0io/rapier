@@ -150,7 +150,7 @@ public class DaggerComponentAnalyzerTest {
           if (element instanceof TypeElement componentElement) {
             DaggerComponentAnalyzer analyzer = new DaggerComponentAnalyzer(processingEnv);
             DaggerComponentAnalysis analysis = analyzer.analyzeComponent(componentElement);
-            dependencies.addAll(analysis.getDependencies());
+            dependencies.addAll(analysis.getInjectionSites());
           }
         });
 

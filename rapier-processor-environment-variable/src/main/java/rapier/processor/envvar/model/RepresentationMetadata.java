@@ -1,8 +1,8 @@
 /*-
  * =================================LICENSE_START==================================
- * rapier-processor-core
+ * rapier-processor-environment-variable
  * ====================================SECTION=====================================
- * Copyright (C) 2024 Andy Boothe
+ * Copyright (C) 2024 - 2025 Andy Boothe
  * ====================================SECTION=====================================
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,34 +17,24 @@
  * limitations under the License.
  * ==================================LICENSE_END===================================
  */
-package rapier.core.model;
+package rapier.processor.envvar.model;
 
-import static java.util.Collections.unmodifiableSet;
-import static java.util.Objects.requireNonNull;
 import java.util.Objects;
-import java.util.Set;
-import javax.lang.model.element.TypeElement;
 
-public class DaggerComponentAnalysis {
-  private final TypeElement componentType;
-  private final Set<DaggerInjectionSite> injectionSites;
+public class RepresentationMetadata {
+  private final boolean nullable;
 
-  public DaggerComponentAnalysis(TypeElement componentType, Set<DaggerInjectionSite> dependencies) {
-    this.componentType = requireNonNull(componentType);
-    this.injectionSites = unmodifiableSet(dependencies);
+  public RepresentationMetadata(boolean nullable) {
+    this.nullable = nullable;
   }
 
-  public TypeElement getComponentType() {
-    return componentType;
-  }
-
-  public Set<DaggerInjectionSite> getInjectionSites() {
-    return injectionSites;
+  public boolean isNullable() {
+    return nullable;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(componentType, injectionSites);
+    return Objects.hash(nullable);
   }
 
   @Override
@@ -55,14 +45,12 @@ public class DaggerComponentAnalysis {
       return false;
     if (getClass() != obj.getClass())
       return false;
-    DaggerComponentAnalysis other = (DaggerComponentAnalysis) obj;
-    return Objects.equals(componentType, other.componentType)
-        && Objects.equals(injectionSites, other.injectionSites);
+    RepresentationMetadata other = (RepresentationMetadata) obj;
+    return nullable == other.nullable;
   }
 
   @Override
   public String toString() {
-    return "DaggerComponentAnalysis [componentType=" + componentType + ", dependencies="
-        + injectionSites + "]";
+    return "ParameterMetadata [nullable=" + nullable + "]";
   }
 }

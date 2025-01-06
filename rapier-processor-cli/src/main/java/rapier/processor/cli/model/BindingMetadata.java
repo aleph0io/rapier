@@ -1,8 +1,8 @@
 /*-
  * =================================LICENSE_START==================================
- * rapier-processor-core
+ * rapier-processor-cli
  * ====================================SECTION=====================================
- * Copyright (C) 2024 Andy Boothe
+ * Copyright (C) 2024 - 2025 Andy Boothe
  * ====================================SECTION=====================================
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,34 +17,35 @@
  * limitations under the License.
  * ==================================LICENSE_END===================================
  */
-package rapier.core.model;
+package rapier.processor.cli.model;
 
-import static java.util.Collections.unmodifiableSet;
-import static java.util.Objects.requireNonNull;
 import java.util.Objects;
-import java.util.Set;
-import javax.lang.model.element.TypeElement;
 
-public class DaggerComponentAnalysis {
-  private final TypeElement componentType;
-  private final Set<DaggerInjectionSite> injectionSites;
+public class BindingMetadata {
+  private final boolean nullable;
 
-  public DaggerComponentAnalysis(TypeElement componentType, Set<DaggerInjectionSite> dependencies) {
-    this.componentType = requireNonNull(componentType);
-    this.injectionSites = unmodifiableSet(dependencies);
+  /**
+   * For positional bindings, this indicates whether the binding is a varargs "bucket." For named
+   * and flag bindings, this indicates whether the binding is a list of values.
+   */
+  private final boolean list;
+
+  public BindingMetadata(boolean nullable, boolean list) {
+    this.nullable = nullable;
+    this.list = list;
   }
 
-  public TypeElement getComponentType() {
-    return componentType;
+  public boolean isNullable() {
+    return nullable;
   }
 
-  public Set<DaggerInjectionSite> getInjectionSites() {
-    return injectionSites;
+  public boolean isList() {
+    return list;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(componentType, injectionSites);
+    return Objects.hash(list, nullable);
   }
 
   @Override
@@ -55,14 +56,12 @@ public class DaggerComponentAnalysis {
       return false;
     if (getClass() != obj.getClass())
       return false;
-    DaggerComponentAnalysis other = (DaggerComponentAnalysis) obj;
-    return Objects.equals(componentType, other.componentType)
-        && Objects.equals(injectionSites, other.injectionSites);
+    BindingMetadata other = (BindingMetadata) obj;
+    return list == other.list && nullable == other.nullable;
   }
 
   @Override
   public String toString() {
-    return "DaggerComponentAnalysis [componentType=" + componentType + ", dependencies="
-        + injectionSites + "]";
+    return "NamedBindingMetadata [nullable=" + nullable + ", list=" + list + "]";
   }
 }

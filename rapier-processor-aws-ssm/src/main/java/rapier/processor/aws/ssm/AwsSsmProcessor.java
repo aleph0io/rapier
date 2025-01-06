@@ -210,7 +210,7 @@ public class AwsSsmProcessor extends RapierProcessorBase {
         new DaggerComponentAnalyzer(getProcessingEnv()).analyzeComponent(component);
 
     final Map<AwsSsmStringParameterKey, List<DaggerInjectionSite>> parameters = analysis
-        .getDependencies().stream().filter(d -> d.getQualifier().isPresent())
+        .getInjectionSites().stream().filter(d -> d.getQualifier().isPresent())
         .filter(d -> getTypes().isSameType(d.getQualifier().get().getAnnotationType(),
             getElements().getTypeElement(AwsSsmStringParameter.class.getCanonicalName()).asType()))
         .collect(groupingBy(AwsSsmStringParameterKey::fromDependency, toList()));
