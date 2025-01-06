@@ -19,58 +19,45 @@
  */
 package rapier.processor.cli.model;
 
-import static java.util.Objects.requireNonNull;
-import java.util.Comparator;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleAnnotationValueVisitor8;
 import rapier.core.model.DaggerInjectionSite;
-import rapier.processor.cli.NamedCliParameter;
+import rapier.processor.cli.OptionCliParameter;
 
-public class NamedKey implements Comparable<NamedKey> {
-  public static NamedKey fromDependency(DaggerInjectionSite dependency) {
+public class OptionParameterKey {
+  public static OptionParameterKey fromInjectionSite(DaggerInjectionSite dependency) {
     final AnnotationMirror qualifier = dependency.getQualifier().orElseThrow(() -> {
       return new IllegalArgumentException("Dependency must have qualifier");
     });
 
     if (!qualifier.getAnnotationType().toString()
-        .equals(NamedCliParameter.class.getCanonicalName())) {
-      throw new IllegalArgumentException("Dependency qualifier must be @NamedCliParameter");
+        .equals(OptionCliParameter.class.getCanonicalName())) {
+      throw new IllegalArgumentException("Dependency qualifier must be @OptionCliParameter");
     }
 
-    final TypeMirror type = dependency.getProvidedType();
-    final String shortName = extractNamedParameterShortName(qualifier);
-    final String longName = extractNamedParameterLongName(qualifier);
+    final Character shortName = extractOptionParameterShortName(qualifier);
 
-    return new NamedKey(type, shortName, longName);
+    final String longName = extractOptionParameterLongName(qualifier);
+
+    return new OptionParameterKey(shortName, longName);
   }
 
-  private final TypeMirror type;
-  private final String shortName;
+  private final Character shortName;
   private final String longName;
 
-  public NamedKey(TypeMirror type, String shortName, String longName) {
-    this.type = requireNonNull(type);
-    this.shortName = shortName;
-    this.longName = longName;
-    if (shortName != null && shortName.isEmpty())
-      throw new IllegalArgumentException("shortName must not be empty");
+  public OptionParameterKey(Character shortName, String longName) {
     if (longName != null && longName.isEmpty())
       throw new IllegalArgumentException("longName must not be empty");
-    if (shortName != null && shortName.length() > 1)
-      throw new IllegalArgumentException("shortName must be a single character");
     if (shortName == null && longName == null)
-      throw new IllegalArgumentException("At least one of shortName or longName must be non-null");
+      throw new IllegalArgumentException("At least one of shortName, longName must be non-null");
+    this.shortName = shortName;
+    this.longName = longName;
   }
 
-  public TypeMirror getType() {
-    return type;
-  }
-
-  public Optional<String> getShortName() {
+  public Optional<Character> getShortName() {
     return Optional.ofNullable(shortName);
   }
 
@@ -80,7 +67,7 @@ public class NamedKey implements Comparable<NamedKey> {
 
   @Override
   public int hashCode() {
-    return Objects.hash(longName, shortName, type);
+    return Objects.hash(longName, shortName);
   }
 
   @Override
@@ -91,47 +78,34 @@ public class NamedKey implements Comparable<NamedKey> {
       return false;
     if (getClass() != obj.getClass())
       return false;
-    NamedKey other = (NamedKey) obj;
-    return Objects.equals(longName, other.longName) && Objects.equals(shortName, other.shortName)
-        && Objects.equals(type, other.type);
-  }
-
-  private static final Comparator<NamedKey> COMPARATOR = Comparator
-      .<NamedKey, String>comparing(k -> k.getShortName().orElse(null),
-          Comparator.nullsFirst(Comparator.naturalOrder()))
-      .thenComparing(k -> k.getLongName().orElse(null),
-          Comparator.nullsFirst(Comparator.naturalOrder()))
-      .thenComparing(k -> k.getType().toString());
-
-  @Override
-  public int compareTo(NamedKey that) {
-    return COMPARATOR.compare(this, that);
+    OptionParameterKey other = (OptionParameterKey) obj;
+    return Objects.equals(longName, other.longName) && Objects.equals(shortName, other.shortName);
   }
 
   @Override
   public String toString() {
-    return "NamedKey [type=" + type + ", shortName=" + shortName + ", longName=" + longName + "]";
+    return "OptionParameterKey [shortName=" + shortName + ", longName=" + longName + "]";
   }
 
-  private static String extractNamedParameterShortName(AnnotationMirror annotation) {
+  /* default */ static Character extractOptionParameterShortName(AnnotationMirror annotation) {
     assert annotation.getAnnotationType().toString()
-        .equals(NamedCliParameter.class.getCanonicalName());
+        .equals(OptionCliParameter.class.getCanonicalName());
     return annotation.getElementValues().entrySet().stream()
         .filter(e -> e.getKey().getSimpleName().contentEquals("shortName")).findFirst()
         .map(Map.Entry::getValue)
-        .map(v -> v.accept(new SimpleAnnotationValueVisitor8<String, Void>() {
+        .map(v -> v.accept(new SimpleAnnotationValueVisitor8<Character, Void>() {
           @Override
-          public String visitString(String s, Void p) {
-            if (s.isEmpty())
+          public Character visitChar(char c, Void p) {
+            if (c == '\0')
               return null;
-            return s;
+            return c;
           }
         }, null)).orElse(null);
   }
 
-  private static String extractNamedParameterLongName(AnnotationMirror annotation) {
+  /* default */ static String extractOptionParameterLongName(AnnotationMirror annotation) {
     assert annotation.getAnnotationType().toString()
-        .equals(NamedCliParameter.class.getCanonicalName());
+        .equals(OptionCliParameter.class.getCanonicalName());
     return annotation.getElementValues().entrySet().stream()
         .filter(e -> e.getKey().getSimpleName().contentEquals("longName")).findFirst()
         .map(Map.Entry::getValue)

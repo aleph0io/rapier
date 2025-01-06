@@ -29,7 +29,11 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.CLASS)
 @Target({ElementType.PARAMETER, ElementType.FIELD, ElementType.METHOD})
 public @interface FlagCliParameter {
-  public String shortName() default "";
-  
-  public String longName() default "";
+  public char positiveShortName() default '\0';
+
+  public String positiveLongName() default "";
+
+  public char negativeShortName() default '\0';
+
+  public String negativeLongName() default "";
 }

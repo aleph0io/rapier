@@ -22,7 +22,7 @@ package rapier.processor.cli.model;
 import java.util.Objects;
 
 public class BindingMetadata {
-  private final boolean nullable;
+  private final boolean required;
 
   /**
    * For positional bindings, this indicates whether the binding is a varargs "bucket." For named
@@ -31,12 +31,12 @@ public class BindingMetadata {
   private final boolean list;
 
   public BindingMetadata(boolean nullable, boolean list) {
-    this.nullable = nullable;
+    this.required = nullable;
     this.list = list;
   }
 
-  public boolean isNullable() {
-    return nullable;
+  public boolean isRequired() {
+    return required;
   }
 
   public boolean isList() {
@@ -45,7 +45,7 @@ public class BindingMetadata {
 
   @Override
   public int hashCode() {
-    return Objects.hash(list, nullable);
+    return Objects.hash(list, required);
   }
 
   @Override
@@ -57,11 +57,11 @@ public class BindingMetadata {
     if (getClass() != obj.getClass())
       return false;
     BindingMetadata other = (BindingMetadata) obj;
-    return list == other.list && nullable == other.nullable;
+    return list == other.list && required == other.required;
   }
 
   @Override
   public String toString() {
-    return "NamedBindingMetadata [nullable=" + nullable + ", list=" + list + "]";
+    return "NamedBindingMetadata [required=" + required + ", list=" + list + "]";
   }
 }

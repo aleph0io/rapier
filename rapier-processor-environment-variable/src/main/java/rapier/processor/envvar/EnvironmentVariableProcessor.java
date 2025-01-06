@@ -201,6 +201,7 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
 
       metadataForParameters.put(key, new ParameterMetadata(required));
     }
+
     return metadataForParameters::get;
   }
 
@@ -391,7 +392,7 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
             continue;
           }
 
-          final String typeSimpleName = getTypes().asElement(type).getSimpleName().toString();
+          final String typeSimpleName = getSimpleTypeName(type);
 
           if (representationDefaultValue != null) {
             // We don't need to check nullability here because the default value "protects" us
@@ -472,15 +473,6 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
       qualifierType = getElements().getTypeElement(EnvironmentVariable.class.getName()).asType();
     }
     return qualifierType;
-  }
-
-  private transient TypeMirror stringType;
-
-  private TypeMirror getStringType() {
-    if (stringType == null) {
-      stringType = getElements().getTypeElement("java.lang.String").asType();
-    }
-    return stringType;
   }
 
   private ConversionExprFactory getConverter() {

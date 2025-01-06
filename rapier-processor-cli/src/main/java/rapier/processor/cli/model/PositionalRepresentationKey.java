@@ -20,17 +20,17 @@
 package rapier.processor.cli.model;
 
 import static java.util.Objects.requireNonNull;
-import java.util.Comparator;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleAnnotationValueVisitor8;
 import rapier.core.model.DaggerInjectionSite;
 import rapier.processor.cli.PositionalCliParameter;
 
-public class PositionalKey implements Comparable<PositionalKey> {
-  public static PositionalKey fromDependency(DaggerInjectionSite dependency) {
+public class PositionalRepresentationKey {
+  public static PositionalRepresentationKey fromInjectionSite(DaggerInjectionSite dependency) {
     final AnnotationMirror qualifier = dependency.getQualifier().orElseThrow(() -> {
       return new IllegalArgumentException("Dependency must have qualifier");
     });
@@ -44,14 +44,14 @@ public class PositionalKey implements Comparable<PositionalKey> {
     final int position = extractPositionalParameterPosition(qualifier);
     final String defaultValue = extractPositionalParameterDefaultValue(qualifier);
 
-    return new PositionalKey(type, position, defaultValue);
+    return new PositionalRepresentationKey(type, position, defaultValue);
   }
 
   private final TypeMirror type;
   private final int position;
   private final String defaultValue;
 
-  public PositionalKey(TypeMirror type, int position, String defaultValue) {
+  public PositionalRepresentationKey(TypeMirror type, int position, String defaultValue) {
     this.type = requireNonNull(type);
     this.position = position;
     this.defaultValue = defaultValue;
@@ -67,8 +67,8 @@ public class PositionalKey implements Comparable<PositionalKey> {
     return position;
   }
 
-  public String getDefaultValue() {
-    return defaultValue;
+  public Optional<String> getDefaultValue() {
+    return Optional.ofNullable(defaultValue);
   }
 
   @Override
@@ -84,25 +84,15 @@ public class PositionalKey implements Comparable<PositionalKey> {
       return false;
     if (getClass() != obj.getClass())
       return false;
-    PositionalKey other = (PositionalKey) obj;
+    PositionalRepresentationKey other = (PositionalRepresentationKey) obj;
     return Objects.equals(defaultValue, other.defaultValue) && position == other.position
         && Objects.equals(type, other.type);
   }
 
-  private static final Comparator<PositionalKey> COMPARATOR =
-      Comparator.comparingInt(PositionalKey::getPosition).thenComparing(k -> k.getType().toString())
-          .thenComparing(PositionalKey::getDefaultValue,
-              Comparator.nullsFirst(Comparator.naturalOrder()));
-
-  @Override
-  public int compareTo(PositionalKey that) {
-    return COMPARATOR.compare(this, that);
-  }
-
   @Override
   public String toString() {
-    return "PositionalKey [type=" + type + ", position=" + position + ", defaultValue="
-        + defaultValue + "]";
+    return "PositionalRepresentationKey [type=" + type + ", position=" + position
+        + ", defaultValue=" + defaultValue + "]";
   }
 
   private static int extractPositionalParameterPosition(AnnotationMirror annotation) {

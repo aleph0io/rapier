@@ -79,6 +79,19 @@ public abstract class RapierProcessorBase extends AbstractProcessor {
     return getProcessingEnv().getMessager();
   }
 
+  protected String getSimpleTypeName(TypeMirror type) {
+    return getTypes().asElement(type).getSimpleName().toString();
+  }
+
+  private transient TypeMirror stringType;
+
+  protected TypeMirror getStringType() {
+    if (stringType == null) {
+      stringType = getElements().getTypeElement("java.lang.String").asType();
+    }
+    return stringType;
+  }
+
   /**
    * Generate a signature for a string that is unique enough to be used as a method name suffix. The
    * current implementation uses the first 7 lowercase characters of the SHA1 hash of the given
