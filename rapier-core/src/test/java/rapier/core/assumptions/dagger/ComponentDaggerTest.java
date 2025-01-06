@@ -101,6 +101,41 @@ public class ComponentDaggerTest extends DaggerTestBase {
   }
 
   /**
+   * Confirm that multiple provision methods of the same key are allowed.
+   */
+  @Test
+  public void givenInterfaceComponentWithMultipleProvisionsOfSameKey_whenCompiled_thenNoError()
+      throws IOException {
+    final String componentSourceCode = """
+        import dagger.Component;
+
+        @Component(modules={ExampleModule.class})
+        public interface ExampleComponent {
+            public String provisionString1();
+
+            public String provisionString2();
+        }
+        """;
+
+    final String moduleSourceCode = """
+        import dagger.Module;
+        import dagger.Provides;
+
+        @Module
+        public class ExampleModule {
+            @Provides
+            public String provideString() {
+                return "string";
+            }
+        }
+        """;
+
+    final String errors = compileSourceCode(componentSourceCode, moduleSourceCode);
+
+    assertTrue(errors.isBlank(), "Expected no errors, but errors were found.");
+  }
+
+  /**
    * Confirm that member injection methods do not create a dependency.
    */
   @Test
