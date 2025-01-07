@@ -42,6 +42,11 @@ public class PositionalParameterKey {
     return new PositionalParameterKey(position);
   }
 
+  public static PositionalParameterKey fromRepresentationKey(PositionalRepresentationKey rk) {
+    final int position = rk.getPosition();
+    return new PositionalParameterKey(position);
+  }
+
   public static PositionalParameterKey forPosition(int position) {
     return new PositionalParameterKey(position);
   }

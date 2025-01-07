@@ -235,7 +235,7 @@ public final class AnnotationProcessing {
           && method.getModifiers().contains(Modifier.PUBLIC)
           && method.getModifiers().contains(Modifier.STATIC) && method.getParameters().size() == 1
           && method.getParameters().get(0).asType().toString().equals("java.lang.String")
-          && types.isSameType(method.getReturnType(), typeElement.asType())) {
+          && method.getReturnType().getKind() != TypeKind.VOID) {
         return Optional.of(method);
       }
     }

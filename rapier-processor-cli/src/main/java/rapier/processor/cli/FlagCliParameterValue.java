@@ -19,8 +19,25 @@
  */
 package rapier.processor.cli;
 
-import rapier.processor.cli.model.BindingMetadata;
+public enum FlagCliParameterValue {
+  NONE {
+    @Override
+    public Boolean toBoolean() {
+      return null;
+    }
+  },
+  TRUE {
+    @Override
+    public Boolean toBoolean() {
+      return Boolean.TRUE;
+    }
+  },
+  FALSE {
+    @Override
+    public Boolean toBoolean() {
+      return Boolean.FALSE;
+    }
+  };
 
-public interface PositionalParameterMetadataService {
-  public BindingMetadata getPositionalParameterMetadata(int position);
+  public abstract Boolean toBoolean();
 }

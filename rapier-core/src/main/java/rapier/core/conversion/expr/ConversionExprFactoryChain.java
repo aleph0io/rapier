@@ -38,11 +38,10 @@ public class ConversionExprFactoryChain implements ConversionExprFactory {
   }
 
   @Override
-  public Optional<String> generateConversionExpr(TypeMirror targetType, TypeMirror sourceType,
-      String sourceValue) {
+  public Optional<String> generateConversionExpr(TypeMirror targetType, String sourceValue) {
     for (ConversionExprFactory link : getLinks()) {
       final Optional<String> maybeExpr =
-          link.generateConversionExpr(targetType, sourceType, sourceValue);
+          link.generateConversionExpr(targetType, sourceValue);
       if (maybeExpr.isPresent())
         return maybeExpr;
     }

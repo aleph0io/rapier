@@ -23,6 +23,5 @@ import java.util.Optional;
 import javax.lang.model.type.TypeMirror;
 
 public interface ConversionExprFactory {
-  public Optional<String> generateConversionExpr(TypeMirror targetType, TypeMirror sourceType,
-      String sourceValue);
+  public Optional<String> generateConversionExpr(TypeMirror targetType, String sourceValue);
 }

@@ -20,24 +20,23 @@
 package rapier.core.conversion.expr;
 
 import static java.util.Objects.requireNonNull;
+import java.util.List;
 import java.util.Optional;
-import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
 import rapier.core.ConversionExprFactory;
 
-public class FromStringConversionExprFactory implements ConversionExprFactory {
+public class ElementwiseListConversionExprFactory implements ConversionExprFactory {
   private final Types types;
+  private final ConversionExprFactory elementConversionExprFactory;
 
-  public FromStringConversionExprFactory(Types types) {
+  public ElementwiseListConversionExprFactory(Types types,
+      ConversionExprFactory elementConversionExprFactory) {
     this.types = requireNonNull(types);
+    this.elementConversionExprFactory = requireNonNull(elementConversionExprFactory);
   }
 
   @Override
@@ -47,33 +46,35 @@ public class FromStringConversionExprFactory implements ConversionExprFactory {
     final TypeElement targetElement = (TypeElement) getTypes().asElement(targetType);
     final DeclaredType targetDeclaredType = (DeclaredType) targetType;
 
-    // Look for the "fromString" method
-    for (Element enclosedElement : targetElement.getEnclosedElements()) {
-      if (enclosedElement.getKind() != ElementKind.METHOD)
-        continue;
-      final ExecutableElement methodElement = (ExecutableElement) enclosedElement;
-      if (methodElement.getSimpleName().contentEquals("fromString")
-          && methodElement.getModifiers().contains(Modifier.PUBLIC)
-          && methodElement.getModifiers().contains(Modifier.STATIC)
-          && methodElement.getParameters().size() == 1
-          && methodElement.getReturnType().getKind() != TypeKind.VOID) {
+    // Get type arguments
+    List<? extends TypeMirror> typeArguments = targetDeclaredType.getTypeArguments();
 
-        final ExecutableType methodType =
-            (ExecutableType) getTypes().asMemberOf(targetDeclaredType, methodElement);
+    // Ensure there's exactly one type argument. There might be zero, but there really, really
+    // shouldn't be more than 1.
+    if (typeArguments.size() != 1)
+      return Optional.empty();
 
-        if (!methodType.getParameterTypes().get(0).toString().equals("java.lang.String"))
-          continue;
-        if (!getTypes().isSameType(targetType, methodType.getReturnType()))
-          continue;
+    // Get the first type argument
+    final TypeMirror targetTypeArgument = typeArguments.get(0);
+    if (targetTypeArgument.getKind() != TypeKind.DECLARED)
+      return Optional.empty();
 
-        return Optional.of(targetType.toString() + ".fromString(" + sourceValue + ")");
-      }
-    }
+    // Generate conversion expression for each element
+    final Optional<String> maybeElementConversionExpr =
+        getElementConversionExprFactory().generateConversionExpr(targetTypeArgument, "element");
+    if (maybeElementConversionExpr.isEmpty())
+      return Optional.empty();
+    final String elementConversionExpr = maybeElementConversionExpr.orElseThrow();
 
-    return Optional.empty();
+    return Optional.of(sourceValue + ".stream().map(element -> " + elementConversionExpr
+        + ").collect(java.util.stream.Collectors.toList())");
   }
 
   private Types getTypes() {
     return types;
+  }
+
+  private ConversionExprFactory getElementConversionExprFactory() {
+    return elementConversionExprFactory;
   }
 }

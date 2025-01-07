@@ -30,7 +30,7 @@ import rapier.core.model.DaggerInjectionSite;
 import rapier.processor.cli.OptionCliParameter;
 
 public class OptionRepresentationKey {
-  public static OptionRepresentationKey fromDependency(DaggerInjectionSite dependency) {
+  public static OptionRepresentationKey fromInjectionSite(DaggerInjectionSite dependency) {
     final AnnotationMirror qualifier = dependency.getQualifier().orElseThrow(() -> {
       return new IllegalArgumentException("Dependency must have qualifier");
     });

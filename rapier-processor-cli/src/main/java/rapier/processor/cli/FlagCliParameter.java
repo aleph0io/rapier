@@ -36,4 +36,6 @@ public @interface FlagCliParameter {
   public char negativeShortName() default '\0';
 
   public String negativeLongName() default "";
+
+  public FlagCliParameterValue defaultValue() default FlagCliParameterValue.NONE;
 }

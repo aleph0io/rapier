@@ -78,9 +78,10 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
   public synchronized void init(ProcessingEnvironment processingEnv) {
     super.init(processingEnv);
 
-    converter = new ConversionExprFactoryChain(new ValueOfConversionExprFactory(getTypes()),
+    converter = new ConversionExprFactoryChain(
+        new ValueOfConversionExprFactory(getTypes(), getStringType()),
         new FromStringConversionExprFactory(getTypes()),
-        new SingleArgumentConstructorConversionExprFactory(getTypes()));
+        new SingleArgumentConstructorConversionExprFactory(getTypes(), getStringType()));
   }
 
   @Override
@@ -385,7 +386,7 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
           }
         } else {
           final String conversionExpr =
-              getConverter().generateConversionExpr(type, getStringType(), "value").orElse(null);
+              getConverter().generateConversionExpr(type, "value").orElse(null);
           if (conversionExpr == null) {
             getMessager().printMessage(Diagnostic.Kind.ERROR,
                 "Cannot convert " + type + " from " + getStringType());
