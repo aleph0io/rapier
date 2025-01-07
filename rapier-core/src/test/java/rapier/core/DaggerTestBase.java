@@ -111,7 +111,7 @@ public abstract class DaggerTestBase {
    * Compiles a given source code, runs the main method and returns the output from stdout.
    */
   protected String compileAndRunSourceCode(List<String> compilationUnitSourceCodes,
-      List<String> annotationProcessors, List<URL> additionalClasspathEntries) throws IOException {
+      List<String> annotationProcessors, List<File> additionalClasspathEntries) throws IOException {
     try (TempDir tempDir = TempDir.createTempDirectory("rapier_test")) {
       String errors = compileSourceCode(tempDir, compilationUnitSourceCodes, annotationProcessors,
           additionalClasspathEntries);
@@ -140,7 +140,8 @@ public abstract class DaggerTestBase {
           classpath.add(simulationClasspathEntry.toURI().toURL());
         classpath.add(tempDir.toURI().toURL());
         if (additionalClasspathEntries != null)
-          classpath.addAll(additionalClasspathEntries);
+          for (File additionalClasspathEntry : additionalClasspathEntries)
+            classpath.add(additionalClasspathEntry.toURI().toURL());
         try (URLClassLoader classLoader = new URLClassLoader(classpath.toArray(URL[]::new),
             ClassLoader.getPlatformClassLoader())) {
 
@@ -226,7 +227,7 @@ public abstract class DaggerTestBase {
    * @throws IOException if an I/O error occurs
    */
   private String compileSourceCode(File tempDir, List<String> compilationUnitSourceCodes,
-      List<String> annotationProcessors, List<URL> additionalClasspathEntries) throws IOException {
+      List<String> annotationProcessors, List<File> additionalClasspathEntries) throws IOException {
     // Get the system Java compiler
     final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
     if (compiler == null) {
@@ -257,8 +258,8 @@ public abstract class DaggerTestBase {
     // Set up our classpath
     final List<File> classpathEntries = new ArrayList<>();
     classpathEntries.addAll(simulationClasspath());
-    for (URL additionalClasspathEntry : additionalClasspathEntries)
-      classpathEntries.add(new File(additionalClasspathEntry.getFile()));
+    for (File additionalClasspathEntry : additionalClasspathEntries)
+      classpathEntries.add(additionalClasspathEntry);
     final String classpath =
         classpathEntries.stream().map(File::getAbsolutePath).collect(joining(File.pathSeparator));
 
@@ -333,7 +334,6 @@ public abstract class DaggerTestBase {
   private static final String JSR_305_VERSION =
       Optional.ofNullable(System.getProperty("maven.jsr305.version")).orElseThrow(
           () -> new IllegalStateException("maven.jsr305.version system property not set"));
-
 
   private List<File> simulationClasspath() throws FileNotFoundException {
     final File daggerJar =

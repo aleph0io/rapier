@@ -210,9 +210,7 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
     final String output = compileAndRunSourceCode(List.of(componentSource, appSource),
         List.of("rapier.envvar.compiler.EnvironmentVariableProcessor",
             DAGGER_COMPONENT_ANNOTATION_PROCESSOR),
-        List.of(
-            resolveProjectFile("../rapier-environment-variable/target/classes").toURI().toURL()))
-                .trim();
+        List.of(resolveProjectFile("../rapier-environment-variable/target/classes"))).trim();
 
     assertEquals("42", output);
   }
@@ -246,9 +244,7 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
     final String output = compileAndRunSourceCode(List.of(componentSource, appSource),
         List.of(EnvironmentVariableProcessor.class.getName(),
             DAGGER_COMPONENT_ANNOTATION_PROCESSOR),
-        List.of(
-            resolveProjectFile("../rapier-environment-variable/target/classes").toURI().toURL()))
-                .trim();
+        List.of(resolveProjectFile("../rapier-environment-variable/target/classes"))).trim();
 
     assertEquals("43", output);
   }
