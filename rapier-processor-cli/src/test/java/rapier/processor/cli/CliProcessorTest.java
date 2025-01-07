@@ -20,6 +20,7 @@
 package rapier.processor.cli;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
+import static java.util.Collections.emptyList;
 import javax.tools.JavaFileObject;
 import org.junit.jupiter.api.Test;
 import com.google.testing.compile.Compilation;
@@ -49,8 +50,8 @@ public class CliProcessorTest extends DaggerTestBase {
             """);
 
     // Run the annotation processor
-    final Compilation compilation =
-        Compiler.javac().withProcessors(new CliProcessor()).compile(source);
+    final Compilation compilation = Compiler.javac().withClasspath(emptyList())
+        .withProcessors(new CliProcessor()).compile(source);
 
     // Assert the compilation succeeded
     assertThat(compilation).succeeded();
