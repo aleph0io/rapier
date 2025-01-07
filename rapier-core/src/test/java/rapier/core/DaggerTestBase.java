@@ -19,9 +19,11 @@
  */
 package rapier.core;
 
+import static java.util.Collections.emptyList;
 import static java.util.stream.Collectors.joining;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.io.PrintWriter;
@@ -96,13 +98,23 @@ public abstract class DaggerTestBase {
     return compileAndRunSourceCode(compilationUnitSourceCodes, DEFAULT_ANNOTATION_PROCESSORS);
   }
 
+
   /**
    * Compiles a given source code, runs the main method and returns the output from stdout.
    */
   protected String compileAndRunSourceCode(List<String> compilationUnitSourceCodes,
       List<String> annotationProcessors) throws IOException {
-    try (TempDir tempDir = TempDir.createTempDirectory("dagger_test")) {
-      String errors = compileSourceCode(tempDir, compilationUnitSourceCodes, annotationProcessors);
+    return compileAndRunSourceCode(compilationUnitSourceCodes, annotationProcessors, emptyList());
+  }
+
+  /**
+   * Compiles a given source code, runs the main method and returns the output from stdout.
+   */
+  protected String compileAndRunSourceCode(List<String> compilationUnitSourceCodes,
+      List<String> annotationProcessors, List<URL> additionalClasspathEntries) throws IOException {
+    try (TempDir tempDir = TempDir.createTempDirectory("rapier_test")) {
+      String errors = compileSourceCode(tempDir, compilationUnitSourceCodes, annotationProcessors,
+          additionalClasspathEntries);
       if (!errors.isBlank()) {
         throw new IllegalArgumentException(
             "Compilation of invalid compilation units failed with errors: " + errors);
@@ -127,6 +139,8 @@ public abstract class DaggerTestBase {
         for (File simulationClasspathEntry : simulationClasspath())
           classpath.add(simulationClasspathEntry.toURI().toURL());
         classpath.add(tempDir.toURI().toURL());
+        if (additionalClasspathEntries != null)
+          classpath.addAll(additionalClasspathEntries);
         try (URLClassLoader classLoader = new URLClassLoader(classpath.toArray(URL[]::new),
             ClassLoader.getPlatformClassLoader())) {
 
@@ -198,6 +212,21 @@ public abstract class DaggerTestBase {
    */
   private String compileSourceCode(File tempDir, List<String> compilationUnitSourceCodes,
       List<String> annotationProcessors) throws IOException {
+    return compileSourceCode(tempDir, compilationUnitSourceCodes, annotationProcessors,
+        emptyList());
+  }
+
+  /**
+   * Compiles a given source code string and returns any compilation errors.
+   * 
+   * @param tempDir the temporary directory to store the generated source files
+   * @param compilationUnitSourceCodes the source code strings to compile
+   * @return any compilation errors
+   * 
+   * @throws IOException if an I/O error occurs
+   */
+  private String compileSourceCode(File tempDir, List<String> compilationUnitSourceCodes,
+      List<String> annotationProcessors, List<URL> additionalClasspathEntries) throws IOException {
     // Get the system Java compiler
     final JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
     if (compiler == null) {
@@ -226,8 +255,12 @@ public abstract class DaggerTestBase {
     DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
 
     // Set up our classpath
-    final String classpath = simulationClasspath().stream().map(File::getAbsolutePath)
-        .collect(joining(File.pathSeparator));
+    final List<File> classpathEntries = new ArrayList<>();
+    classpathEntries.addAll(simulationClasspath());
+    for (URL additionalClasspathEntry : additionalClasspathEntries)
+      classpathEntries.add(new File(additionalClasspathEntry.getFile()));
+    final String classpath =
+        classpathEntries.stream().map(File::getAbsolutePath).collect(joining(File.pathSeparator));
 
     // Configure annotation processors (include Dagger's processor)
     List<String> options = List.of("-cp", classpath, "-processor",
@@ -256,13 +289,27 @@ public abstract class DaggerTestBase {
   }
 
   /**
+   * The root directory of the current Maven module
+   */
+  private static final File MAVEN_PROJECT_BASEDIR =
+      Optional.ofNullable(System.getProperty("maven.project.basedir")).map(File::new).orElseThrow(
+          () -> new IllegalStateException("maven.project.basedir system property not set"));
+
+  protected File resolveProjectFile(String path) throws FileNotFoundException {
+    final File result = new File(MAVEN_PROJECT_BASEDIR, path);
+    if (!result.exists())
+      throw new FileNotFoundException(result.toString());
+    return result;
+  }
+
+  /**
    * The Dagger version to use for compiling test code. This should be passed by
    * maven-surefire-plugin using the exact dagger version from the POM. See the root POM for the
    * specific details of the setup.
    */
   private static final String DAGGER_VERSION =
-      Optional.ofNullable(System.getProperty("dagger.version"))
-          .orElseThrow(() -> new IllegalStateException("dagger.version system property not set"));
+      Optional.ofNullable(System.getProperty("maven.dagger.version")).orElseThrow(
+          () -> new IllegalStateException("maven.dagger.version system property not set"));
 
   /**
    * The javax.inject version to use for compiling test code. This should be passed by
@@ -270,8 +317,8 @@ public abstract class DaggerTestBase {
    * the specific details of the setup.
    */
   private static final String JAVAX_INJECT_VERSION =
-      Optional.ofNullable(System.getProperty("javax.inject.version")).orElseThrow(
-          () -> new IllegalStateException("javax.inject.version system property not set"));
+      Optional.ofNullable(System.getProperty("maven.javax.inject.version")).orElseThrow(
+          () -> new IllegalStateException("maven.javax.inject.version system property not set"));
 
   /**
    * The Jakarta Inject API version to use for compiling test code. This should be passed by
@@ -279,23 +326,24 @@ public abstract class DaggerTestBase {
    * for the specific details
    */
   private static final String JAKARTA_INJECT_API_VERSION =
-      Optional.ofNullable(System.getProperty("jakarta.inject-api.version")).orElseThrow(
-          () -> new IllegalStateException("jakarta.inject-api.version system property not set"));
+      Optional.ofNullable(System.getProperty("maven.jakarta.inject-api.version"))
+          .orElseThrow(() -> new IllegalStateException(
+              "maven.jakarta.inject-api.version system property not set"));
 
   private static final String JSR_305_VERSION =
-      Optional.ofNullable(System.getProperty("jsr305.version")).orElseThrow(
-          () -> new IllegalStateException("jsr305.version system property not set"));
+      Optional.ofNullable(System.getProperty("maven.jsr305.version")).orElseThrow(
+          () -> new IllegalStateException("maven.jsr305.version system property not set"));
 
 
-  private List<File> simulationClasspath() {
+  private List<File> simulationClasspath() throws FileNotFoundException {
     final File daggerJar =
         Maven.findJarInLocalRepository("com.google.dagger", "dagger", DAGGER_VERSION);
     final File javaxInjectJar =
         Maven.findJarInLocalRepository("javax.inject", "javax.inject", JAVAX_INJECT_VERSION);
     final File jakartaInjectApiJar = Maven.findJarInLocalRepository("jakarta.inject",
         "jakarta.inject-api", JAKARTA_INJECT_API_VERSION);
-    final File jsr305Jar = Maven.findJarInLocalRepository("com.google.code.findbugs",
-        "jsr305", JSR_305_VERSION);
+    final File jsr305Jar =
+        Maven.findJarInLocalRepository("com.google.code.findbugs", "jsr305", JSR_305_VERSION);
     return List.of(daggerJar, javaxInjectJar, jakartaInjectApiJar, jsr305Jar);
   }
 }

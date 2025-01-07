@@ -7,14 +7,19 @@
         <version>0.0.0-b0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>rapier-processor-environment-variable</artifactId>
-    <name>rapier-processor-environment-variable</name>
+    <artifactId>rapier-environment-variable-compiler</artifactId>
+    <name>rapier-environment-variable-compiler</name>
     <packaging>jar</packaging>
 
     <dependencies>
         <dependency>
             <groupId>com.sigpwned</groupId>
             <artifactId>rapier-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.sigpwned</groupId>
+            <artifactId>rapier-environment-variable</artifactId>
             <version>${project.version}</version>
         </dependency>
 

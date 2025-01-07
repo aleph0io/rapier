@@ -17,7 +17,7 @@
  * limitations under the License.
  * ==================================LICENSE_END===================================
  */
-package rapier.processor.envvar;
+package rapier.envvar.compiler;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -42,7 +42,7 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
 
             @dagger.Component
             public interface ExampleComponent {
-                @rapier.processor.envvar.EnvironmentVariable("FOO_BAR")
+                @rapier.envvar.EnvironmentVariable("FOO_BAR")
                 public Integer provisionFooBarAsInt();
             }
             """);
@@ -62,7 +62,7 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
 
             import static java.util.Collections.unmodifiableMap;
 
-            import rapier.processor.envvar.EnvironmentVariable;
+            import rapier.envvar.EnvironmentVariable;
             import dagger.Module;
             import dagger.Provides;
             import java.util.Map;
@@ -119,7 +119,7 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
 
             @dagger.Component
             public interface ExampleComponent {
-                @rapier.processor.envvar.EnvironmentVariable(value="FOO_BAR", defaultValue="42")
+                @rapier.envvar.EnvironmentVariable(value="FOO_BAR", defaultValue="42")
                 public Integer provisionFooBarAsInt();
             }
             """);
@@ -139,7 +139,7 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
 
             import static java.util.Collections.unmodifiableMap;
 
-            import rapier.processor.envvar.EnvironmentVariable;
+            import rapier.envvar.EnvironmentVariable;
             import dagger.Module;
             import dagger.Provides;
             import java.util.Map;
@@ -188,7 +188,7 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
         @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
         public interface ExampleComponent {
             @javax.annotation.Nullable
-            @rapier.processor.envvar.EnvironmentVariable("FOO_BAR")
+            @rapier.envvar.EnvironmentVariable("FOO_BAR")
             public Integer provisionFooBarAsInt();
         }
         """;
@@ -208,8 +208,11 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
             """;
 
     final String output = compileAndRunSourceCode(List.of(componentSource, appSource),
-        List.of("rapier.processor.envvar.EnvironmentVariableProcessor",
-            DAGGER_COMPONENT_ANNOTATION_PROCESSOR)).trim();
+        List.of("rapier.envvar.compiler.EnvironmentVariableProcessor",
+            DAGGER_COMPONENT_ANNOTATION_PROCESSOR),
+        List.of(
+            resolveProjectFile("../rapier-environment-variable/target/classes").toURI().toURL()))
+                .trim();
 
     assertEquals("42", output);
   }
@@ -221,7 +224,7 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
     final String componentSource = """
         @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
         public interface ExampleComponent {
-            @rapier.processor.envvar.EnvironmentVariable(value="FOO_BAR", defaultValue="43")
+            @rapier.envvar.EnvironmentVariable(value="FOO_BAR", defaultValue="43")
             public Integer provisionFooBarAsInt();
         }
         """;
@@ -240,9 +243,12 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
             }
             """;
 
-    final String output = compileAndRunSourceCode(List.of(componentSource, appSource), List
-        .of(EnvironmentVariableProcessor.class.getName(), DAGGER_COMPONENT_ANNOTATION_PROCESSOR))
-            .trim();
+    final String output = compileAndRunSourceCode(List.of(componentSource, appSource),
+        List.of(EnvironmentVariableProcessor.class.getName(),
+            DAGGER_COMPONENT_ANNOTATION_PROCESSOR),
+        List.of(
+            resolveProjectFile("../rapier-environment-variable/target/classes").toURI().toURL()))
+                .trim();
 
     assertEquals("43", output);
   }
@@ -258,10 +264,10 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
             @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
             public interface ExampleComponent {
                 @javax.annotation.Nullable
-                @rapier.processor.envvar.EnvironmentVariable(value="FOO_BAR")
+                @rapier.envvar.EnvironmentVariable(value="FOO_BAR")
                 public Integer provisionFooBarAsInt();
 
-                @rapier.processor.envvar.EnvironmentVariable(value="FOO_BAR")
+                @rapier.envvar.EnvironmentVariable(value="FOO_BAR")
                 public String provisionFooBarAsString();
             }
             """);
@@ -290,10 +296,10 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
 
             @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
             public interface ExampleComponent {
-                @rapier.processor.envvar.EnvironmentVariable(value="FOO_BAR")
+                @rapier.envvar.EnvironmentVariable(value="FOO_BAR")
                 public Integer provisionFooBarAsInt();
 
-                @rapier.processor.envvar.EnvironmentVariable(value="FOO_BAR", defaultValue="42")
+                @rapier.envvar.EnvironmentVariable(value="FOO_BAR", defaultValue="42")
                 public String provisionFooBarAsString();
             }
             """);

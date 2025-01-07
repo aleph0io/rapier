@@ -17,7 +17,7 @@
  * limitations under the License.
  * ==================================LICENSE_END===================================
  */
-package rapier.processor.envvar;
+package rapier.envvar.compiler;
 
 import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.groupingBy;
@@ -64,10 +64,8 @@ import rapier.core.util.AnnotationProcessing;
 import rapier.core.util.CaseFormat;
 import rapier.core.util.Java;
 import rapier.core.util.MoreSets;
-import rapier.processor.envvar.model.ParameterKey;
-import rapier.processor.envvar.model.ParameterMetadata;
-import rapier.processor.envvar.model.RepresentationKey;
-import rapier.processor.envvar.util.EnvironmentVariables;
+import rapier.envvar.EnvironmentVariable;
+import rapier.envvar.compiler.util.EnvironmentVariables;
 
 @SupportedAnnotationTypes("dagger.Component")
 @SupportedSourceVersion(SourceVersion.RELEASE_11)

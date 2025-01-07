@@ -17,7 +17,7 @@
  * limitations under the License.
  * ==================================LICENSE_END===================================
  */
-package rapier.processor.envvar;
+package rapier.envvar;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

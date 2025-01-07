@@ -1,6 +1,7 @@
 package rapier.core.util;
 
 import java.io.File;
+import java.io.FileNotFoundException;
 
 public final class Maven {
   private Maven() {}
@@ -17,8 +18,10 @@ public final class Maven {
    * @param artifactId The artifact ID of the artifact
    * @param version The version of the artifact
    * @return An Optional containing the JAR file if it exists, or an empty Optional otherwise
+   * @throws FileNotFoundException if the JAR file does not exist
    */
-  public static File findJarInLocalRepository(String groupId, String artifactId, String version) {
+  public static File findJarInLocalRepository(String groupId, String artifactId, String version)
+      throws FileNotFoundException {
     // Convert groupId to directory path (e.g., org.apache.maven -> org/apache/maven)
     final String groupPath = groupId.replace('.', '/');
 
@@ -30,7 +33,7 @@ public final class Maven {
     final File jarFile = new File(jarPath);
 
     if (!jarFile.exists())
-      throw new IllegalArgumentException("JAR file does not exist: " + jarFile);
+      throw new FileNotFoundException(jarFile.getAbsolutePath());
 
     return jarFile;
   }

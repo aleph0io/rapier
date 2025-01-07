@@ -17,14 +17,14 @@
  * limitations under the License.
  * ==================================LICENSE_END===================================
  */
-package rapier.processor.envvar.model;
+package rapier.envvar.compiler;
 
 import static java.util.Objects.requireNonNull;
 import java.util.Objects;
 import javax.lang.model.element.AnnotationMirror;
 import rapier.core.model.DaggerInjectionSite;
-import rapier.processor.envvar.EnvironmentVariable;
-import rapier.processor.envvar.util.EnvironmentVariables;
+import rapier.envvar.EnvironmentVariable;
+import rapier.envvar.compiler.util.EnvironmentVariables;
 
 /**
  * A grouping key for the physical parameter provided by the user

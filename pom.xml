@@ -87,10 +87,11 @@
                             jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED
                         </argLine>
                         <systemPropertyVariables>
-                            <dagger.version>${dagger.version}</dagger.version>
-                            <javax.inject.version>${javax.inject.version}</javax.inject.version>
-                            <jakarta.inject-api.version>${jakarta.inject-api.version}</jakarta.inject-api.version>
-                            <jsr305.version>${jsr305.version}</jsr305.version>
+                            <maven.dagger.version>${dagger.version}</maven.dagger.version>
+                            <maven.javax.inject.version>${javax.inject.version}</maven.javax.inject.version>
+                            <maven.jakarta.inject-api.version>${jakarta.inject-api.version}</maven.jakarta.inject-api.version>
+                            <maven.jsr305.version>${jsr305.version}</maven.jsr305.version>
+                            <maven.project.basedir>${project.basedir}</maven.project.basedir>
                         </systemPropertyVariables>
                     </configuration>
                 </plugin>            
@@ -250,7 +251,8 @@
 
     <modules>
         <module>rapier-core</module>
-        <module>rapier-processor-environment-variable</module>
+        <module>rapier-environment-variable</module>
+        <module>rapier-environment-variable-compiler</module>
         <module>rapier-processor-system-property</module>
         <module>rapier-processor-aws-ssm</module>
         <module>rapier-processor-cli</module>

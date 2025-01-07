@@ -17,24 +17,24 @@
  * limitations under the License.
  * ==================================LICENSE_END===================================
  */
-package rapier.processor.envvar.model;
+package rapier.envvar.compiler;
 
 import java.util.Objects;
 
-public class RepresentationMetadata {
-  private final boolean nullable;
+public class ParameterMetadata {
+  private final boolean required;
 
-  public RepresentationMetadata(boolean nullable) {
-    this.nullable = nullable;
+  public ParameterMetadata(boolean required) {
+    this.required = required;
   }
 
-  public boolean isNullable() {
-    return nullable;
+  public boolean isRequired() {
+    return required;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(nullable);
+    return Objects.hash(required);
   }
 
   @Override
@@ -45,12 +45,12 @@ public class RepresentationMetadata {
       return false;
     if (getClass() != obj.getClass())
       return false;
-    RepresentationMetadata other = (RepresentationMetadata) obj;
-    return nullable == other.nullable;
+    ParameterMetadata other = (ParameterMetadata) obj;
+    return required == other.required;
   }
 
   @Override
   public String toString() {
-    return "ParameterMetadata [nullable=" + nullable + "]";
+    return "ParameterMetadata [required=" + required + "]";
   }
 }

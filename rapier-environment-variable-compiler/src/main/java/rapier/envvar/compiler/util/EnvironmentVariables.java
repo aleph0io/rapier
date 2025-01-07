@@ -17,12 +17,12 @@
  * limitations under the License.
  * ==================================LICENSE_END===================================
  */
-package rapier.processor.envvar.util;
+package rapier.envvar.compiler.util;
 
 import java.util.Map;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.util.SimpleAnnotationValueVisitor8;
-import rapier.processor.envvar.EnvironmentVariable;
+import rapier.envvar.EnvironmentVariable;
 
 public final class EnvironmentVariables {
   private EnvironmentVariables() {}
