@@ -11,6 +11,18 @@
     <name>rapier-processor-cli</name>
     <packaging>jar</packaging>
 
+    <dependencyManagement>
+        <dependencies>
+            <!-- This dependency is embedded in this project. -->
+            <!-- This makes dependabot notify us of new releases. -->
+            <dependency>
+                <groupId>com.sigpwned</groupId>
+                <artifactId>just-args-java</artifactId>
+                <version>0.0.0</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+
     <dependencies>
         <dependency>
             <groupId>com.sigpwned</groupId>
