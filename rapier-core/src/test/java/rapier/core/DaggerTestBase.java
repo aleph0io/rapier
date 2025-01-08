@@ -20,11 +20,13 @@
 package rapier.core;
 
 import static java.util.Collections.emptyList;
+import static java.util.Collections.unmodifiableList;
 import static java.util.stream.Collectors.joining;
 import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintStream;
 import java.io.PrintWriter;
 import java.io.UncheckedIOException;
@@ -34,19 +36,25 @@ import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
+import java.util.ServiceLoader;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import javax.annotation.processing.Processor;
 import javax.tools.Diagnostic;
 import javax.tools.DiagnosticCollector;
 import javax.tools.JavaCompiler;
 import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
+import com.google.testing.compile.Compilation;
 import rapier.core.util.Maven;
 
 public abstract class DaggerTestBase {
@@ -65,6 +73,112 @@ public abstract class DaggerTestBase {
       delete();
     }
   }
+
+  /**
+   * Returns the annotation processors to use when compiling the source code. We will use any
+   * annotation available via ServiceLoader, plus the Dagger processor.
+   */
+  protected Processor[] getAnnotationProcessors() {
+    final List<Processor> result = new ArrayList<>();
+    for (Processor processor : ServiceLoader.load(Processor.class))
+      result.add(processor);
+
+    // We only want to run dagger and rapier processors.
+    final Iterator<Processor> iterator = result.iterator();
+    while (iterator.hasNext()) {
+      final Processor processor = iterator.next();
+      final String processorClassName = processor.getClass().getName();
+
+      // Skip any annotation processors we don't recognize
+      if (processorClassName.startsWith("dagger.")) {
+        // This is a dagger processor. Let's keep it, obviously.
+      } else if (processorClassName.startsWith("rapier.")) {
+        // This is a rapier processor. Let's keep it, obviously.
+      } else if (processorClassName.startsWith("com.google.")) {
+        // We want to see if rapier and dagger work on a standalone basis.
+        // We recognize and trust these, but let's skip them.
+        iterator.remove();
+      } else {
+        // What are you...?
+        System.err
+            .println("WARNING: Skipping unrecognized annotation processor: " + processorClassName);
+        iterator.remove();
+      }
+    }
+
+    // Order matters here. Dagger needs to go after rapier.
+    result.sort(new Comparator<Processor>() {
+      @Override
+      public int compare(Processor a, Processor b) {
+        final int acat = category(a);
+        final int bcat = category(b);
+
+        if (acat != bcat)
+          return acat - bcat;
+
+        return a.getClass().getName().compareTo(b.getClass().getName());
+      }
+
+      private int category(Processor p) {
+        final String processorClassName = p.getClass().getName();
+        if (processorClassName.startsWith("rapier."))
+          return 100;
+        if (processorClassName.startsWith("dagger."))
+          return 200;
+        return 300;
+      }
+    });
+
+    return result.toArray(Processor[]::new);
+  }
+
+  protected List<File> getCompileClasspath() throws FileNotFoundException {
+    final File daggerJar =
+        Maven.findJarInLocalRepository("com.google.dagger", "dagger", DAGGER_VERSION);
+    final File javaxInjectJar =
+        Maven.findJarInLocalRepository("javax.inject", "javax.inject", JAVAX_INJECT_VERSION);
+    final File jakartaInjectApiJar = Maven.findJarInLocalRepository("jakarta.inject",
+        "jakarta.inject-api", JAKARTA_INJECT_API_VERSION);
+    final File jsr305Jar =
+        Maven.findJarInLocalRepository("com.google.code.findbugs", "jsr305", JSR_305_VERSION);
+    return List.of(daggerJar, javaxInjectJar, jakartaInjectApiJar, jsr305Jar);
+  }
+
+  protected List<File> getRunClasspath(Compilation compilation) throws IOException {
+    List<File> result = new ArrayList<>();
+    result.addAll(getCompileClasspath());
+
+    // Add the compiled classes. Extract the compiled files into a temporary directory.
+    final Path tmpdir = Files.createTempDirectory("test");
+    for (JavaFileObject file : compilation.generatedFiles()) {
+      if (file.getKind() == JavaFileObject.Kind.CLASS) {
+        final String originalClassFileName = file.getName();
+
+        String sanitizedClassFileName = originalClassFileName;
+        sanitizedClassFileName = sanitizedClassFileName.replace("/", File.separator);
+        if (sanitizedClassFileName.startsWith(File.separator))
+          sanitizedClassFileName = sanitizedClassFileName.substring(1);
+        if (sanitizedClassFileName.startsWith("CLASS_OUTPUT" + File.separator))
+          sanitizedClassFileName = sanitizedClassFileName.substring("CLASS_OUTPUT".length() + 1,
+              sanitizedClassFileName.length());
+
+        final Path tmpdirClassFile = tmpdir.resolve(sanitizedClassFileName);
+
+        Files.createDirectories(tmpdirClassFile.getParent());
+
+        try (InputStream in = file.openInputStream()) {
+          Files.copy(in, tmpdirClassFile);
+        }
+      }
+    }
+
+    final File tmpdirAsFile = tmpdir.toFile();
+    result.add(tmpdirAsFile);
+    tmpdirAsFile.deleteOnExit();
+
+    return unmodifiableList(result);
+  }
+
 
   protected String compileSourceCode(String... compilationUnitSourceCodes) throws IOException {
     return compileSourceCode(List.of(compilationUnitSourceCodes));
