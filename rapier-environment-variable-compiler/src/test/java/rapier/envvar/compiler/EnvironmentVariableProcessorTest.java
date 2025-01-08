@@ -46,28 +46,19 @@ import com.google.testing.compile.JavaFileObjects;
 import rapier.core.DaggerTestBase;
 
 public class EnvironmentVariableProcessorTest extends DaggerTestBase {
-  @Override
-  protected List<File> getCompileClasspath() throws FileNotFoundException {
-    List<File> result = new ArrayList<>();
-    result.addAll(super.getCompileClasspath());
-    result.add(resolveProjectFile("../rapier-environment-variable/target/classes"));
-    return unmodifiableList(result);
-  }
-
   @Test
   public void givenSimpleComponentWithEnvironmentVariableWithoutDefaultValue_whenCompile_thenExpectedtModuleIsGenerated()
       throws IOException {
     // Define the source file to test
-    final JavaFileObject source =
-        JavaFileObjects.forSourceString("com.example.ExampleComponent", """
-            package com.example;
+    final JavaFileObject source = prepareSourceFile("""
+        package com.example;
 
-            @dagger.Component(modules = {RapierExampleComponentEnvironmentVariableModule.class})
-            public interface ExampleComponent {
-                @rapier.envvar.EnvironmentVariable("FOO_BAR")
-                public Integer provisionFooBarAsInt();
-            }
-            """);
+        @dagger.Component(modules = {RapierExampleComponentEnvironmentVariableModule.class})
+        public interface ExampleComponent {
+            @rapier.envvar.EnvironmentVariable("FOO_BAR")
+            public Integer provisionFooBarAsInt();
+        }
+        """);
 
     // Run the annotation processor
     final Compilation compilation = doCompile(source);
@@ -127,6 +118,216 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
 
                 """));
   }
+
+  @Test
+  public void givenSimpleComponentWithEnvironmentVariableWithDefaultValue_whenCompile_thenExpectedtModuleIsGenerated()
+      throws IOException {
+    // Define the source file to test
+    final JavaFileObject source = prepareSourceFile("""
+        package com.example;
+
+        @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
+        public interface ExampleComponent {
+            @rapier.envvar.EnvironmentVariable(value="FOO_BAR", defaultValue="42")
+            public Integer provisionFooBarAsInt();
+        }
+        """);
+
+    // Run the annotation processor
+    final Compilation compilation = doCompile(source);
+
+    // Assert the compilation succeeded
+    assertThat(compilation).succeeded();
+
+    assertThat(compilation)
+        .generatedSourceFile("com.example.RapierExampleComponentEnvironmentVariableModule")
+        .hasSourceEquivalentTo(prepareSourceFile(
+            """
+                package com.example;
+
+                import static java.util.Collections.unmodifiableMap;
+
+                import rapier.envvar.EnvironmentVariable;
+                import dagger.Module;
+                import dagger.Provides;
+                import java.util.Map;
+                import java.util.Optional;
+                import javax.annotation.Nullable;
+                import javax.inject.Inject;
+
+                @Module
+                public class RapierExampleComponentEnvironmentVariableModule {
+                    private final Map<String, String> env;
+
+                    @Inject
+                    public RapierExampleComponentEnvironmentVariableModule() {
+                        this(System.getenv());
+                    }
+
+                    public RapierExampleComponentEnvironmentVariableModule(Map<String, String> env) {
+                        this.env = unmodifiableMap(env);
+                    }
+
+                    @Provides
+                    @EnvironmentVariable(value="FOO_BAR", defaultValue="42")
+                    public java.lang.Integer provideEnvironmentVariableFooBarWithDefaultValue92cfcebAsInteger(@EnvironmentVariable(value="FOO_BAR", defaultValue="42") String value) {
+                        return java.lang.Integer.valueOf(value);
+                    }
+
+                    @Provides
+                    @EnvironmentVariable(value="FOO_BAR", defaultValue="42")
+                    public String provideEnvironmentVariableFooBarWithDefaultValue92cfcebAsString() {
+                        return Optional.ofNullable(env.get("FOO_BAR")).orElse("42");
+                    }
+
+                }
+                """));
+  }
+
+  @Test
+  public void givenSimpleComponentWithEnvironmentVariableWithGivenValue_whenCompileAndRun_thenExpectedtOutput()
+      throws IOException {
+    // Define the source file to test
+    final JavaFileObject componentSource = prepareSourceFile("""
+        @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
+        public interface ExampleComponent {
+            @javax.annotation.Nullable
+            @rapier.envvar.EnvironmentVariable("FOO_BAR")
+            public Integer provisionFooBarAsInt();
+        }
+        """);
+
+    final JavaFileObject appSource = prepareSourceFile("""
+        import java.util.Map;
+
+        public class App {
+            public static void main(String[] args) {
+                ExampleComponent component = DaggerExampleComponent.builder()
+                    .rapierExampleComponentEnvironmentVariableModule(
+                    new RapierExampleComponentEnvironmentVariableModule(Map.of("FOO_BAR", "42")))
+                    .build();
+                System.out.println(component.provisionFooBarAsInt());
+            }
+        }
+        """);
+
+    final Compilation compilation = doCompile(componentSource, appSource);
+
+    assertThat(compilation).succeeded();
+
+    final String appOutput = doRun(compilation).trim();
+
+    assertEquals("42", appOutput);
+  }
+
+  @Test
+  public void givenSimpleComponentWithEnvironmentVariableWithDefaultValue_whenCompileAndRun_thenExpectedtOutput()
+      throws IOException {
+    final JavaFileObject componentSource = prepareSourceFile("""
+        @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
+        public interface ExampleComponent {
+            @rapier.envvar.EnvironmentVariable(value="FOO_BAR", defaultValue="43")
+            public Integer provisionFooBarAsInt();
+        }
+        """);
+
+    final JavaFileObject appSource = prepareSourceFile("""
+        import java.util.Map;
+
+        public class App {
+            public static void main(String[] args) {
+                ExampleComponent component = DaggerExampleComponent.builder()
+                    .rapierExampleComponentEnvironmentVariableModule(
+                        new RapierExampleComponentEnvironmentVariableModule(Map.of()))
+                    .build();
+                System.out.println(component.provisionFooBarAsInt());
+            }
+        }
+        """);
+
+    final Compilation compilation = doCompile(componentSource, appSource);
+
+    assertThat(compilation).succeeded();
+
+    final String appOutput = doRun(compilation).trim();
+
+    assertEquals("43", appOutput);
+  }
+
+  @Test
+  public void givenComponentWithInconsistentEnvironmentVariableParameterRequirednessFromNullable_whenCompile_thenCompileWarning()
+      throws IOException {
+    // Define the source file to test
+    final JavaFileObject source = prepareSourceFile("""
+        package com.example;
+
+        @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
+        public interface ExampleComponent {
+            @javax.annotation.Nullable
+            @rapier.envvar.EnvironmentVariable(value="FOO_BAR")
+            public Integer provisionFooBarAsInt();
+
+            @rapier.envvar.EnvironmentVariable(value="FOO_BAR")
+            public String provisionFooBarAsString();
+        }
+        """);
+
+    final Compilation compilation = doCompile(source);
+
+    assertThat(compilation).succeeded();
+
+    assertTrue(
+        compilation.warnings().stream().anyMatch(e -> e.getMessage(Locale.getDefault()).equals(
+            "Conflicting requiredness for environment variable FOO_BAR, will be treated as required")));
+    assertTrue(compilation.warnings().stream().anyMatch(e -> e.getMessage(Locale.getDefault())
+        .equals("Effectively required environment variable FOO_BAR is treated as nullable")));
+  }
+
+  @Test
+  public void givenComponentWithInconsistentEnvironmentVariableParameterRequirednessFromDefaultValue_whenCompile_thenCompileWarning()
+      throws IOException {
+    // Define the source file to test
+    final JavaFileObject source =
+        JavaFileObjects.forSourceString("com.example.ExampleComponent", """
+            package com.example;
+
+            @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
+            public interface ExampleComponent {
+                @rapier.envvar.EnvironmentVariable(value="FOO_BAR")
+                public Integer provisionFooBarAsInt();
+
+                @rapier.envvar.EnvironmentVariable(value="FOO_BAR", defaultValue="42")
+                public String provisionFooBarAsString();
+            }
+            """);
+
+    // Run the annotation processor
+    final Compilation compilation = doCompile(source);
+
+    // Assert the compilation succeeded
+    assertThat(compilation).succeeded();
+
+    assertTrue(
+        compilation.warnings().stream().anyMatch(e -> e.getMessage(Locale.getDefault()).equals(
+            "Conflicting requiredness for environment variable FOO_BAR, will be treated as required")));
+    assertTrue(compilation.warnings().stream().anyMatch(e -> e.getMessage(Locale.getDefault())
+        .equals("Effectively required environment variable FOO_BAR has default value")));
+  }
+
+  /**
+   * We need to include the generated classes from the rapier-environment-variable module in the
+   * classpath for our tests.
+   */
+  @Override
+  protected List<File> getCompileClasspath() throws FileNotFoundException {
+    List<File> result = new ArrayList<>();
+    result.addAll(super.getCompileClasspath());
+    result.add(resolveProjectFile("../rapier-environment-variable/target/classes"));
+    return unmodifiableList(result);
+  }
+
+  // UTILITY ///////////////////////////////////////////////////////////////////////////////////////
+
 
   private Compilation doCompile(JavaFileObject... source) throws IOException {
     return Compiler.javac().withClasspath(getCompileClasspath())
@@ -263,207 +464,5 @@ public class EnvironmentVariableProcessorTest extends DaggerTestBase {
         packageName != null ? packageName + "." + simpleClassName : simpleClassName;
 
     return JavaFileObjects.forSourceString(qualifiedClassName, sourceCode);
-  }
-
-
-  @Test
-  public void givenSimpleComponentWithEnvironmentVariableWithDefaultValue_whenCompile_thenExpectedtModuleIsGenerated() {
-    // Define the source file to test
-    final JavaFileObject source =
-        JavaFileObjects.forSourceString("com.example.ExampleComponent", """
-            package com.example;
-
-            @dagger.Component
-            public interface ExampleComponent {
-                @rapier.envvar.EnvironmentVariable(value="FOO_BAR", defaultValue="42")
-                public Integer provisionFooBarAsInt();
-            }
-            """);
-
-    // Run the annotation processor
-    final Compilation compilation =
-        Compiler.javac().withProcessors(new EnvironmentVariableProcessor()).compile(source);
-
-    // Assert the compilation succeeded
-    assertThat(compilation).succeeded();
-
-    assertThat(compilation)
-        .generatedSourceFile("com.example.RapierExampleComponentEnvironmentVariableModule")
-        .hasSourceEquivalentTo(JavaFileObjects.forSourceString(
-            "com.example.RapierExampleComponentEnvironmentVariableModule",
-            """
-                package com.example;
-
-                import static java.util.Collections.unmodifiableMap;
-
-                import rapier.envvar.EnvironmentVariable;
-                import dagger.Module;
-                import dagger.Provides;
-                import java.util.Map;
-                import java.util.Optional;
-                import javax.annotation.Nullable;
-                import javax.inject.Inject;
-
-                @Module
-                public class RapierExampleComponentEnvironmentVariableModule {
-                    private final Map<String, String> env;
-
-                    @Inject
-                    public RapierExampleComponentEnvironmentVariableModule() {
-                        this(System.getenv());
-                    }
-
-                    public RapierExampleComponentEnvironmentVariableModule(Map<String, String> env) {
-                        this.env = unmodifiableMap(env);
-                    }
-
-                    @Provides
-                    @EnvironmentVariable(value="FOO_BAR", defaultValue="42")
-                    public java.lang.Integer provideEnvironmentVariableFooBarWithDefaultValue92cfcebAsInteger(@EnvironmentVariable(value="FOO_BAR", defaultValue="42") String value) {
-                        return java.lang.Integer.valueOf(value);
-                    }
-
-                    @Provides
-                    @EnvironmentVariable(value="FOO_BAR", defaultValue="42")
-                    public String provideEnvironmentVariableFooBarWithDefaultValue92cfcebAsString() {
-                        return Optional.ofNullable(env.get("FOO_BAR")).orElse("42");
-                    }
-
-                }
-                """));
-  }
-
-  @Test
-  public void givenSimpleComponentWithEnvironmentVariableWithGivenValue_whenCompileAndRun_thenExpectedtOutput()
-      throws IOException {
-    // Define the source file to test
-    final String componentSource = """
-        @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
-        public interface ExampleComponent {
-            @javax.annotation.Nullable
-            @rapier.envvar.EnvironmentVariable("FOO_BAR")
-            public Integer provisionFooBarAsInt();
-        }
-        """;
-
-    final String appSource =
-        """
-            import java.util.Map;
-
-            public class App {
-                public static void main(String[] args) {
-                    ExampleComponent component = DaggerExampleComponent.builder()
-                        .rapierExampleComponentEnvironmentVariableModule(new RapierExampleComponentEnvironmentVariableModule(Map.of("FOO_BAR", "42")))
-                        .build();
-                    System.out.println(component.provisionFooBarAsInt());
-                }
-            }
-            """;
-
-    final String output = compileAndRunSourceCode(List.of(componentSource, appSource),
-        List.of("rapier.envvar.compiler.EnvironmentVariableProcessor",
-            DAGGER_COMPONENT_ANNOTATION_PROCESSOR),
-        List.of(resolveProjectFile("../rapier-environment-variable/target/classes"))).trim();
-
-    assertEquals("42", output);
-  }
-
-  @Test
-  public void givenSimpleComponentWithEnvironmentVariableWithDefaultValue_whenCompileAndRun_thenExpectedtOutput()
-      throws IOException {
-    final JavaFileObject componentSource = prepareSourceFile("""
-        @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
-        public interface ExampleComponent {
-            @rapier.envvar.EnvironmentVariable(value="FOO_BAR", defaultValue="43")
-            public Integer provisionFooBarAsInt();
-        }
-        """);
-
-    final JavaFileObject appSource = prepareSourceFile("""
-        import java.util.Map;
-
-        public class App {
-            public static void main(String[] args) {
-                ExampleComponent component = DaggerExampleComponent.builder()
-                    .rapierExampleComponentEnvironmentVariableModule(
-                        new RapierExampleComponentEnvironmentVariableModule(Map.of()))
-                    .build();
-                System.out.println(component.provisionFooBarAsInt());
-            }
-        }
-        """);
-
-    Compilation compilation = doCompile(componentSource, appSource);
-
-    assertThat(compilation).succeeded();
-
-    final String output = doRun(compilation).trim();
-
-    assertEquals("43", output);
-  }
-
-  @Test
-  public void givenComponentWithInconsistentEnvironmentVariableParameterRequirednessFromNullable_whenCompile_thenCompileWarning()
-      throws IOException {
-    // Define the source file to test
-    final JavaFileObject source =
-        JavaFileObjects.forSourceString("com.example.ExampleComponent", """
-            package com.example;
-
-            @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
-            public interface ExampleComponent {
-                @javax.annotation.Nullable
-                @rapier.envvar.EnvironmentVariable(value="FOO_BAR")
-                public Integer provisionFooBarAsInt();
-
-                @rapier.envvar.EnvironmentVariable(value="FOO_BAR")
-                public String provisionFooBarAsString();
-            }
-            """);
-
-    // Run the annotation processor
-    final Compilation compilation =
-        Compiler.javac().withProcessors(new EnvironmentVariableProcessor()).compile(source);
-
-    // Assert the compilation succeeded
-    assertThat(compilation).succeeded();
-
-    assertTrue(
-        compilation.warnings().stream().anyMatch(e -> e.getMessage(Locale.getDefault()).equals(
-            "Conflicting requiredness for environment variable FOO_BAR, will be treated as required")));
-    assertTrue(compilation.warnings().stream().anyMatch(e -> e.getMessage(Locale.getDefault())
-        .equals("Effectively required environment variable FOO_BAR is treated as nullable")));
-  }
-
-  @Test
-  public void givenComponentWithInconsistentEnvironmentVariableParameterRequirednessFromDefaultValue_whenCompile_thenCompileWarning()
-      throws IOException {
-    // Define the source file to test
-    final JavaFileObject source =
-        JavaFileObjects.forSourceString("com.example.ExampleComponent", """
-            package com.example;
-
-            @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
-            public interface ExampleComponent {
-                @rapier.envvar.EnvironmentVariable(value="FOO_BAR")
-                public Integer provisionFooBarAsInt();
-
-                @rapier.envvar.EnvironmentVariable(value="FOO_BAR", defaultValue="42")
-                public String provisionFooBarAsString();
-            }
-            """);
-
-    // Run the annotation processor
-    final Compilation compilation =
-        Compiler.javac().withProcessors(new EnvironmentVariableProcessor()).compile(source);
-
-    // Assert the compilation succeeded
-    assertThat(compilation).succeeded();
-
-    assertTrue(
-        compilation.warnings().stream().anyMatch(e -> e.getMessage(Locale.getDefault()).equals(
-            "Conflicting requiredness for environment variable FOO_BAR, will be treated as required")));
-    assertTrue(compilation.warnings().stream().anyMatch(e -> e.getMessage(Locale.getDefault())
-        .equals("Effectively required environment variable FOO_BAR has default value")));
   }
 }
