@@ -65,6 +65,9 @@ import rapier.core.util.CaseFormat;
 import rapier.core.util.Java;
 import rapier.core.util.MoreSets;
 import rapier.envvar.EnvironmentVariable;
+import rapier.envvar.compiler.model.ParameterKey;
+import rapier.envvar.compiler.model.ParameterMetadata;
+import rapier.envvar.compiler.model.RepresentationKey;
 import rapier.envvar.compiler.util.EnvironmentVariables;
 
 @SupportedAnnotationTypes("dagger.Component")

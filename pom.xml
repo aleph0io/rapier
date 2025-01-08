@@ -253,8 +253,9 @@
         <module>rapier-core</module>
         <module>rapier-environment-variable</module>
         <module>rapier-environment-variable-compiler</module>
+        <module>rapier-cli</module>
+        <module>rapier-cli-compiler</module>
         <module>rapier-processor-system-property</module>
         <module>rapier-processor-aws-ssm</module>
-        <module>rapier-processor-cli</module>
     </modules>
 </project>
