@@ -699,17 +699,17 @@ public class CliProcessor extends RapierProcessorBase {
       // Generate instance fields for each flag parameter representation
       out.println("    // Flag parameters");
       for (FlagParameterKey fpk : flagRepresentationsByParameter.keySet()) {
-        final Character flagShortPositiveName = fpk.getPositiveShortName().orElse(null);
-        final String flagpositiveLongName = fpk.getPositiveLongName().orElse(null);
-        final Character flagnegativeShortName = fpk.getNegativeShortName().orElse(null);
-        final String flagnegativeLongName = fpk.getNegativeLongName().orElse(null);
+        final Character flagPositiveShortName = fpk.getPositiveShortName().orElse(null);
+        final String flagPositiveLongName = fpk.getPositiveLongName().orElse(null);
+        final Character flagNegativeShortName = fpk.getNegativeShortName().orElse(null);
+        final String flagNegativeLongName = fpk.getNegativeLongName().orElse(null);
         final BindingMetadata metadata =
-            flagMetadataService.getPositionalParameterMetadata(flagShortPositiveName,
-                flagpositiveLongName, flagnegativeShortName, flagnegativeLongName);
+            flagMetadataService.getPositionalParameterMetadata(flagPositiveShortName,
+                flagPositiveLongName, flagNegativeShortName, flagNegativeLongName);
         final boolean parameterIsRequired = metadata.isRequired();
         final boolean parameterIsList = metadata.isList();
-        emitFlagParameterInstanceFieldDeclaration(out, flagShortPositiveName, flagpositiveLongName,
-            flagnegativeShortName, flagnegativeLongName, parameterIsRequired, parameterIsList);
+        emitFlagParameterInstanceFieldDeclaration(out, flagPositiveShortName, flagPositiveLongName,
+            flagNegativeShortName, flagNegativeLongName, parameterIsRequired, parameterIsList);
       }
       out.println();
 
@@ -731,10 +731,10 @@ public class CliProcessor extends RapierProcessorBase {
       out.println();
 
       out.println("        // Generate the maps for flag short names and long names");
-      out.println("        final Map<Character, String> flagShortPositiveNames = new HashMap<>();");
-      out.println("        final Map<String, String> flagpositiveLongNames = new HashMap<>();");
-      out.println("        final Map<Character, String> flagnegativeShortNames = new HashMap<>();");
-      out.println("        final Map<String, String> flagnegativeLongNames = new HashMap<>();");
+      out.println("        final Map<Character, String> flagPositiveShortNames = new HashMap<>();");
+      out.println("        final Map<String, String> flagPositiveLongNames = new HashMap<>();");
+      out.println("        final Map<Character, String> flagNegativeShortNames = new HashMap<>();");
+      out.println("        final Map<String, String> flagNegativeLongNames = new HashMap<>();");
       emitFlagParameterInstanceFieldInitPreparation(out, flagRepresentationsByParameter.keySet());
       out.println();
 
@@ -743,10 +743,10 @@ public class CliProcessor extends RapierProcessorBase {
       out.println("            args,");
       out.println("            optionShortNames,");
       out.println("            optionLongNames,");
-      out.println("            flagShortPositiveNames,");
-      out.println("            flagpositiveLongNames,");
-      out.println("            flagnegativeShortNames,");
-      out.println("            flagnegativeLongNames);");
+      out.println("            flagPositiveShortNames,");
+      out.println("            flagPositiveLongNames,");
+      out.println("            flagNegativeShortNames,");
+      out.println("            flagNegativeLongNames);");
       out.println();
 
       // Generate the initialization of each positional parameter representation
@@ -777,17 +777,17 @@ public class CliProcessor extends RapierProcessorBase {
 
       out.println("        // Initialize flag parameters");
       for (FlagParameterKey fpk : flagRepresentationsByParameter.keySet()) {
-        final Character flagShortPositiveName = fpk.getPositiveShortName().orElse(null);
-        final String flagpositiveLongName = fpk.getPositiveLongName().orElse(null);
-        final Character flagnegativeShortName = fpk.getNegativeShortName().orElse(null);
-        final String flagnegativeLongName = fpk.getNegativeLongName().orElse(null);
+        final Character flagPositiveShortName = fpk.getPositiveShortName().orElse(null);
+        final String flagPositiveLongName = fpk.getPositiveLongName().orElse(null);
+        final Character flagNegativeShortName = fpk.getNegativeShortName().orElse(null);
+        final String flagNegativeLongName = fpk.getNegativeLongName().orElse(null);
         final BindingMetadata metadata =
-            flagMetadataService.getPositionalParameterMetadata(flagShortPositiveName,
-                flagpositiveLongName, flagnegativeShortName, flagnegativeLongName);
+            flagMetadataService.getPositionalParameterMetadata(flagPositiveShortName,
+                flagPositiveLongName, flagNegativeShortName, flagNegativeLongName);
         final boolean parameterIsRequired = metadata.isRequired();
         final boolean parameterIsList = metadata.isList();
-        emitFlagParameterInstanceFieldInitClause(out, flagShortPositiveName, flagpositiveLongName,
-            flagnegativeShortName, flagnegativeLongName, parameterIsRequired, parameterIsList);
+        emitFlagParameterInstanceFieldInitClause(out, flagPositiveShortName, flagPositiveLongName,
+            flagNegativeShortName, flagNegativeLongName, parameterIsRequired, parameterIsList);
       }
 
       out.println("    }");
@@ -834,21 +834,21 @@ public class CliProcessor extends RapierProcessorBase {
       for (Map.Entry<FlagParameterKey, List<FlagRepresentationKey>> e : flagRepresentationsByParameter
           .entrySet()) {
         final FlagParameterKey parameter = e.getKey();
-        final Character flagShortPositiveName = parameter.getPositiveShortName().orElse(null);
-        final String flagpositiveLongName = parameter.getPositiveLongName().orElse(null);
-        final Character flagnegativeShortName = parameter.getNegativeShortName().orElse(null);
-        final String flagnegativeLongName = parameter.getNegativeLongName().orElse(null);
+        final Character flagPositiveShortName = parameter.getPositiveShortName().orElse(null);
+        final String flagPositiveLongName = parameter.getPositiveLongName().orElse(null);
+        final Character flagNegativeShortName = parameter.getNegativeShortName().orElse(null);
+        final String flagNegativeLongName = parameter.getNegativeLongName().orElse(null);
         final BindingMetadata metadata =
-            flagMetadataService.getPositionalParameterMetadata(flagShortPositiveName,
-                flagpositiveLongName, flagnegativeShortName, flagnegativeLongName);
+            flagMetadataService.getPositionalParameterMetadata(flagPositiveShortName,
+                flagPositiveLongName, flagNegativeShortName, flagNegativeLongName);
         final List<FlagRepresentationKey> representations = e.getValue();
         final boolean parameterIsRequired = metadata.isRequired();
         final boolean parameterIsList = metadata.isList();
         for (FlagRepresentationKey representation : representations) {
           final TypeMirror representationType = representation.getType();
           final Boolean representationDefaultValue = representation.getDefaultValue().orElse(null);
-          emitFlagParameterRepresentationBindingMethods(out, flagShortPositiveName,
-              flagpositiveLongName, flagnegativeShortName, flagnegativeLongName,
+          emitFlagParameterRepresentationBindingMethods(out, flagPositiveShortName,
+              flagPositiveLongName, flagNegativeShortName, flagNegativeLongName,
               parameterIsRequired, parameterIsList, representationType, representationDefaultValue);
         }
       }
@@ -1531,7 +1531,7 @@ public class CliProcessor extends RapierProcessorBase {
           flagParameterSignature(positiveShortName, parameter.getPositiveLongName().orElse(null),
               parameter.getNegativeShortName().orElse(null),
               parameter.getNegativeLongName().orElse(null));
-      out.println("        flagShortPositiveNames.put(\'" + positiveShortName + "\', \""
+      out.println("        flagPositiveShortNames.put(\'" + positiveShortName + "\', \""
           + parameterSignature + "\");");
     }
     for (FlagParameterKey parameter : set) {
@@ -1542,7 +1542,7 @@ public class CliProcessor extends RapierProcessorBase {
           flagParameterSignature(parameter.getPositiveShortName().orElse(null), positiveLongName,
               parameter.getNegativeShortName().orElse(null),
               parameter.getNegativeLongName().orElse(null));
-      out.println("        flagpositiveLongNames.put(\"" + positiveLongName + "\", \""
+      out.println("        flagPositiveLongNames.put(\"" + positiveLongName + "\", \""
           + parameterSignature + "\");");
     }
     for (FlagParameterKey parameter : set) {
@@ -1553,7 +1553,7 @@ public class CliProcessor extends RapierProcessorBase {
           flagParameterSignature(parameter.getPositiveShortName().orElse(null),
               parameter.getPositiveLongName().orElse(null), negativeShortName,
               parameter.getNegativeLongName().orElse(null));
-      out.println("        flagnegativeShortNames.put(\'" + negativeShortName + "\', \""
+      out.println("        flagNegativeShortNames.put(\'" + negativeShortName + "\', \""
           + parameterSignature + "\");");
     }
     for (FlagParameterKey parameter : set) {
@@ -1564,7 +1564,7 @@ public class CliProcessor extends RapierProcessorBase {
           flagParameterSignature(parameter.getPositiveShortName().orElse(null),
               parameter.getPositiveLongName().orElse(null),
               parameter.getNegativeShortName().orElse(null), negativeLongName);
-      out.println("        flagnegativeLongNames.put(\"" + negativeLongName + "\", \""
+      out.println("        flagNegativeLongNames.put(\"" + negativeLongName + "\", \""
           + parameterSignature + "\");");
     }
     out.println();

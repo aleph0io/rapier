@@ -117,12 +117,12 @@ public class CliProcessorTest extends DaggerTestBase {
 
 
                     // Generate the maps for flag short names and long names
-                    final Map<Character, String> flagShortPositiveNames = new HashMap<>();
-                    final Map<String, String> flagpositiveLongNames = new HashMap<>();
-                    final Map<Character, String> flagnegativeShortNames = new HashMap<>();
-                    final Map<String, String> flagnegativeLongNames = new HashMap<>();
-                    flagShortPositiveNames.put('b', "e85f9a9");
-                    flagpositiveLongNames.put("bravo", "e85f9a9");
+                    final Map<Character, String> flagPositiveShortNames = new HashMap<>();
+                    final Map<String, String> flagPositiveLongNames = new HashMap<>();
+                    final Map<Character, String> flagNegativeShortNames = new HashMap<>();
+                    final Map<String, String> flagNegativeLongNames = new HashMap<>();
+                    flagPositiveShortNames.put('b', "e85f9a9");
+                    flagPositiveLongNames.put("bravo", "e85f9a9");
 
 
                     // Parse the arguments
@@ -130,10 +130,10 @@ public class CliProcessorTest extends DaggerTestBase {
                         args,
                         optionShortNames,
                         optionLongNames,
-                        flagShortPositiveNames,
-                        flagpositiveLongNames,
-                        flagnegativeShortNames,
-                        flagnegativeLongNames);
+                        flagPositiveShortNames,
+                        flagPositiveLongNames,
+                        flagNegativeShortNames,
+                        flagNegativeLongNames);
 
                     // Initialize positional parameters
                     if(parsed.getArgs().size() > 0) {
