@@ -22,22 +22,30 @@ package rapier.cli.compiler;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
+import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
+import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
+import java.util.TreeSet;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.processing.ProcessingEnvironment;
@@ -136,7 +144,7 @@ public class CliProcessor extends RapierProcessorBase {
     final String componentPackageName =
         getElements().getPackageOf(component).getQualifiedName().toString();
     final String componentClassName = component.getSimpleName().toString();
-    final String moduleClassName = "Rapier" + componentClassName + "EnvironmentVariableModule";
+    final String moduleClassName = "Rapier" + componentClassName + "CliModule";
 
     final List<DaggerInjectionSite> qualifiedInjectionSites =
         new DaggerComponentAnalyzer(getProcessingEnv()).analyzeComponent(component)
@@ -177,14 +185,36 @@ public class CliProcessor extends RapierProcessorBase {
         positionalInjectionSites, positionalMetadataService, optionInjectionSites,
         optionMetadataService, flagInjectionSites, flagMetadataService);
 
+    final Path shadeDir = Paths.get("src", "main", "shade");
+
     try {
       // TODO Is this the right set of elements?
       final Element[] dependentElements = new Element[] {component};
-      final JavaFileObject o =
+      final JavaFileObject moduleSourceFile =
           getFiler().createSourceFile(componentPackageName.equals("") ? moduleClassName
               : componentPackageName + "." + moduleClassName, dependentElements);
-      try (final Writer writer = o.openWriter()) {
+      try (final Writer writer = moduleSourceFile.openWriter()) {
         writer.write(moduleSource);
+      }
+
+      final Iterator<Path> iterator = Files.walk(shadeDir).filter(p -> Files.isRegularFile(p))
+          .filter(p -> p.getFileName().toString().endsWith(".java")).iterator();
+      while (iterator.hasNext()) {
+        Path javaFile = iterator.next();
+        try {
+          final String relativePath = shadeDir.relativize(javaFile).toString();
+          final String qualifiedClassName =
+              relativePath.replace(File.separator, ".").replaceAll("\\.java$", "");
+          final JavaFileObject shadeSourceFile =
+              getFiler().createSourceFile(qualifiedClassName, dependentElements);
+          try (final Writer writer = shadeSourceFile.openWriter()) {
+            writer.write(Files.readString(javaFile, StandardCharsets.UTF_8));
+          }
+        } catch (IOException e) {
+          e.printStackTrace();
+          getMessager().printMessage(Diagnostic.Kind.ERROR,
+              "Failed to create source file: " + e.getMessage());
+        }
       }
     } catch (IOException e) {
       e.printStackTrace();
@@ -613,6 +643,36 @@ public class CliProcessor extends RapierProcessorBase {
             positiveLongName, negativeShortName, negativeLongName));
   }
 
+  private static final Comparator<PositionalRepresentationKey> POSITIONAL_REPRESENTATION_KEY_COMPARATOR =
+      Comparator.<PositionalRepresentationKey>comparingInt(r -> r.getPosition())
+          .thenComparing(r -> r.getType().toString())
+          .thenComparing(r -> r.getDefaultValue().orElse(null),
+              Comparator.nullsFirst(Comparator.naturalOrder()));
+
+  private static final Comparator<OptionRepresentationKey> OPTION_REPRESENTATION_KEY_COMPARATOR =
+      Comparator
+          .<OptionRepresentationKey, Character>comparing(r -> r.getShortName().orElse(null),
+              Comparator.nullsFirst(Comparator.naturalOrder()))
+          .thenComparing(r -> r.getLongName().orElse(null),
+              Comparator.nullsFirst(Comparator.naturalOrder()))
+          .thenComparing(r -> r.getType().toString())
+          .thenComparing(r -> r.getDefaultValue().orElse(null),
+              Comparator.nullsFirst(Comparator.naturalOrder()));
+
+  private static final Comparator<FlagRepresentationKey> FLAG_REPRESENTATION_KEY_COMPARATOR =
+      Comparator
+          .<FlagRepresentationKey, Character>comparing(r -> r.getPositiveShortName().orElse(null),
+              Comparator.nullsFirst(Comparator.naturalOrder()))
+          .thenComparing(r -> r.getPositiveLongName().orElse(null),
+              Comparator.nullsFirst(Comparator.naturalOrder()))
+          .thenComparing(r -> r.getNegativeShortName().orElse(null),
+              Comparator.nullsFirst(Comparator.naturalOrder()))
+          .thenComparing(r -> r.getNegativeLongName().orElse(null),
+              Comparator.nullsFirst(Comparator.naturalOrder()))
+          .thenComparing(r -> r.getType().toString())
+          .thenComparing(r -> r.getDefaultValue().orElse(null),
+              Comparator.nullsFirst(Comparator.naturalOrder()));
+
   private String generateModuleSource(String packageName, String moduleClassName,
       SortedMap<PositionalParameterKey, List<DaggerInjectionSite>> positionalInjectionSites,
       PositionalParameterMetadataService positionalMetadataService,
@@ -621,30 +681,52 @@ public class CliProcessor extends RapierProcessorBase {
       SortedMap<FlagParameterKey, List<DaggerInjectionSite>> flagInjectionSites,
       FlagParameterMetadataService flagMetadataService) {
 
-    final SortedMap<PositionalParameterKey, List<PositionalRepresentationKey>> positionalRepresentationsByParameter =
+    final SortedMap<PositionalParameterKey, Collection<PositionalRepresentationKey>> positionalRepresentationsByParameter =
         positionalInjectionSites.entrySet().stream()
             .flatMap(e -> e.getValue().stream()
                 .map(dis -> Map.entry(PositionalParameterKey.fromInjectionSite(dis),
                     PositionalRepresentationKey.fromInjectionSite(dis))))
             .collect(groupingBy(Map.Entry::getKey,
                 () -> new TreeMap<>(POSITIONAL_PARAMETER_KEY_COMPARATOR),
-                mapping(Map.Entry::getValue, toList())));
+                mapping(Map.Entry::getValue,
+                    toCollection(() -> new TreeSet<>(POSITIONAL_REPRESENTATION_KEY_COMPARATOR)))));
+    for (Map.Entry<PositionalParameterKey, Collection<PositionalRepresentationKey>> entry : positionalRepresentationsByParameter
+        .entrySet()) {
+      final Collection<PositionalRepresentationKey> representations = entry.getValue();
+      for (PositionalRepresentationKey representation : List.copyOf(representations)) {
+        representations.add(toStringRepresentation(representation));
+      }
+    }
 
-    final SortedMap<OptionParameterKey, List<OptionRepresentationKey>> optionRepresentationsByParameter =
+    final SortedMap<OptionParameterKey, Collection<OptionRepresentationKey>> optionRepresentationsByParameter =
         optionInjectionSites.entrySet().stream()
             .flatMap(e -> e.getValue().stream()
                 .map(dis -> Map.entry(e.getKey(), OptionRepresentationKey.fromInjectionSite(dis))))
-            .collect(
-                groupingBy(Map.Entry::getKey, () -> new TreeMap<>(OPTION_PARAMETER_KEY_COMPARATOR),
-                    mapping(Map.Entry::getValue, toList())));
+            .collect(groupingBy(Map.Entry::getKey,
+                () -> new TreeMap<>(OPTION_PARAMETER_KEY_COMPARATOR), mapping(Map.Entry::getValue,
+                    toCollection(() -> new TreeSet<>(OPTION_REPRESENTATION_KEY_COMPARATOR)))));
+    for (Map.Entry<OptionParameterKey, ? extends Collection<OptionRepresentationKey>> entry : optionRepresentationsByParameter
+        .entrySet()) {
+      final Collection<OptionRepresentationKey> representations = entry.getValue();
+      for (OptionRepresentationKey representation : List.copyOf(representations)) {
+        representations.add(toStringRepresentation(representation));
+      }
+    }
 
-    final SortedMap<FlagParameterKey, List<FlagRepresentationKey>> flagRepresentationsByParameter =
+    final SortedMap<FlagParameterKey, Collection<FlagRepresentationKey>> flagRepresentationsByParameter =
         flagInjectionSites.entrySet().stream()
             .flatMap(e -> e.getValue().stream()
                 .map(dis -> Map.entry(e.getKey(), FlagRepresentationKey.fromInjectionSite(dis))))
-            .collect(
-                groupingBy(Map.Entry::getKey, () -> new TreeMap<>(FLAG_PARAMETER_KEY_COMPARATOR),
-                    mapping(Map.Entry::getValue, toList())));
+            .collect(groupingBy(Map.Entry::getKey,
+                () -> new TreeMap<>(FLAG_PARAMETER_KEY_COMPARATOR), mapping(Map.Entry::getValue,
+                    toCollection(() -> new TreeSet<>(FLAG_REPRESENTATION_KEY_COMPARATOR)))));
+    for (Map.Entry<FlagParameterKey, ? extends Collection<FlagRepresentationKey>> entry : flagRepresentationsByParameter
+        .entrySet()) {
+      final Collection<FlagRepresentationKey> representations = entry.getValue();
+      for (FlagRepresentationKey representation : List.copyOf(representations)) {
+        representations.add(toBooleanRepresentation(representation));
+      }
+    }
 
     final StringWriter result = new StringWriter();
     try (PrintWriter out = new PrintWriter(result)) {
@@ -794,12 +876,12 @@ public class CliProcessor extends RapierProcessorBase {
       out.println();
 
       // Generate the binding methods for each positional parameter representation
-      for (Map.Entry<PositionalParameterKey, List<PositionalRepresentationKey>> e : positionalRepresentationsByParameter
+      for (Map.Entry<PositionalParameterKey, ? extends Collection<PositionalRepresentationKey>> e : positionalRepresentationsByParameter
           .entrySet()) {
         final PositionalParameterKey parameter = e.getKey();
         final BindingMetadata metadata =
             positionalMetadataService.getPositionalParameterMetadata(parameter.getPosition());
-        final List<PositionalRepresentationKey> representations = e.getValue();
+        final Collection<PositionalRepresentationKey> representations = e.getValue();
         final int position = parameter.getPosition();
         final boolean parameterIsRequired = metadata.isRequired();
         final boolean parameterIsList = metadata.isList();
@@ -812,14 +894,14 @@ public class CliProcessor extends RapierProcessorBase {
       }
 
       // Generate the binding methods for each option parameter representation
-      for (Map.Entry<OptionParameterKey, List<OptionRepresentationKey>> e : optionRepresentationsByParameter
+      for (Map.Entry<OptionParameterKey, ? extends Collection<OptionRepresentationKey>> e : optionRepresentationsByParameter
           .entrySet()) {
         final OptionParameterKey parameter = e.getKey();
         final Character optionShortName = parameter.getShortName().orElse(null);
         final String optionLongName = parameter.getLongName().orElse(null);
         final BindingMetadata metadata =
             optionMetadataService.getPositionalParameterMetadata(optionShortName, optionLongName);
-        final List<OptionRepresentationKey> representations = e.getValue();
+        final Collection<OptionRepresentationKey> representations = e.getValue();
         final boolean parameterIsRequired = metadata.isRequired();
         final boolean parameterIsList = metadata.isList();
         for (OptionRepresentationKey representation : representations) {
@@ -831,7 +913,7 @@ public class CliProcessor extends RapierProcessorBase {
       }
 
       // Generate the binding methods for each flag parameter representation
-      for (Map.Entry<FlagParameterKey, List<FlagRepresentationKey>> e : flagRepresentationsByParameter
+      for (Map.Entry<FlagParameterKey, ? extends Collection<FlagRepresentationKey>> e : flagRepresentationsByParameter
           .entrySet()) {
         final FlagParameterKey parameter = e.getKey();
         final Character flagPositiveShortName = parameter.getPositiveShortName().orElse(null);
@@ -841,7 +923,7 @@ public class CliProcessor extends RapierProcessorBase {
         final BindingMetadata metadata =
             flagMetadataService.getPositionalParameterMetadata(flagPositiveShortName,
                 flagPositiveLongName, flagNegativeShortName, flagNegativeLongName);
-        final List<FlagRepresentationKey> representations = e.getValue();
+        final Collection<FlagRepresentationKey> representations = e.getValue();
         final boolean parameterIsRequired = metadata.isRequired();
         final boolean parameterIsList = metadata.isList();
         for (FlagRepresentationKey representation : representations) {
@@ -1132,6 +1214,12 @@ public class CliProcessor extends RapierProcessorBase {
   private String positionalParameterInstanceFieldName(int position) {
     return "positional" + position;
   }
+
+  private PositionalRepresentationKey toStringRepresentation(PositionalRepresentationKey key) {
+    return new PositionalRepresentationKey(getStringType(), key.getPosition(),
+        key.getDefaultValue().orElse(null));
+  }
+
 
   //////////////////////////////////////////////////////////////////////////////////////////////////
   // OPTION PARAMETER CODE GENERATION //////////////////////////////////////////////////////////////
@@ -1471,8 +1559,13 @@ public class CliProcessor extends RapierProcessorBase {
     return stringSignature(String.join("/", parts));
   }
 
+  private OptionRepresentationKey toStringRepresentation(OptionRepresentationKey key) {
+    return new OptionRepresentationKey(getStringType(), key.getShortName().orElse(null),
+        key.getLongName().orElse(null), key.getDefaultValue().orElse(null));
+  }
+
   //////////////////////////////////////////////////////////////////////////////////////////////////
-  // OPTION PARAMETER CODE GENERATION //////////////////////////////////////////////////////////////
+  // FLAG PARAMETER CODE GENERATION ////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////////////////////////
 
   /**
@@ -1879,6 +1972,13 @@ public class CliProcessor extends RapierProcessorBase {
     parts[3] = negativeLongName == null ? "" : negativeLongName;
     return stringSignature(String.join("/", parts));
   }
+
+  private FlagRepresentationKey toBooleanRepresentation(FlagRepresentationKey key) {
+    return new FlagRepresentationKey(getBooleanType(), key.getPositiveShortName().orElse(null),
+        key.getPositiveLongName().orElse(null), key.getNegativeShortName().orElse(null),
+        key.getNegativeLongName().orElse(null), key.getDefaultValue().orElse(null));
+  }
+
 
   //////////////////////////////////////////////////////////////////////////////////////////////////
   // OTHER /////////////////////////////////////////////////////////////////////////////////////////

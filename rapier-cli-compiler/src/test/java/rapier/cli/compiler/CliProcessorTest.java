@@ -20,44 +20,48 @@
 package rapier.cli.compiler;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
+import static java.util.Collections.unmodifiableList;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 import javax.tools.JavaFileObject;
 import org.junit.jupiter.api.Test;
 import com.google.testing.compile.Compilation;
-import com.google.testing.compile.Compiler;
 import com.google.testing.compile.JavaFileObjects;
-import rapier.core.DaggerTestBase;
+import rapier.core.RapierTestBase;
 
-public class CliProcessorTest extends DaggerTestBase {
+public class CliProcessorTest extends RapierTestBase {
   @Test
-  public void givenSimpleComponentWithEnvironmentVariableWithoutDefaultValue_whenCompile_thenExpectedtModuleIsGenerated() {
+  public void givenSimpleComponentWithEnvironmentVariableWithoutDefaultValue_whenCompile_thenExpectedtModuleIsGenerated()
+      throws IOException {
     // Define the source file to test
-    final JavaFileObject source =
-        JavaFileObjects.forSourceString("com.example.ExampleComponent", """
-            package com.example;
+    final JavaFileObject source = prepareSourceFile("""
+        package com.example;
 
-            @dagger.Component
-            public interface ExampleComponent {
-                @rapier.cli.PositionalCliParameter(0)
-                public Integer provisionPositional0AsInt();
+        @dagger.Component(modules = {RapierExampleComponentCliModule.class})
+        public interface ExampleComponent {
+            @rapier.cli.PositionalCliParameter(0)
+            public Integer provisionPositional0AsInt();
 
-                @rapier.cli.OptionCliParameter(shortName = 'a', longName = "alpha")
-                public Long provisionAlphaOptionAsLong();
+            @rapier.cli.OptionCliParameter(shortName = 'a', longName = "alpha")
+            public Long provisionAlphaOptionAsLong();
 
-                @rapier.cli.FlagCliParameter(positiveShortName = 'b', positiveLongName = "bravo")
-                public Boolean provisionBravoFlagAsBoolean();
-            }
-            """);
+            @rapier.cli.FlagCliParameter(positiveShortName = 'b', positiveLongName = "bravo")
+            public Boolean provisionBravoFlagAsBoolean();
+        }
+        """);
 
     // Run the annotation processor
-    final Compilation compilation =
-        Compiler.javac().withProcessors(new CliProcessor()).compile(source);
+    final Compilation compilation = doCompile(source);
 
     // Assert the compilation succeeded
     assertThat(compilation).succeeded();
 
     // Assert generated file content
     final JavaFileObject expectedOutput = JavaFileObjects.forSourceString(
-        "com.example.RapierExampleComponentEnvironmentVariableModule",
+        "com.example.RapierExampleComponentCliModule",
         """
             package com.example;
 
@@ -77,7 +81,7 @@ public class CliProcessorTest extends DaggerTestBase {
             import rapier.cli.compiler.thirdparty.com.sigpwned.just.args.JustArgs;
 
             @Module
-            public class RapierExampleComponentEnvironmentVariableModule {
+            public class RapierExampleComponentCliModule {
 
                 // Positional parameters
                 /**
@@ -104,11 +108,11 @@ public class CliProcessorTest extends DaggerTestBase {
                 private final Boolean flage85f9a9;
 
 
-                public RapierExampleComponentEnvironmentVariableModule(String[] args) {
+                public RapierExampleComponentCliModule(String[] args) {
                     this(asList(args));
                 }
 
-                public RapierExampleComponentEnvironmentVariableModule(List<String> args) {
+                public RapierExampleComponentCliModule(List<String> args) {
                     // Generate the maps for option short names and long names
                     final Map<Character, String> optionShortNames = new HashMap<>();
                     final Map<String, String> optionLongNames = new HashMap<>();
@@ -172,9 +176,21 @@ public class CliProcessorTest extends DaggerTestBase {
                 }
 
                 @Provides
+                @PositionalCliParameter(0)
+                public String providePositional0AsString() {
+                    return positional0;
+                }
+
+                @Provides
                 @OptionCliParameter(shortName='a', longName="alpha")
                 public java.lang.Long provideOptionda97be1AsLong(@OptionCliParameter(shortName='a', longName="alpha") String value) {
                     return java.lang.Long.valueOf(value);
+                }
+
+                @Provides
+                @OptionCliParameter(shortName='a', longName="alpha")
+                public String provideOptionda97be1AsString() {
+                    return optionda97be1;
                 }
 
                 @Provides
@@ -186,8 +202,19 @@ public class CliProcessorTest extends DaggerTestBase {
             }
             """);
 
-    assertThat(compilation)
-        .generatedSourceFile("com.example.RapierExampleComponentEnvironmentVariableModule")
+    assertThat(compilation).generatedSourceFile("com.example.RapierExampleComponentCliModule")
         .hasSourceEquivalentTo(expectedOutput);
+  }
+
+  /**
+   * We need to include the generated classes from the rapier-cli module in the classpath for our
+   * tests.
+   */
+  @Override
+  protected List<File> getCompileClasspath() throws FileNotFoundException {
+    List<File> result = new ArrayList<>();
+    result.addAll(super.getCompileClasspath());
+    result.add(resolveProjectFile("../rapier-cli/target/classes"));
+    return unmodifiableList(result);
   }
 }

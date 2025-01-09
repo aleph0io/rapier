@@ -83,7 +83,7 @@ public class OptionRepresentationKey {
 
   @Override
   public int hashCode() {
-    return Objects.hash(defaultValue, longName, shortName, type);
+    return Objects.hash(defaultValue, longName, shortName, type.toString());
   }
 
   @Override
@@ -97,7 +97,7 @@ public class OptionRepresentationKey {
     OptionRepresentationKey other = (OptionRepresentationKey) obj;
     return Objects.equals(defaultValue, other.defaultValue)
         && Objects.equals(longName, other.longName) && Objects.equals(shortName, other.shortName)
-        && Objects.equals(type, other.type);
+        && Objects.equals(type.toString(), other.type.toString());
   }
 
   @Override

@@ -73,7 +73,7 @@ public class PositionalRepresentationKey {
 
   @Override
   public int hashCode() {
-    return Objects.hash(defaultValue, position, type);
+    return Objects.hash(defaultValue, position, type.toString());
   }
 
   @Override
@@ -86,7 +86,7 @@ public class PositionalRepresentationKey {
       return false;
     PositionalRepresentationKey other = (PositionalRepresentationKey) obj;
     return Objects.equals(defaultValue, other.defaultValue) && position == other.position
-        && Objects.equals(type, other.type);
+        && Objects.equals(type.toString(), other.type.toString());
   }
 
   @Override

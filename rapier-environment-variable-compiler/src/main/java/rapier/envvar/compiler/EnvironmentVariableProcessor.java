@@ -63,7 +63,6 @@ import rapier.core.model.DaggerInjectionSite;
 import rapier.core.util.AnnotationProcessing;
 import rapier.core.util.CaseFormat;
 import rapier.core.util.Java;
-import rapier.core.util.MoreSets;
 import rapier.envvar.EnvironmentVariable;
 import rapier.envvar.compiler.model.ParameterKey;
 import rapier.envvar.compiler.model.ParameterMetadata;
@@ -74,7 +73,7 @@ import rapier.envvar.compiler.util.EnvironmentVariables;
 @SupportedSourceVersion(SourceVersion.RELEASE_11)
 public class EnvironmentVariableProcessor extends RapierProcessorBase {
   private ConversionExprFactory converter;
-
+  
   @Override
   public synchronized void init(ProcessingEnvironment processingEnv) {
     super.init(processingEnv);
@@ -267,7 +266,7 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
     final Set<RepresentationKey> representations = injectionSites.stream()
         .map(dis -> RepresentationKey.fromInjectionSite(dis)).collect(toCollection(HashSet::new));
 
-    for (RepresentationKey representation : MoreSets.copyOf(representations)) {
+    for (RepresentationKey representation : Set.copyOf(representations)) {
       if (getTypes().isSameType(representation.getType(), getStringType()))
         continue;
 

@@ -11,6 +11,41 @@
     <name>rapier-cli-compiler</name>
     <packaging>jar</packaging>
 
+    <build>
+        <plugins>
+            <!-- Disable annotation processing during this build. -->
+            <!-- Otherwise, Maven will try to execute the annotation -->
+            <!-- processor being built, since it's discoverable by -->
+            <!-- ServiceLoader during the build. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessors />
+                    <proc>none</proc>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>build-helper-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>add-generated-sources</id>
+                        <phase>generate-sources</phase>
+                        <goals>
+                            <goal>add-source</goal>
+                        </goals>
+                        <configuration>
+                            <sources>
+                                <source>src/main/shade</source>
+                            </sources>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
+
     <dependencies>
         <dependency>
             <groupId>com.sigpwned</groupId>

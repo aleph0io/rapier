@@ -46,7 +46,8 @@ public class RepresentationKey implements Comparable<RepresentationKey> {
 
     final TypeMirror type = dependency.getProvidedType();
     final String name = EnvironmentVariables.extractEnvironmentVariableName(qualifier);
-    final String defaultValue = EnvironmentVariables.extractEnvironmentVariableDefaultValue(qualifier);
+    final String defaultValue =
+        EnvironmentVariables.extractEnvironmentVariableDefaultValue(qualifier);
 
     return new RepresentationKey(type, name, defaultValue);
   }
@@ -85,7 +86,7 @@ public class RepresentationKey implements Comparable<RepresentationKey> {
 
   @Override
   public int hashCode() {
-    return Objects.hash(defaultValue, name, type);
+    return Objects.hash(defaultValue, name, type.toString());
   }
 
   @Override
@@ -98,7 +99,7 @@ public class RepresentationKey implements Comparable<RepresentationKey> {
       return false;
     RepresentationKey other = (RepresentationKey) obj;
     return Objects.equals(defaultValue, other.defaultValue) && Objects.equals(name, other.name)
-        && Objects.equals(type, other.type);
+        && Objects.equals(type.toString(), other.type.toString());
   }
 
   @Override

@@ -32,7 +32,6 @@ import java.util.Locale;
 import javax.tools.JavaFileObject;
 import org.junit.jupiter.api.Test;
 import com.google.testing.compile.Compilation;
-import com.google.testing.compile.JavaFileObjects;
 import rapier.core.RapierTestBase;
 
 public class EnvironmentVariableProcessorTest extends RapierTestBase {
@@ -58,8 +57,7 @@ public class EnvironmentVariableProcessorTest extends RapierTestBase {
 
     assertThat(compilation)
         .generatedSourceFile("com.example.RapierExampleComponentEnvironmentVariableModule")
-        .hasSourceEquivalentTo(JavaFileObjects.forSourceString(
-            "com.example.RapierExampleComponentEnvironmentVariableModule",
+        .hasSourceEquivalentTo(prepareSourceFile(
             """
                 package com.example;
 
@@ -277,19 +275,18 @@ public class EnvironmentVariableProcessorTest extends RapierTestBase {
   public void givenComponentWithInconsistentEnvironmentVariableParameterRequirednessFromDefaultValue_whenCompile_thenCompileWarning()
       throws IOException {
     // Define the source file to test
-    final JavaFileObject source =
-        JavaFileObjects.forSourceString("com.example.ExampleComponent", """
-            package com.example;
+    final JavaFileObject source = prepareSourceFile("""
+        package com.example;
 
-            @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
-            public interface ExampleComponent {
-                @rapier.envvar.EnvironmentVariable(value="FOO_BAR")
-                public Integer provisionFooBarAsInt();
+        @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
+        public interface ExampleComponent {
+            @rapier.envvar.EnvironmentVariable(value="FOO_BAR")
+            public Integer provisionFooBarAsInt();
 
-                @rapier.envvar.EnvironmentVariable(value="FOO_BAR", defaultValue="42")
-                public String provisionFooBarAsString();
-            }
-            """);
+            @rapier.envvar.EnvironmentVariable(value="FOO_BAR", defaultValue="42")
+            public String provisionFooBarAsString();
+        }
+        """);
 
     // Run the annotation processor
     final Compilation compilation = doCompile(source);

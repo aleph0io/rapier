@@ -20,68 +20,12 @@
 package rapier.core.util;
 
 import static java.util.Collections.emptySet;
-import static java.util.Collections.singleton;
 import static java.util.Collections.unmodifiableSet;
 import java.util.HashSet;
 import java.util.Set;
 
 public final class MoreSets {
   private MoreSets() {}
-
-  /**
-   * Returns an unmodifiable copy of the specified set.
-   * 
-   * @param <T> the type of the elements
-   * @param set the set to copy
-   * @return an unmodifiable copy of the specified set
-   * 
-   * @throws NullPointerException if {@code set} is {@code null}
-   */
-  public static <T> Set<T> copyOf(Set<T> set) {
-    if (set == null)
-      throw new NullPointerException();
-    return unmodifiableSet(new HashSet<>(set));
-  }
-
-  /**
-   * Returns an unmodifiable empty set.
-   * 
-   * @param <T> the type of the elements
-   * @return an unmodifiable empty set
-   */
-  public static <T> Set<T> of() {
-    return emptySet();
-  }
-
-  /**
-   * Returns an unmodifiable set containing a single element.
-   * 
-   * @param <T> the type of the element
-   * @param element the element
-   * @return an unmodifiable set containing a single element
-   */
-  public static <T> Set<T> of(T element) {
-    return singleton(element);
-  }
-
-  /**
-   * Returns an unmodifiable set containing the specified elements.
-   * 
-   * @param <T> the type of the elements
-   * @param firstElement the first element
-   * @param secondElement the second element
-   * @param moreElements the remaining elements
-   * @return an unmodifiable set containing the specified elements
-   */
-  @SuppressWarnings("unchecked")
-  public static <T> Set<T> of(T firstElement, T secondElement, T... moreElements) {
-    final Set<T> result = new HashSet<>();
-    result.add(firstElement);
-    result.add(secondElement);
-    for (T element : moreElements)
-      result.add(element);
-    return unmodifiableSet(result);
-  }
 
   /**
    * Returns a new unmodifiable set containing the elements that are present in {@code a} but not in

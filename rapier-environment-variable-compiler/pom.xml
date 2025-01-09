@@ -11,6 +11,23 @@
     <name>rapier-environment-variable-compiler</name>
     <packaging>jar</packaging>
 
+    <build>
+        <plugins>
+            <!-- Disable annotation processing during this build. -->
+            <!-- Otherwise, Maven will try to execute the annotation -->
+            <!-- processor being built, since it's discoverable by -->
+            <!-- ServiceLoader during the build. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <configuration>
+                    <annotationProcessors />
+                    <proc>none</proc>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+
     <dependencies>
         <dependency>
             <groupId>com.sigpwned</groupId>

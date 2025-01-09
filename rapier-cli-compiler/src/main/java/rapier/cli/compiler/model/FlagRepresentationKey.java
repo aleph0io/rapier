@@ -106,7 +106,7 @@ public class FlagRepresentationKey {
   @Override
   public int hashCode() {
     return Objects.hash(defaultValue, negativeLongName, positiveLongName, negativeShortName,
-        positiveShortName, type);
+        positiveShortName, type.toString());
   }
 
   @Override
@@ -123,7 +123,7 @@ public class FlagRepresentationKey {
         && Objects.equals(positiveLongName, other.positiveLongName)
         && Objects.equals(negativeShortName, other.negativeShortName)
         && Objects.equals(positiveShortName, other.positiveShortName)
-        && Objects.equals(type, other.type);
+        && Objects.equals(type.toString(), other.type.toString());
   }
 
   @Override
