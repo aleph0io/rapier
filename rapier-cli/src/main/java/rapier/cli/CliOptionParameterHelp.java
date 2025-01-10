@@ -1,6 +1,6 @@
 /*-
  * =================================LICENSE_START==================================
- * rapier-processor-cli
+ * rapier-cli
  * ====================================SECTION=====================================
  * Copyright (C) 2024 - 2025 Andy Boothe
  * ====================================SECTION=====================================
@@ -24,14 +24,16 @@ import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
-@javax.inject.Qualifier
-@jakarta.inject.Qualifier
 @Retention(RetentionPolicy.CLASS)
 @Target({ElementType.PARAMETER, ElementType.FIELD, ElementType.METHOD})
-public @interface PositionalCliParameter {
-  public static final String DEFAULT_VALUE_NOT_SET = "__UNDEFINED__";
+public @interface CliOptionParameterHelp {
+  /**
+   * The name used for the value in the help message.
+   */
+  public String valueName() default "value";
 
-  public int value();
-
-  public String defaultValue() default DEFAULT_VALUE_NOT_SET;
+  /**
+   * The description used in the help message.
+   */
+  public String description() default "";
 }

@@ -28,7 +28,7 @@ import java.lang.annotation.Target;
 @jakarta.inject.Qualifier
 @Retention(RetentionPolicy.CLASS)
 @Target({ElementType.PARAMETER, ElementType.FIELD, ElementType.METHOD})
-public @interface OptionCliParameter {
+public @interface CliOptionParameter {
   public static final String DEFAULT_VALUE_NOT_SET = "__UNDEFINED__";
 
   public char shortName() default '\0';

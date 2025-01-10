@@ -24,7 +24,7 @@ import java.util.Objects;
 import java.util.Optional;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.util.SimpleAnnotationValueVisitor8;
-import rapier.cli.FlagCliParameter;
+import rapier.cli.CliFlagParameter;
 import rapier.core.model.DaggerInjectionSite;
 
 public class FlagParameterKey {
@@ -34,8 +34,8 @@ public class FlagParameterKey {
     });
 
     if (!qualifier.getAnnotationType().toString()
-        .equals(FlagCliParameter.class.getCanonicalName())) {
-      throw new IllegalArgumentException("Dependency qualifier must be @OptionCliParameter");
+        .equals(CliFlagParameter.class.getCanonicalName())) {
+      throw new IllegalArgumentException("Dependency qualifier must be @CliFlagParameter");
     }
 
     final Character shortPositiveName = extractFlagParameterShortPositiveName(qualifier);
@@ -136,7 +136,7 @@ public class FlagParameterKey {
     if (name == null)
       return null;
     assert annotation.getAnnotationType().toString()
-        .equals(FlagCliParameter.class.getCanonicalName());
+        .equals(CliFlagParameter.class.getCanonicalName());
     return annotation.getElementValues().entrySet().stream()
         .filter(e -> e.getKey().getSimpleName().contentEquals(name)).findFirst()
         .map(Map.Entry::getValue)
@@ -154,7 +154,7 @@ public class FlagParameterKey {
     if (name == null)
       return null;
     assert annotation.getAnnotationType().toString()
-        .equals(FlagCliParameter.class.getCanonicalName());
+        .equals(CliFlagParameter.class.getCanonicalName());
     return annotation.getElementValues().entrySet().stream()
         .filter(e -> e.getKey().getSimpleName().contentEquals(name)).findFirst()
         .map(Map.Entry::getValue)

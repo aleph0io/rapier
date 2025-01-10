@@ -26,11 +26,11 @@ import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.CLASS)
 @Target({ElementType.PARAMETER, ElementType.FIELD, ElementType.METHOD})
-public @interface CliHelp {
+public @interface CliPositionalParameterHelp {
   /**
    * The name used in the help message.
    */
-  public String name() default "";
+  public String name() default "parameter";
 
   /**
    * The description used in the help message.

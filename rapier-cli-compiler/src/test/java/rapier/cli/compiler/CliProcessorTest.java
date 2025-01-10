@@ -45,17 +45,23 @@ public class CliProcessorTest extends RapierTestBase {
             description="A simple commmand to foo the bar")
         @dagger.Component(modules = {RapierExampleComponentCliModule.class})
         public interface ExampleComponent {
-            @rapier.cli.PositionalCliParameter(0)
-            @rapier.cli.CliHelp(name="zulu", description="The first zulu parameter")
+            @rapier.cli.CliPositionalParameter(0)
+            @rapier.cli.CliPositionalParameterHelp(
+                name="zulu",
+                description="The first zulu parameter")
             public Integer provisionPositional0AsInt();
 
-            @rapier.cli.CliHelp(description="The value to use for alpha")
-            @rapier.cli.OptionCliParameter(shortName = 'a', longName = "alpha")
+            @rapier.cli.CliOptionParameter(shortName = 'a', longName = "alpha")
+            @rapier.cli.CliOptionParameterHelp(
+                valueName = "alpha",
+                description="The value to use for alpha")
             public Long provisionAlphaOptionAsLong();
 
-            @rapier.cli.CliHelp(description="Whether or not to bravo")
-            @rapier.cli.FlagCliParameter(positiveShortName = 'b', positiveLongName = "bravo",
+            @rapier.cli.CliFlagParameter(
+                positiveShortName = 'b', positiveLongName = "bravo",
                 negativeShortName = 'B', negativeLongName = "no-bravo")
+            @rapier.cli.CliFlagParameterHelp(
+                description = "Whether or not to bravo")
             public Boolean provisionBravoFlagAsBoolean();
         }
         """);

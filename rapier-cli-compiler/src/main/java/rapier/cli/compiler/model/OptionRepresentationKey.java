@@ -26,7 +26,7 @@ import java.util.Optional;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleAnnotationValueVisitor8;
-import rapier.cli.OptionCliParameter;
+import rapier.cli.CliOptionParameter;
 import rapier.core.model.DaggerInjectionSite;
 
 public class OptionRepresentationKey {
@@ -36,8 +36,8 @@ public class OptionRepresentationKey {
     });
 
     if (!qualifier.getAnnotationType().toString()
-        .equals(OptionCliParameter.class.getCanonicalName())) {
-      throw new IllegalArgumentException("Dependency qualifier must be @OptionCliParameter");
+        .equals(CliOptionParameter.class.getCanonicalName())) {
+      throw new IllegalArgumentException("Dependency qualifier must be @CliOptionParameter");
     }
 
     final TypeMirror type = dependency.getProvidedType();
@@ -116,7 +116,7 @@ public class OptionRepresentationKey {
 
   private static String extractOptionParameterDefaultValue(AnnotationMirror annotation) {
     assert annotation.getAnnotationType().toString()
-        .equals(OptionCliParameter.class.getCanonicalName());
+        .equals(CliOptionParameter.class.getCanonicalName());
     return annotation.getElementValues().entrySet().stream()
         .filter(e -> e.getKey().getSimpleName().contentEquals("defaultValue")).findFirst()
         .map(Map.Entry::getValue)

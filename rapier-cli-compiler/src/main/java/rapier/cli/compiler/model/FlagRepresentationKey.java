@@ -27,7 +27,7 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleAnnotationValueVisitor8;
-import rapier.cli.FlagCliParameter;
+import rapier.cli.CliFlagParameter;
 import rapier.core.model.DaggerInjectionSite;
 
 public class FlagRepresentationKey {
@@ -37,8 +37,8 @@ public class FlagRepresentationKey {
     });
 
     if (!qualifier.getAnnotationType().toString()
-        .equals(FlagCliParameter.class.getCanonicalName())) {
-      throw new IllegalArgumentException("Dependency qualifier must be @OptionCliParameter");
+        .equals(CliFlagParameter.class.getCanonicalName())) {
+      throw new IllegalArgumentException("Dependency qualifier must be @CliFlagParameter");
     }
 
     final TypeMirror type = dependency.getProvidedType();
@@ -152,7 +152,7 @@ public class FlagRepresentationKey {
   private static Boolean extractFlagParameterDefaultValue(AnnotationMirror annotation) {
     // Ensure the annotation is of the correct type
     assert annotation.getAnnotationType().toString()
-        .equals(FlagCliParameter.class.getCanonicalName());
+        .equals(CliFlagParameter.class.getCanonicalName());
 
     // Find the 'defaultValue' attribute in the annotation's element values
     return annotation.getElementValues().entrySet().stream()

@@ -26,7 +26,7 @@ import java.util.Optional;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleAnnotationValueVisitor8;
-import rapier.cli.PositionalCliParameter;
+import rapier.cli.CliPositionalParameter;
 import rapier.core.model.DaggerInjectionSite;
 
 public class PositionalRepresentationKey {
@@ -36,8 +36,8 @@ public class PositionalRepresentationKey {
     });
 
     if (!qualifier.getAnnotationType().toString()
-        .equals(PositionalCliParameter.class.getCanonicalName())) {
-      throw new IllegalArgumentException("Dependency qualifier must be @PositionalCliParameter");
+        .equals(CliPositionalParameter.class.getCanonicalName())) {
+      throw new IllegalArgumentException("Dependency qualifier must be @CliPositionalParameter");
     }
 
     final TypeMirror type = dependency.getProvidedType();
@@ -97,7 +97,7 @@ public class PositionalRepresentationKey {
 
   private static int extractPositionalParameterPosition(AnnotationMirror annotation) {
     assert annotation.getAnnotationType().toString()
-        .equals(PositionalCliParameter.class.getCanonicalName());
+        .equals(CliPositionalParameter.class.getCanonicalName());
     return annotation.getElementValues().entrySet().stream()
         .filter(e -> e.getKey().getSimpleName().contentEquals("value")).findFirst()
         .map(Map.Entry::getValue)
@@ -107,20 +107,20 @@ public class PositionalRepresentationKey {
             return i;
           }
         }, null)).orElseThrow(() -> {
-          return new AssertionError("No position value for @PositionalCliParameter");
+          return new AssertionError("No position value for @CliPositionalParameter");
         });
   }
 
   private static String extractPositionalParameterDefaultValue(AnnotationMirror annotation) {
     assert annotation.getAnnotationType().toString()
-        .equals(PositionalCliParameter.class.getCanonicalName());
+        .equals(CliPositionalParameter.class.getCanonicalName());
     return annotation.getElementValues().entrySet().stream()
         .filter(e -> e.getKey().getSimpleName().contentEquals("defaultValue")).findFirst()
         .map(Map.Entry::getValue)
         .map(v -> v.accept(new SimpleAnnotationValueVisitor8<String, Void>() {
           @Override
           public String visitString(String s, Void p) {
-            if (s.equals(PositionalCliParameter.DEFAULT_VALUE_NOT_SET))
+            if (s.equals(CliPositionalParameter.DEFAULT_VALUE_NOT_SET))
               return null;
             return s;
           }

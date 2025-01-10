@@ -19,23 +19,25 @@
  */
 package rapier.cli;
 
-import java.lang.annotation.ElementType;
-import java.lang.annotation.Retention;
-import java.lang.annotation.RetentionPolicy;
-import java.lang.annotation.Target;
+public enum CliFlagParameterValue {
+  NONE {
+    @Override
+    public Boolean toBoolean() {
+      return null;
+    }
+  },
+  TRUE {
+    @Override
+    public Boolean toBoolean() {
+      return Boolean.TRUE;
+    }
+  },
+  FALSE {
+    @Override
+    public Boolean toBoolean() {
+      return Boolean.FALSE;
+    }
+  };
 
-@javax.inject.Qualifier
-@jakarta.inject.Qualifier
-@Retention(RetentionPolicy.CLASS)
-@Target({ElementType.PARAMETER, ElementType.FIELD, ElementType.METHOD})
-public @interface FlagCliParameter {
-  public char positiveShortName() default '\0';
-
-  public String positiveLongName() default "";
-
-  public char negativeShortName() default '\0';
-
-  public String negativeLongName() default "";
-
-  public FlagCliParameterValue defaultValue() default FlagCliParameterValue.NONE;
+  public abstract Boolean toBoolean();
 }

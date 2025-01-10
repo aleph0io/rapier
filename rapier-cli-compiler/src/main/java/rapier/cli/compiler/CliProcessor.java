@@ -63,16 +63,18 @@ import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 import dagger.Component;
-import rapier.cli.FlagCliParameter;
-import rapier.cli.OptionCliParameter;
-import rapier.cli.PositionalCliParameter;
+import rapier.cli.CliFlagParameter;
+import rapier.cli.CliOptionParameter;
+import rapier.cli.CliPositionalParameter;
 import rapier.cli.compiler.model.BindingMetadata;
-import rapier.cli.compiler.model.CliHelpMetadata;
 import rapier.cli.compiler.model.CommandHelpMetadata;
+import rapier.cli.compiler.model.FlagParameterHelp;
 import rapier.cli.compiler.model.FlagParameterKey;
 import rapier.cli.compiler.model.FlagRepresentationKey;
+import rapier.cli.compiler.model.OptionParameterHelp;
 import rapier.cli.compiler.model.OptionParameterKey;
 import rapier.cli.compiler.model.OptionRepresentationKey;
+import rapier.cli.compiler.model.PositionalParameterHelp;
 import rapier.cli.compiler.model.PositionalParameterKey;
 import rapier.cli.compiler.model.PositionalRepresentationKey;
 import rapier.cli.compiler.thirdparty.com.sigpwned.just.args.JustArgs;
@@ -154,6 +156,9 @@ public class CliProcessor extends RapierProcessorBase {
     final CommandHelpMetadata commandHelp = component.getAnnotationMirrors().stream()
         .flatMap(am -> CommandHelpMetadata.fromAnnotationMirror(am).stream()).findFirst()
         .orElse(null);
+
+    System.out.println(new DaggerComponentAnalyzer(getProcessingEnv()).analyzeComponent(component)
+        .getInjectionSites());
 
     final List<DaggerInjectionSite> qualifiedInjectionSites =
         new DaggerComponentAnalyzer(getProcessingEnv()).analyzeComponent(component)
@@ -545,7 +550,7 @@ public class CliProcessor extends RapierProcessorBase {
       List<DaggerInjectionSite> injectionSites) {
     return injectionSites.stream().filter(d -> d.getQualifier().isPresent())
         .filter(d -> getTypes().isSameType(d.getQualifier().get().getAnnotationType(),
-            getElements().getTypeElement(PositionalCliParameter.class.getCanonicalName()).asType()))
+            getElements().getTypeElement(CliPositionalParameter.class.getCanonicalName()).asType()))
         .map(d -> {
           try {
             return Map.entry(PositionalParameterKey.fromInjectionSite(d), d);
@@ -606,11 +611,10 @@ public class CliProcessor extends RapierProcessorBase {
         continue;
       }
 
-      final List<CliHelpMetadata> helps = injectionSites.stream()
-          .flatMap(dis -> CliHelpMetadata.fromInjectionSite(dis).stream()).distinct()
+      final List<PositionalParameterHelp> helps = injectionSites.stream()
+          .flatMap(dis -> PositionalParameterHelp.fromInjectionSite(dis).stream()).distinct()
           .sorted(Comparator
-              .<CliHelpMetadata, String>comparing(h -> h.getName().orElse(null),
-                  Comparator.nullsLast(Comparator.naturalOrder()))
+              .<PositionalParameterHelp, String>comparing(PositionalParameterHelp::getName)
               .thenComparing(h -> h.getDescription().orElse(null),
                   Comparator.nullsLast(Comparator.naturalOrder())))
           .collect(toList());
@@ -620,13 +624,13 @@ public class CliProcessor extends RapierProcessorBase {
                 + ", help message is not deterministic");
         // TODO Print example conflicting help
       }
-      final Optional<CliHelpMetadata> maybeHelp =
+      final Optional<PositionalParameterHelp> maybeHelp =
           helps.isEmpty() ? Optional.empty() : Optional.of(helps.get(0));
 
       metadataByPositionalParameter.put(pk,
           new BindingMetadata(required, listy,
-              maybeHelp.flatMap(CliHelpMetadata::getName).orElse(null),
-              maybeHelp.flatMap(CliHelpMetadata::getDescription).orElse(null)));
+              maybeHelp.map(PositionalParameterHelp::getName).orElse(null),
+              maybeHelp.flatMap(PositionalParameterHelp::getDescription).orElse(null)));
     }
 
     if (valid == false)
@@ -646,7 +650,7 @@ public class CliProcessor extends RapierProcessorBase {
       List<DaggerInjectionSite> injectionSites) {
     return injectionSites.stream().filter(d -> d.getQualifier().isPresent())
         .filter(d -> getTypes().isSameType(d.getQualifier().get().getAnnotationType(),
-            getElements().getTypeElement(OptionCliParameter.class.getCanonicalName()).asType()))
+            getElements().getTypeElement(CliOptionParameter.class.getCanonicalName()).asType()))
         .map(d -> {
           try {
             return Map.entry(OptionParameterKey.fromInjectionSite(d), d);
@@ -709,11 +713,9 @@ public class CliProcessor extends RapierProcessorBase {
         continue;
       }
 
-      final List<CliHelpMetadata> helps = injectionSites.stream()
-          .flatMap(dis -> CliHelpMetadata.fromInjectionSite(dis).stream()).distinct()
-          .sorted(Comparator
-              .<CliHelpMetadata, String>comparing(h -> h.getName().orElse(null),
-                  Comparator.nullsLast(Comparator.naturalOrder()))
+      final List<OptionParameterHelp> helps = injectionSites.stream()
+          .flatMap(dis -> OptionParameterHelp.fromInjectionSite(dis).stream()).distinct()
+          .sorted(Comparator.<OptionParameterHelp, String>comparing(h -> h.getValueName())
               .thenComparing(h -> h.getDescription().orElse(null),
                   Comparator.nullsLast(Comparator.naturalOrder())))
           .collect(toList());
@@ -725,13 +727,13 @@ public class CliProcessor extends RapierProcessorBase {
                 + ", help message is not deterministic");
         // TODO Print example conflicting help
       }
-      final Optional<CliHelpMetadata> maybeHelp =
+      final Optional<OptionParameterHelp> maybeHelp =
           helps.isEmpty() ? Optional.empty() : Optional.of(helps.get(0));
 
       metadataByOptionParameter.put(pk,
           new BindingMetadata(required, listy,
-              maybeHelp.flatMap(CliHelpMetadata::getName).orElse(null),
-              maybeHelp.flatMap(CliHelpMetadata::getDescription).orElse(null)));
+              maybeHelp.map(OptionParameterHelp::getValueName).orElse(null),
+              maybeHelp.flatMap(OptionParameterHelp::getDescription).orElse(null)));
     }
 
     if (valid == false)
@@ -755,7 +757,7 @@ public class CliProcessor extends RapierProcessorBase {
       List<DaggerInjectionSite> injectionSites) {
     return injectionSites.stream().filter(d -> d.getQualifier().isPresent())
         .filter(d -> getTypes().isSameType(d.getQualifier().get().getAnnotationType(),
-            getElements().getTypeElement(FlagCliParameter.class.getCanonicalName()).asType()))
+            getElements().getTypeElement(CliFlagParameter.class.getCanonicalName()).asType()))
         .map(d -> {
           try {
             return Map.entry(FlagParameterKey.fromInjectionSite(d), d);
@@ -822,14 +824,13 @@ public class CliProcessor extends RapierProcessorBase {
       }
 
 
-      final List<CliHelpMetadata> helps = injectionSites.stream()
-          .flatMap(dis -> CliHelpMetadata.fromInjectionSite(dis).stream()).distinct()
-          .sorted(Comparator
-              .<CliHelpMetadata, String>comparing(h -> h.getName().orElse(null),
-                  Comparator.nullsLast(Comparator.naturalOrder()))
-              .thenComparing(h -> h.getDescription().orElse(null),
+      final List<FlagParameterHelp> helps =
+          injectionSites.stream().flatMap(dis -> FlagParameterHelp.fromInjectionSite(dis).stream())
+              .distinct()
+              .sorted(Comparator.<FlagParameterHelp, String>comparing(
+                  h -> h.getDescription().orElse(null),
                   Comparator.nullsLast(Comparator.naturalOrder())))
-          .collect(toList());
+              .collect(toList());
       if (helps.size() > 1) {
         getMessager()
             .printMessage(Diagnostic.Kind.WARNING,
@@ -839,13 +840,11 @@ public class CliProcessor extends RapierProcessorBase {
                     + ", help message is not deterministic");
         // TODO Print example conflicting help
       }
-      final Optional<CliHelpMetadata> maybeHelp =
+      final Optional<FlagParameterHelp> maybeHelp =
           helps.isEmpty() ? Optional.empty() : Optional.of(helps.get(0));
 
-      metadataByFlagParameter.put(pk,
-          new BindingMetadata(required, listy,
-              maybeHelp.flatMap(CliHelpMetadata::getName).orElse(null),
-              maybeHelp.flatMap(CliHelpMetadata::getDescription).orElse(null)));
+      metadataByFlagParameter.put(pk, new BindingMetadata(required, listy, null,
+          maybeHelp.flatMap(FlagParameterHelp::getDescription).orElse(null)));
     }
 
     if (valid == false)
@@ -957,9 +956,9 @@ public class CliProcessor extends RapierProcessorBase {
       out.println("import java.util.Optional;");
       out.println("import javax.annotation.Nullable;");
       out.println("import rapier.cli.CliSyntaxException;");
-      out.println("import rapier.cli.FlagCliParameter;");
-      out.println("import rapier.cli.OptionCliParameter;");
-      out.println("import rapier.cli.PositionalCliParameter;");
+      out.println("import rapier.cli.CliFlagParameter;");
+      out.println("import rapier.cli.CliOptionParameter;");
+      out.println("import rapier.cli.CliPositionalParameter;");
       out.println("import " + JustArgs.class.getName() + ";");
       out.println();
       out.println("@Module");
@@ -1331,7 +1330,7 @@ public class CliProcessor extends RapierProcessorBase {
       if (representationDefaultValue != null) {
         final String defaultValueExpr = "\"" + Java.escapeString(representationDefaultValue) + "\"";
         out.println("    @Provides");
-        out.println("    @PositionalCliParameter(value=" + position + ", defaultValue="
+        out.println("    @CliPositionalParameter(value=" + position + ", defaultValue="
             + defaultValueExpr + ")");
         out.println("    public List<String> " + baseMethodName + "AsListOfString() {");
         out.println("        if(" + fieldName + " == null)");
@@ -1341,7 +1340,7 @@ public class CliProcessor extends RapierProcessorBase {
         out.println();
       } else if (parameterIsRequired) {
         out.println("    @Provides");
-        out.println("    @PositionalCliParameter(" + position + ")");
+        out.println("    @CliPositionalParameter(" + position + ")");
         out.println("    public List<String> " + baseMethodName + "AsListOfString() {");
         out.println("        return " + fieldName + ";");
         out.println("    }");
@@ -1349,7 +1348,7 @@ public class CliProcessor extends RapierProcessorBase {
       } else {
         // We never generate a nullable list of strings. We just use empty list.
         out.println("    @Provides");
-        out.println("    @PositionalCliParameter(" + position + ")");
+        out.println("    @CliPositionalParameter(" + position + ")");
         out.println("    public List<String> " + baseMethodName + "AsListOfString() {");
         out.println("        if(" + fieldName + " == null)");
         out.println("            return emptyList();");
@@ -1357,9 +1356,9 @@ public class CliProcessor extends RapierProcessorBase {
         out.println("    }");
         out.println();
         out.println("    @Provides");
-        out.println("    @PositionalCliParameter(" + position + ")");
+        out.println("    @CliPositionalParameter(" + position + ")");
         out.println("    public Optional<List<String>> " + baseMethodName
-            + "AsOptionalOfString(@PositionalCliParameter(" + position + ") List<String> value) {");
+            + "AsOptionalOfString(@CliPositionalParameter(" + position + ") List<String> value) {");
         out.println("        return Optional.of(value);");
         out.println("    }");
         out.println();
@@ -1370,7 +1369,7 @@ public class CliProcessor extends RapierProcessorBase {
       if (representationDefaultValue != null) {
         final String defaultValueExpr = "\"" + Java.escapeString(representationDefaultValue) + "\"";
         out.println("    @Provides");
-        out.println("    @PositionalCliParameter(value=" + position + ", defaultValue="
+        out.println("    @CliPositionalParameter(value=" + position + ", defaultValue="
             + defaultValueExpr + ")");
         out.println("    public String " + baseMethodName + "AsString() {");
         out.println("        if(" + fieldName + " == null)");
@@ -1380,7 +1379,7 @@ public class CliProcessor extends RapierProcessorBase {
         out.println();
       } else if (parameterIsRequired) {
         out.println("    @Provides");
-        out.println("    @PositionalCliParameter(" + position + ")");
+        out.println("    @CliPositionalParameter(" + position + ")");
         out.println("    public String " + baseMethodName + "AsString() {");
         out.println("        return " + fieldName + ";");
         out.println("    }");
@@ -1388,15 +1387,15 @@ public class CliProcessor extends RapierProcessorBase {
       } else {
         out.println("    @Provides");
         out.println("    @Nullable");
-        out.println("    @PositionalCliParameter(" + position + ")");
+        out.println("    @CliPositionalParameter(" + position + ")");
         out.println("    public String " + baseMethodName + "AsString() {");
         out.println("        return " + fieldName + ";");
         out.println("    }");
         out.println();
         out.println("    @Provides");
-        out.println("    @PositionalCliParameter(" + position + ")");
+        out.println("    @CliPositionalParameter(" + position + ")");
         out.println("    public Optional<String> " + baseMethodName
-            + "AsOptionalOfString(@Nullable @PositionalCliParameter(" + position
+            + "AsOptionalOfString(@Nullable @CliPositionalParameter(" + position
             + ") String value) {");
         out.println("        return Optional.ofNullable(value);");
         out.println("    }");
@@ -1420,10 +1419,10 @@ public class CliProcessor extends RapierProcessorBase {
           final String defaultValueExpr =
               "\"" + Java.escapeString(representationDefaultValue) + "\"";
           out.println("    @Provides");
-          out.println("    @PositionalCliParameter(value=" + position + ", defaultValue="
+          out.println("    @CliPositionalParameter(value=" + position + ", defaultValue="
               + defaultValueExpr + ")");
           out.println("    public " + representationType + " " + baseMethodName + "As"
-              + typeSimpleName + "(@PositionalCliParameter(value=" + position + ", defaultValue="
+              + typeSimpleName + "(@CliPositionalParameter(value=" + position + ", defaultValue="
               + defaultValueExpr + " ) List<String> value) {");
           out.println("        return " + conversionExpr + ";");
           out.println("    }");
@@ -1431,27 +1430,27 @@ public class CliProcessor extends RapierProcessorBase {
         } else if (parameterIsRequired) {
           // We don't need to check for null here because we already did in the constructor
           out.println("    @Provides");
-          out.println("    @PositionalCliParameter(" + position + ")");
+          out.println("    @CliPositionalParameter(" + position + ")");
           out.println(
               "    public " + representationType + " " + baseMethodName + "As" + typeSimpleName
-                  + "(@PositionalCliParameter(" + position + ") List<String> value) {");
+                  + "(@CliPositionalParameter(" + position + ") List<String> value) {");
           out.println("        return " + conversionExpr + ";");
           out.println("    }");
           out.println();
         } else {
           // We never generate a nullable list of strings. We just use empty list.
           out.println("    @Provides");
-          out.println("    @PositionalCliParameter(" + position + ")");
+          out.println("    @CliPositionalParameter(" + position + ")");
           out.println(
               "    public " + representationType + " " + baseMethodName + "As" + typeSimpleName
-                  + "(@PositionalCliParameter(" + position + ") List<String> value) {");
+                  + "(@CliPositionalParameter(" + position + ") List<String> value) {");
           out.println("        return " + conversionExpr + ";");
           out.println("    }");
           out.println();
           out.println("    @Provides");
-          out.println("    @PositionalCliParameter(" + position + ")");
+          out.println("    @CliPositionalParameter(" + position + ")");
           out.println("    public Optional<" + representationType + "> " + baseMethodName
-              + "AsOptionalOf" + typeSimpleName + "(@PositionalCliParameter(" + position
+              + "AsOptionalOf" + typeSimpleName + "(@CliPositionalParameter(" + position
               + ") Optional<List<String>> o) {");
           out.println("        return o.map(value -> " + conversionExpr + ");");
           out.println("    }");
@@ -1473,10 +1472,10 @@ public class CliProcessor extends RapierProcessorBase {
           final String defaultValueExpr =
               "\"" + Java.escapeString(representationDefaultValue) + "\"";
           out.println("    @Provides");
-          out.println("    @PositionalCliParameter(value=" + position + ", defaultValue="
+          out.println("    @CliPositionalParameter(value=" + position + ", defaultValue="
               + defaultValueExpr + ")");
           out.println("    public " + representationType + " " + baseMethodName + "As"
-              + typeSimpleName + "(@PositionalCliParameter(value=" + position + ", defaultValue="
+              + typeSimpleName + "(@CliPositionalParameter(value=" + position + ", defaultValue="
               + defaultValueExpr + " ) String value) {");
           out.println("        return " + conversionExpr + ";");
           out.println("    }");
@@ -1484,28 +1483,28 @@ public class CliProcessor extends RapierProcessorBase {
         } else if (parameterIsRequired) {
           // We don't need to check for null here because we already did in the constructor
           out.println("    @Provides");
-          out.println("    @PositionalCliParameter(" + position + ")");
+          out.println("    @CliPositionalParameter(" + position + ")");
           out.println("    public " + representationType + " " + baseMethodName + "As"
-              + typeSimpleName + "(@PositionalCliParameter(" + position + ") String value) {");
+              + typeSimpleName + "(@CliPositionalParameter(" + position + ") String value) {");
           out.println("        return " + conversionExpr + ";");
           out.println("    }");
           out.println();
         } else {
           out.println("    @Provides");
           out.println("    @Nullable");
-          out.println("    @PositionalCliParameter(" + position + ")");
+          out.println("    @CliPositionalParameter(" + position + ")");
           out.println(
               "    public " + representationType + " " + baseMethodName + "As" + typeSimpleName
-                  + "(@Nullable @PositionalCliParameter(" + position + ") String value) {");
+                  + "(@Nullable @CliPositionalParameter(" + position + ") String value) {");
           out.println("        if(value == null)");
           out.println("            return null;");
           out.println("        return " + conversionExpr + ";");
           out.println("    }");
           out.println();
           out.println("    @Provides");
-          out.println("    @PositionalCliParameter(" + position + ")");
+          out.println("    @CliPositionalParameter(" + position + ")");
           out.println("    public Optional<" + representationType + "> " + baseMethodName
-              + "AsOptionalOf" + typeSimpleName + "(@PositionalCliParameter(" + position
+              + "AsOptionalOf" + typeSimpleName + "(@CliPositionalParameter(" + position
               + ") Optional<String> o) {");
           out.println("        return o.map(value -> " + conversionExpr + ");");
           out.println("    }");
@@ -1572,8 +1571,8 @@ public class CliProcessor extends RapierProcessorBase {
         continue;
       final String parameterSignature =
           optionParameterSignature(shortName, parameter.getLongName().orElse(null));
-      out.println(
-          "        optionShortNames.put(\'" + shortName + "\', \"rapier.option." + parameterSignature + "\");");
+      out.println("        optionShortNames.put(\'" + shortName + "\', \"rapier.option."
+          + parameterSignature + "\");");
     }
     for (OptionParameterKey parameter : parameters) {
       final String longName = parameter.getLongName().orElse(null);
@@ -1581,8 +1580,8 @@ public class CliProcessor extends RapierProcessorBase {
         continue;
       final String parameterSignature =
           optionParameterSignature(parameter.getShortName().orElse(null), longName);
-      out.println(
-          "        optionLongNames.put(\"" + longName + "\", \"rapier.option." + parameterSignature + "\");");
+      out.println("        optionLongNames.put(\"" + longName + "\", \"rapier.option."
+          + parameterSignature + "\");");
     }
     out.println();
   }
@@ -1603,9 +1602,10 @@ public class CliProcessor extends RapierProcessorBase {
     final String signature = optionParameterSignature(shortName, longName);
     final String userFacingString = optionParameterUserFacingString(shortName, longName);
 
-    out.println("            if(parsed.getOptions().containsKey(\"rapier.option." + signature + "\")) {");
-    out.println("                List<String> " + fieldName + " = parsed.getOptions().get(\"rapier.option."
-        + signature + "\");");
+    out.println(
+        "            if(parsed.getOptions().containsKey(\"rapier.option." + signature + "\")) {");
+    out.println("                List<String> " + fieldName
+        + " = parsed.getOptions().get(\"rapier.option." + signature + "\");");
     if (parameterIsList) {
       out.println("                this." + fieldName + " = unmodifiableList(" + fieldName + "));");
     } else {
@@ -1657,7 +1657,7 @@ public class CliProcessor extends RapierProcessorBase {
         final String defaultValueExpr = "\"" + Java.escapeString(representationDefaultValue) + "\"";
         out.println("    @Provides");
         out.println(
-            "    @OptionCliParameter(" + nameClauses + ", defaultValue=" + defaultValueExpr + ")");
+            "    @CliOptionParameter(" + nameClauses + ", defaultValue=" + defaultValueExpr + ")");
         out.println("    public List<String> " + baseMethodName + "AsListOfString() {");
         out.println("        if(" + fieldName + " == null)");
         out.println("            return singletonList(" + defaultValueExpr + ");");
@@ -1667,7 +1667,7 @@ public class CliProcessor extends RapierProcessorBase {
       } else if (parameterIsRequired) {
         // We don't need to check for null here because we already did in the constructor
         out.println("    @Provides");
-        out.println("    @OptionCliParameter(" + nameClauses + ")");
+        out.println("    @CliOptionParameter(" + nameClauses + ")");
         out.println("    public List<String> " + baseMethodName + "AsListOfString() {");
         out.println("        return " + fieldName + ";");
         out.println("    }");
@@ -1675,7 +1675,7 @@ public class CliProcessor extends RapierProcessorBase {
       } else {
         // We never generate a nullable list of strings. We just use empty list.
         out.println("    @Provides");
-        out.println("    @OptionCliParameter(" + nameClauses + ")");
+        out.println("    @CliOptionParameter(" + nameClauses + ")");
         out.println("    public List<String> " + baseMethodName + "AsListOfString() {");
         out.println("        if(" + fieldName + " == null)");
         out.println("            return emptyList();");
@@ -1683,9 +1683,9 @@ public class CliProcessor extends RapierProcessorBase {
         out.println("    }");
         out.println();
         out.println("    @Provides");
-        out.println("    @OptionCliParameter(" + nameClauses + ")");
+        out.println("    @CliOptionParameter(" + nameClauses + ")");
         out.println("    public Optional<List<String>> " + baseMethodName
-            + "AsOptionalOfString(@OptionCliParameter(" + nameClauses + ") List<String> value) {");
+            + "AsOptionalOfString(@CliOptionParameter(" + nameClauses + ") List<String> value) {");
         out.println("        return Optional.of(value);");
         out.println("    }");
         out.println();
@@ -1697,7 +1697,7 @@ public class CliProcessor extends RapierProcessorBase {
         final String defaultValueExpr = "\"" + Java.escapeString(representationDefaultValue) + "\"";
         out.println("    @Provides");
         out.println(
-            "    @OptionCliParameter(" + nameClauses + ", defaultValue=" + defaultValueExpr + ")");
+            "    @CliOptionParameter(" + nameClauses + ", defaultValue=" + defaultValueExpr + ")");
         out.println("    public String " + baseMethodName + "AsString() {");
         out.println("        if(" + fieldName + " == null)");
         out.println("            return " + defaultValueExpr + ";");
@@ -1706,7 +1706,7 @@ public class CliProcessor extends RapierProcessorBase {
         out.println();
       } else if (parameterIsRequired) {
         out.println("    @Provides");
-        out.println("    @OptionCliParameter(" + nameClauses + ")");
+        out.println("    @CliOptionParameter(" + nameClauses + ")");
         out.println("    public String " + baseMethodName + "AsString() {");
         out.println("        return " + fieldName + ";");
         out.println("    }");
@@ -1714,15 +1714,15 @@ public class CliProcessor extends RapierProcessorBase {
       } else {
         out.println("    @Provides");
         out.println("    @Nullable");
-        out.println("    @OptionCliParameter(" + nameClauses + ")");
+        out.println("    @CliOptionParameter(" + nameClauses + ")");
         out.println("    public String " + baseMethodName + "AsString() {");
         out.println("        return " + fieldName + ";");
         out.println("    }");
         out.println();
         out.println("    @Provides");
-        out.println("    @OptionCliParameter(" + nameClauses + ")");
+        out.println("    @CliOptionParameter(" + nameClauses + ")");
         out.println("    public Optional<String> " + baseMethodName
-            + "AsOptionalOfString(@Nullable @PositionalCliParameter(" + nameClauses
+            + "AsOptionalOfString(@Nullable @CliPositionalParameter(" + nameClauses
             + ") String value) {");
         out.println("        return Optional.ofNullable(value);");
         out.println("    }");
@@ -1746,10 +1746,10 @@ public class CliProcessor extends RapierProcessorBase {
           final String defaultValueExpr =
               "\"" + Java.escapeString(representationDefaultValue) + "\"";
           out.println("    @Provides");
-          out.println("    @OptionCliParameter(" + nameClauses + ", defaultValue="
+          out.println("    @CliOptionParameter(" + nameClauses + ", defaultValue="
               + defaultValueExpr + ")");
           out.println("    public " + representationType + " " + baseMethodName + "As"
-              + typeSimpleName + "(@OptionCliParameter(" + nameClauses + ", defaultValue="
+              + typeSimpleName + "(@CliOptionParameter(" + nameClauses + ", defaultValue="
               + defaultValueExpr + " ) List<String> value) {");
           out.println("        return " + conversionExpr + ";");
           out.println("    }");
@@ -1757,7 +1757,7 @@ public class CliProcessor extends RapierProcessorBase {
         } else if (parameterIsRequired) {
           // We don't need to check for null here because we already did in the constructor
           out.println("    @Provides");
-          out.println("    @OptionCliParameter(" + nameClauses + ")");
+          out.println("    @CliOptionParameter(" + nameClauses + ")");
           out.println("    public " + representationType + " " + baseMethodName + "As"
               + typeSimpleName + "( List<String> value) {");
           out.println("        return " + conversionExpr + ";");
@@ -1766,16 +1766,16 @@ public class CliProcessor extends RapierProcessorBase {
         } else {
           // We never generate a nullable list of strings. We just use empty list.
           out.println("    @Provides");
-          out.println("    @OptionCliParameter(" + nameClauses + ")");
+          out.println("    @CliOptionParameter(" + nameClauses + ")");
           out.println("    public " + representationType + " " + baseMethodName + "As"
-              + typeSimpleName + "(@OptionCliParameter(" + nameClauses + ") List<String> value) {");
+              + typeSimpleName + "(@CliOptionParameter(" + nameClauses + ") List<String> value) {");
           out.println("        return " + conversionExpr + ";");
           out.println("    }");
           out.println();
           out.println("    @Provides");
-          out.println("    @OptionCliParameter(" + nameClauses + ")");
+          out.println("    @CliOptionParameter(" + nameClauses + ")");
           out.println("    public Optional<" + representationType + "> " + baseMethodName
-              + "AsOptionalOf" + typeSimpleName + "(@OptionCliParameter(" + nameClauses
+              + "AsOptionalOf" + typeSimpleName + "(@CliOptionParameter(" + nameClauses
               + ") Optional<List<String>> o) {");
           out.println("        return o.map(value -> " + conversionExpr + ");");
           out.println("    }");
@@ -1797,10 +1797,10 @@ public class CliProcessor extends RapierProcessorBase {
           final String defaultValueExpr =
               "\"" + Java.escapeString(representationDefaultValue) + "\"";
           out.println("    @Provides");
-          out.println("    @OptionCliParameter(" + nameClauses + ", defaultValue="
+          out.println("    @CliOptionParameter(" + nameClauses + ", defaultValue="
               + defaultValueExpr + ")");
           out.println("    public " + representationType + " " + baseMethodName + "As"
-              + typeSimpleName + "(@OptionCliParameter(" + nameClauses + ", defaultValue="
+              + typeSimpleName + "(@CliOptionParameter(" + nameClauses + ", defaultValue="
               + defaultValueExpr + " ) String value) {");
           out.println("        return " + conversionExpr + ";");
           out.println("    }");
@@ -1808,28 +1808,28 @@ public class CliProcessor extends RapierProcessorBase {
         } else if (parameterIsRequired) {
           // We don't need to check for null here because we already did in the constructor
           out.println("    @Provides");
-          out.println("    @OptionCliParameter(" + nameClauses + ")");
+          out.println("    @CliOptionParameter(" + nameClauses + ")");
           out.println("    public " + representationType + " " + baseMethodName + "As"
-              + typeSimpleName + "(@OptionCliParameter(" + nameClauses + ") String value) {");
+              + typeSimpleName + "(@CliOptionParameter(" + nameClauses + ") String value) {");
           out.println("        return " + conversionExpr + ";");
           out.println("    }");
           out.println();
         } else {
           out.println("    @Provides");
           out.println("    @Nullable");
-          out.println("    @OptionCliParameter(" + nameClauses + ")");
+          out.println("    @CliOptionParameter(" + nameClauses + ")");
           out.println(
               "    public " + representationType + " " + baseMethodName + "As" + typeSimpleName
-                  + "(@Nullable @OptionCliParameter(" + nameClauses + ") String value) {");
+                  + "(@Nullable @CliOptionParameter(" + nameClauses + ") String value) {");
           out.println("        if(value == null)");
           out.println("            return null;");
           out.println("        return " + conversionExpr + ";");
           out.println("    }");
           out.println();
           out.println("    @Provides");
-          out.println("    @OptionCliParameter(" + nameClauses + ")");
+          out.println("    @CliOptionParameter(" + nameClauses + ")");
           out.println("    public Optional<" + representationType + "> " + baseMethodName
-              + "AsOptionalOf" + typeSimpleName + "(@OptionCliParameter(" + nameClauses
+              + "AsOptionalOf" + typeSimpleName + "(@CliOptionParameter(" + nameClauses
               + ") Optional<String> o) {");
           out.println("        return o.map(value -> " + conversionExpr + ");");
           out.println("    }");
@@ -1989,9 +1989,10 @@ public class CliProcessor extends RapierProcessorBase {
     final String userFacingString = flagParameterUserFacingString(positiveShortName,
         positiveLongName, negativeShortName, negativeLongName);
 
-    out.println("            if(parsed.getFlags().containsKey(\"rapier.flag." + signature + "\")) {");
-    out.println("                List<Boolean> " + fieldName + " = parsed.getFlags().get(\"rapier.flag."
-        + signature + "\");");
+    out.println(
+        "            if(parsed.getFlags().containsKey(\"rapier.flag." + signature + "\")) {");
+    out.println("                List<Boolean> " + fieldName
+        + " = parsed.getFlags().get(\"rapier.flag." + signature + "\");");
     if (parameterIsList) {
       out.println("                this." + fieldName + " = unmodifiableList(" + fieldName + "));");
     } else {
@@ -2055,10 +2056,10 @@ public class CliProcessor extends RapierProcessorBase {
       // This is a varargs parameter, and we're generating the "default" binding.
       if (representationDefaultValue != null) {
         final String annotationDefaultValueExpr =
-            "FlagCliParameterValue." + representationDefaultValue;
+            "CliFlagParameterValue." + representationDefaultValue;
         final String javaDefaultValueExpr = "Boolean." + representationDefaultValue;
         out.println("    @Provides");
-        out.println("    @FlagCliParameter(" + nameClauses + ", defaultValue="
+        out.println("    @CliFlagParameter(" + nameClauses + ", defaultValue="
             + annotationDefaultValueExpr + ")");
         out.println("    public List<Boolean> " + baseMethodName + "AsListOfBoolean() {");
         out.println("        if(" + fieldName + " == null)");
@@ -2069,7 +2070,7 @@ public class CliProcessor extends RapierProcessorBase {
       } else if (parameterIsRequired) {
         // We don't need to check for null here because we already did in the constructor
         out.println("    @Provides");
-        out.println("    @FlagCliParameter(" + nameClauses + ")");
+        out.println("    @CliFlagParameter(" + nameClauses + ")");
         out.println("    public List<Boolean> " + baseMethodName + "AsListOfBoolean() {");
         out.println("        return " + fieldName + ";");
         out.println("    }");
@@ -2077,7 +2078,7 @@ public class CliProcessor extends RapierProcessorBase {
       } else {
         // We never generate a nullable list of strings. We just use empty list.
         out.println("    @Provides");
-        out.println("    @FlagCliParameter(" + nameClauses + ")");
+        out.println("    @CliFlagParameter(" + nameClauses + ")");
         out.println("    public List<Boolean> " + baseMethodName + "AsListOfBoolean() {");
         out.println("        if(" + fieldName + " == null)");
         out.println("            return emptyList();");
@@ -2085,9 +2086,9 @@ public class CliProcessor extends RapierProcessorBase {
         out.println("    }");
         out.println();
         out.println("    @Provides");
-        out.println("    @FlagCliParameter(" + nameClauses + ")");
+        out.println("    @CliFlagParameter(" + nameClauses + ")");
         out.println("    public Optional<List<Boolean>> " + baseMethodName
-            + "AsOptionalOfBoolean(@FlagCliParameter(" + nameClauses + ") List<Boolean> value) {");
+            + "AsOptionalOfBoolean(@CliFlagParameter(" + nameClauses + ") List<Boolean> value) {");
         out.println("        return Optional.of(value);");
         out.println("    }");
         out.println();
@@ -2097,10 +2098,10 @@ public class CliProcessor extends RapierProcessorBase {
       // This is a single positional parameter, and we are generating the "default" binding
       if (representationDefaultValue != null) {
         final String annotationDefaultValueExpr =
-            "FlagCliParameterValue." + representationDefaultValue;
+            "CliFlagParameterValue." + representationDefaultValue;
         final String javaDefaultValueExpr = "Boolean." + representationDefaultValue;
         out.println("    @Provides");
-        out.println("    @FlagCliParameter(" + nameClauses + ", defaultValue="
+        out.println("    @CliFlagParameter(" + nameClauses + ", defaultValue="
             + annotationDefaultValueExpr + ")");
         out.println("    public Boolean " + baseMethodName + "AsBoolean() {");
         out.println("        if(" + fieldName + " == null)");
@@ -2110,7 +2111,7 @@ public class CliProcessor extends RapierProcessorBase {
         out.println();
       } else if (parameterIsRequired) {
         out.println("    @Provides");
-        out.println("    @FlagCliParameter(" + nameClauses + ")");
+        out.println("    @CliFlagParameter(" + nameClauses + ")");
         out.println("    public Boolean " + baseMethodName + "AsBoolean() {");
         out.println("        return " + fieldName + ";");
         out.println("    }");
@@ -2118,15 +2119,15 @@ public class CliProcessor extends RapierProcessorBase {
       } else {
         out.println("    @Provides");
         out.println("    @Nullable");
-        out.println("    @FlagCliParameter(" + nameClauses + ")");
+        out.println("    @CliFlagParameter(" + nameClauses + ")");
         out.println("    public Boolean " + baseMethodName + "AsBoolean() {");
         out.println("        return " + fieldName + ";");
         out.println("    }");
         out.println();
         out.println("    @Provides");
-        out.println("    @FlagCliParameter(" + nameClauses + ")");
+        out.println("    @CliFlagParameter(" + nameClauses + ")");
         out.println("    public Optional<Boolean> " + baseMethodName
-            + "AsOptionalOfBoolean(@Nullable @FlagCliParameter(" + nameClauses
+            + "AsOptionalOfBoolean(@Nullable @CliFlagParameter(" + nameClauses
             + ") Boolean value) {");
         out.println("        return Optional.ofNullable(value);");
         out.println("    }");
@@ -2148,13 +2149,13 @@ public class CliProcessor extends RapierProcessorBase {
           // We don't need to check nullability here because the default value "protects" us
           // from any possible null values.
           final String annotationDefaultValueExpr =
-              "FlagCliParameterValue." + representationDefaultValue;
+              "CliFlagParameterValue." + representationDefaultValue;
           final String javaDefaultValueExpr = "Boolean." + representationDefaultValue;
           out.println("    @Provides");
-          out.println("    @FlagCliParameter(" + nameClauses + ", defaultValue="
+          out.println("    @CliFlagParameter(" + nameClauses + ", defaultValue="
               + annotationDefaultValueExpr + ")");
           out.println("    public " + representationType + " " + baseMethodName + "As"
-              + typeSimpleName + "(@FlagCliParameter(" + nameClauses + ", defaultValue="
+              + typeSimpleName + "(@CliFlagParameter(" + nameClauses + ", defaultValue="
               + javaDefaultValueExpr + " ) List<Boolean> value) {");
           out.println("        return " + conversionExpr + ";");
           out.println("    }");
@@ -2162,7 +2163,7 @@ public class CliProcessor extends RapierProcessorBase {
         } else if (parameterIsRequired) {
           // We don't need to check for null here because we already did in the constructor
           out.println("    @Provides");
-          out.println("    @FlagCliParameter(" + nameClauses + ")");
+          out.println("    @CliFlagParameter(" + nameClauses + ")");
           out.println("    public " + representationType + " " + baseMethodName + "As"
               + typeSimpleName + "(List<Boolean> value) {");
           out.println("        return " + conversionExpr + ";");
@@ -2171,16 +2172,16 @@ public class CliProcessor extends RapierProcessorBase {
         } else {
           // We never generate a nullable list of strings. We just use empty list.
           out.println("    @Provides");
-          out.println("    @FlagCliParameter(" + nameClauses + ")");
+          out.println("    @CliFlagParameter(" + nameClauses + ")");
           out.println("    public " + representationType + " " + baseMethodName + "As"
-              + typeSimpleName + "(@FlagCliParameter(" + nameClauses + ") List<Boolean> value) {");
+              + typeSimpleName + "(@CliFlagParameter(" + nameClauses + ") List<Boolean> value) {");
           out.println("        return " + conversionExpr + ";");
           out.println("    }");
           out.println();
           out.println("    @Provides");
-          out.println("    @FlagCliParameter(" + nameClauses + ")");
+          out.println("    @CliFlagParameter(" + nameClauses + ")");
           out.println("    public Optional<" + representationType + "> " + baseMethodName
-              + "AsOptionalOf" + typeSimpleName + "(@FlagCliParameter(" + nameClauses
+              + "AsOptionalOf" + typeSimpleName + "(@CliFlagParameter(" + nameClauses
               + ") Optional<Boolean<String>> o) {");
           out.println("        return o.map(value -> " + conversionExpr + ");");
           out.println("    }");
@@ -2200,13 +2201,13 @@ public class CliProcessor extends RapierProcessorBase {
           // We don't need to check nullability here because the default value "protects" us
           // from any possible null values.
           final String annotationDefaultValueExpr =
-              "FlagCliParameterValue." + representationDefaultValue;
+              "CliFlagParameterValue." + representationDefaultValue;
           final String javaDefaultValueExpr = "Boolean." + representationDefaultValue;
           out.println("    @Provides");
-          out.println("    @FlagCliParameter(" + nameClauses + ", defaultValue="
+          out.println("    @CliFlagParameter(" + nameClauses + ", defaultValue="
               + annotationDefaultValueExpr + ")");
           out.println("    public " + representationType + " " + baseMethodName + "As"
-              + typeSimpleName + "(@FlagCliParameter(" + nameClauses + ", defaultValue="
+              + typeSimpleName + "(@CliFlagParameter(" + nameClauses + ", defaultValue="
               + annotationDefaultValueExpr + " ) Boolean value) {");
           out.println("        return " + javaDefaultValueExpr + ";");
           out.println("    }");
@@ -2214,28 +2215,28 @@ public class CliProcessor extends RapierProcessorBase {
         } else if (parameterIsRequired) {
           // We don't need to check for null here because we already did in the constructor
           out.println("    @Provides");
-          out.println("    @FlagCliParameter(" + nameClauses + ")");
+          out.println("    @CliFlagParameter(" + nameClauses + ")");
           out.println("    public " + representationType + " " + baseMethodName + "As"
-              + typeSimpleName + "(@FlagCliParameter(" + nameClauses + ") Boolean value) {");
+              + typeSimpleName + "(@CliFlagParameter(" + nameClauses + ") Boolean value) {");
           out.println("        return " + conversionExpr + ";");
           out.println("    }");
           out.println();
         } else {
           out.println("    @Provides");
           out.println("    @Nullable");
-          out.println("    @FlagCliParameter(" + nameClauses + ")");
+          out.println("    @CliFlagParameter(" + nameClauses + ")");
           out.println(
               "    public " + representationType + " " + baseMethodName + "As" + typeSimpleName
-                  + "(@Nullable @FlagCliParameter(" + nameClauses + ") Boolean value) {");
+                  + "(@Nullable @CliFlagParameter(" + nameClauses + ") Boolean value) {");
           out.println("        if(value == null)");
           out.println("            return null;");
           out.println("        return " + conversionExpr + ";");
           out.println("    }");
           out.println();
           out.println("    @Provides");
-          out.println("    @FlagCliParameter(" + nameClauses + ")");
+          out.println("    @CliFlagParameter(" + nameClauses + ")");
           out.println("    public Optional<" + representationType + "> " + baseMethodName
-              + "AsOptionalOf" + typeSimpleName + "(@FlagCliParameter(" + nameClauses
+              + "AsOptionalOf" + typeSimpleName + "(@CliFlagParameter(" + nameClauses
               + ") Optional<Boolean> o) {");
           out.println("        return o.map(value -> " + conversionExpr + ");");
           out.println("    }");

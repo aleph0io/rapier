@@ -24,7 +24,7 @@ import java.util.Objects;
 import java.util.Optional;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.util.SimpleAnnotationValueVisitor8;
-import rapier.cli.OptionCliParameter;
+import rapier.cli.CliOptionParameter;
 import rapier.core.model.DaggerInjectionSite;
 
 public class OptionParameterKey {
@@ -34,8 +34,8 @@ public class OptionParameterKey {
     });
 
     if (!qualifier.getAnnotationType().toString()
-        .equals(OptionCliParameter.class.getCanonicalName())) {
-      throw new IllegalArgumentException("Dependency qualifier must be @OptionCliParameter");
+        .equals(CliOptionParameter.class.getCanonicalName())) {
+      throw new IllegalArgumentException("Dependency qualifier must be @CliOptionParameter");
     }
 
     final Character shortName = extractOptionParameterShortName(qualifier);
@@ -89,7 +89,7 @@ public class OptionParameterKey {
 
   /* default */ static Character extractOptionParameterShortName(AnnotationMirror annotation) {
     assert annotation.getAnnotationType().toString()
-        .equals(OptionCliParameter.class.getCanonicalName());
+        .equals(CliOptionParameter.class.getCanonicalName());
     return annotation.getElementValues().entrySet().stream()
         .filter(e -> e.getKey().getSimpleName().contentEquals("shortName")).findFirst()
         .map(Map.Entry::getValue)
@@ -105,7 +105,7 @@ public class OptionParameterKey {
 
   /* default */ static String extractOptionParameterLongName(AnnotationMirror annotation) {
     assert annotation.getAnnotationType().toString()
-        .equals(OptionCliParameter.class.getCanonicalName());
+        .equals(CliOptionParameter.class.getCanonicalName());
     return annotation.getElementValues().entrySet().stream()
         .filter(e -> e.getKey().getSimpleName().contentEquals("longName")).findFirst()
         .map(Map.Entry::getValue)

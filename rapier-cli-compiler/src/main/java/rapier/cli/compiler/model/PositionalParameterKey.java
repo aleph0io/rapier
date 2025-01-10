@@ -23,7 +23,7 @@ import java.util.Map;
 import java.util.Objects;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.util.SimpleAnnotationValueVisitor8;
-import rapier.cli.PositionalCliParameter;
+import rapier.cli.CliPositionalParameter;
 import rapier.core.model.DaggerInjectionSite;
 
 public class PositionalParameterKey {
@@ -33,8 +33,8 @@ public class PositionalParameterKey {
     });
 
     if (!qualifier.getAnnotationType().toString()
-        .equals(PositionalCliParameter.class.getCanonicalName())) {
-      throw new IllegalArgumentException("Dependency qualifier must be @PositionalCliParameter");
+        .equals(CliPositionalParameter.class.getCanonicalName())) {
+      throw new IllegalArgumentException("Dependency qualifier must be @CliPositionalParameter");
     }
 
     final int position = extractPositionalParameterPosition(qualifier);
@@ -87,7 +87,7 @@ public class PositionalParameterKey {
 
   private static int extractPositionalParameterPosition(AnnotationMirror annotation) {
     assert annotation.getAnnotationType().toString()
-        .equals(PositionalCliParameter.class.getCanonicalName());
+        .equals(CliPositionalParameter.class.getCanonicalName());
     return annotation.getElementValues().entrySet().stream()
         .filter(e -> e.getKey().getSimpleName().contentEquals("value")).findFirst()
         .map(Map.Entry::getValue)
@@ -97,7 +97,7 @@ public class PositionalParameterKey {
             return i;
           }
         }, null)).orElseThrow(() -> {
-          return new AssertionError("No position value for @PositionalCliParameter");
+          return new AssertionError("No position value for @CliPositionalParameter");
         });
   }
 }
