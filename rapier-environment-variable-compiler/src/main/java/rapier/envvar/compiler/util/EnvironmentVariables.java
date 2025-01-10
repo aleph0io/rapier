@@ -19,11 +19,6 @@
  */
 package rapier.envvar.compiler.util;
 
-import java.util.Map;
-import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.util.SimpleAnnotationValueVisitor8;
-import rapier.envvar.EnvironmentVariable;
-
 public final class EnvironmentVariables {
   private EnvironmentVariables() {}
 
@@ -43,37 +38,5 @@ public final class EnvironmentVariables {
    */
   public static boolean isRequired(boolean nullable, String defaultValue) {
     return !nullable && defaultValue == null;
-  }
-
-  public static String extractEnvironmentVariableName(AnnotationMirror annotation) {
-    assert annotation.getAnnotationType().toString()
-        .equals(EnvironmentVariable.class.getCanonicalName());
-    return annotation.getElementValues().entrySet().stream()
-        .filter(e -> e.getKey().getSimpleName().contentEquals("value")).findFirst()
-        .map(Map.Entry::getValue)
-        .map(v -> v.accept(new SimpleAnnotationValueVisitor8<String, Void>() {
-          @Override
-          public String visitString(String s, Void p) {
-            return s;
-          }
-        }, null)).orElseThrow(() -> {
-          return new AssertionError("No string value for @EnvironmentVariable");
-        });
-  }
-
-  public static String extractEnvironmentVariableDefaultValue(AnnotationMirror annotation) {
-    assert annotation.getAnnotationType().toString()
-        .equals(EnvironmentVariable.class.getCanonicalName());
-    return annotation.getElementValues().entrySet().stream()
-        .filter(e -> e.getKey().getSimpleName().contentEquals("defaultValue")).findFirst()
-        .map(Map.Entry::getValue)
-        .map(v -> v.accept(new SimpleAnnotationValueVisitor8<String, Void>() {
-          @Override
-          public String visitString(String s, Void p) {
-            if (s.equals(EnvironmentVariable.DEFAULT_VALUE_NOT_SET))
-              return null;
-            return s;
-          }
-        }, null)).orElse(null);
   }
 }

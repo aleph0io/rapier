@@ -21,13 +21,14 @@ package rapier.envvar.compiler.model;
 
 import static java.util.Objects.requireNonNull;
 import java.util.Comparator;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.util.SimpleAnnotationValueVisitor8;
 import rapier.core.model.DaggerInjectionSite;
 import rapier.envvar.EnvironmentVariable;
-import rapier.envvar.compiler.util.EnvironmentVariables;
 
 /**
  * A grouping key for the JSR 330 representation of an environment variable, namely type and
@@ -45,9 +46,8 @@ public class RepresentationKey implements Comparable<RepresentationKey> {
     }
 
     final TypeMirror type = dependency.getProvidedType();
-    final String name = EnvironmentVariables.extractEnvironmentVariableName(qualifier);
-    final String defaultValue =
-        EnvironmentVariables.extractEnvironmentVariableDefaultValue(qualifier);
+    final String name = extractName(qualifier);
+    final String defaultValue = extractDefaultValue(qualifier);
 
     return new RepresentationKey(type, name, defaultValue);
   }
@@ -106,5 +106,37 @@ public class RepresentationKey implements Comparable<RepresentationKey> {
   public String toString() {
     return "EnvironmentVariableKey [type=" + type + ", name=" + name + ", defaultValue="
         + defaultValue + "]";
+  }
+
+  private static String extractName(AnnotationMirror annotation) {
+    assert annotation.getAnnotationType().toString()
+        .equals(EnvironmentVariable.class.getCanonicalName());
+    return annotation.getElementValues().entrySet().stream()
+        .filter(e -> e.getKey().getSimpleName().contentEquals("value")).findFirst()
+        .map(Map.Entry::getValue)
+        .map(v -> v.accept(new SimpleAnnotationValueVisitor8<String, Void>() {
+          @Override
+          public String visitString(String s, Void p) {
+            return s;
+          }
+        }, null)).orElseThrow(() -> {
+          return new AssertionError("No string value for @EnvironmentVariable");
+        });
+  }
+
+  private static String extractDefaultValue(AnnotationMirror annotation) {
+    assert annotation.getAnnotationType().toString()
+        .equals(EnvironmentVariable.class.getCanonicalName());
+    return annotation.getElementValues().entrySet().stream()
+        .filter(e -> e.getKey().getSimpleName().contentEquals("defaultValue")).findFirst()
+        .map(Map.Entry::getValue)
+        .map(v -> v.accept(new SimpleAnnotationValueVisitor8<String, Void>() {
+          @Override
+          public String visitString(String s, Void p) {
+            if (s.equals(EnvironmentVariable.DEFAULT_VALUE_NOT_SET))
+              return null;
+            return s;
+          }
+        }, null)).orElse(null);
   }
 }

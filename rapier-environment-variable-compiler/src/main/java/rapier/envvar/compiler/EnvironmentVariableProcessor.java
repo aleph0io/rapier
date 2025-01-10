@@ -39,7 +39,6 @@ import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
-import java.util.stream.Collectors;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
@@ -73,7 +72,7 @@ import rapier.envvar.compiler.util.EnvironmentVariables;
 @SupportedSourceVersion(SourceVersion.RELEASE_11)
 public class EnvironmentVariableProcessor extends RapierProcessorBase {
   private ConversionExprFactory converter;
-  
+
   @Override
   public synchronized void init(ProcessingEnvironment processingEnv) {
     super.init(processingEnv);
@@ -183,11 +182,11 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
 
       // Group injection sites by requiredness
       final Map<Boolean, List<DaggerInjectionSite>> injectionSitesByRequired =
-          parameterInjectionSites.stream().collect(Collectors.groupingBy(
-              dis -> EnvironmentVariables.isRequired(dis.isNullable(),
-                  EnvironmentVariables
-                      .extractEnvironmentVariableDefaultValue(dis.getQualifier().orElseThrow())),
-              toList()));
+          parameterInjectionSites.stream()
+              .collect(groupingBy(
+                  dis -> EnvironmentVariables.isRequired(dis.isNullable(),
+                      RepresentationKey.fromInjectionSite(dis).getDefaultValue().orElse(null)),
+                  toList()));
 
       // Check for conflicting requiredness
       if (injectionSitesByRequired.size() > 1) {

@@ -20,11 +20,12 @@
 package rapier.envvar.compiler.model;
 
 import static java.util.Objects.requireNonNull;
+import java.util.Map;
 import java.util.Objects;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.util.SimpleAnnotationValueVisitor8;
 import rapier.core.model.DaggerInjectionSite;
 import rapier.envvar.EnvironmentVariable;
-import rapier.envvar.compiler.util.EnvironmentVariables;
 
 /**
  * A grouping key for the physical parameter provided by the user
@@ -45,7 +46,7 @@ public class ParameterKey {
       throw new IllegalArgumentException("Dependency qualifier must be @EnvironmentVariable");
     }
 
-    final String name = EnvironmentVariables.extractEnvironmentVariableName(qualifier);
+    final String name = extractName(qualifier);
 
     return new ParameterKey(name);
   }
@@ -80,5 +81,21 @@ public class ParameterKey {
   @Override
   public String toString() {
     return "ParameterKey [name=" + name + "]";
+  }
+
+  private static String extractName(AnnotationMirror annotation) {
+    assert annotation.getAnnotationType().toString()
+        .equals(EnvironmentVariable.class.getCanonicalName());
+    return annotation.getElementValues().entrySet().stream()
+        .filter(e -> e.getKey().getSimpleName().contentEquals("value")).findFirst()
+        .map(Map.Entry::getValue)
+        .map(v -> v.accept(new SimpleAnnotationValueVisitor8<String, Void>() {
+          @Override
+          public String visitString(String s, Void p) {
+            return s;
+          }
+        }, null)).orElseThrow(() -> {
+          return new AssertionError("No string value for @EnvironmentVariable");
+        });
   }
 }
