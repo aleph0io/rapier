@@ -25,12 +25,29 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.CLASS)
-@Target({ElementType.PARAMETER, ElementType.FIELD, ElementType.METHOD})
-public @interface CliHelp {
+@Target({ElementType.TYPE})
+public @interface CliCommandHelp {
   /**
    * The name used in the help message.
    */
-  public String name() default "";
+  public String name();
+  
+  /**
+   * The version used in the help message.
+   */
+  public String version() default "0.0.0";
+
+  /**
+   * Print a standard help message and exit with a nonzero exit code on syntax errors or in response
+   * to the flags {@code --help} or {@code -h}.
+   */
+  public boolean provideStandardHelp() default true;
+
+  /**
+   * Print a standard version message and exit with a nonzero exit code in response to the flags
+   * {@code --version} or {@code -v}.
+   */
+  public boolean provideStadnardVersion() default true;
 
   /**
    * The description used in the help message.

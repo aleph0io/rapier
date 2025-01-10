@@ -46,6 +46,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
+import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
@@ -67,6 +68,7 @@ import rapier.cli.OptionCliParameter;
 import rapier.cli.PositionalCliParameter;
 import rapier.cli.compiler.model.BindingMetadata;
 import rapier.cli.compiler.model.CliHelpMetadata;
+import rapier.cli.compiler.model.CommandHelpMetadata;
 import rapier.cli.compiler.model.FlagParameterKey;
 import rapier.cli.compiler.model.FlagRepresentationKey;
 import rapier.cli.compiler.model.OptionParameterKey;
@@ -149,8 +151,9 @@ public class CliProcessor extends RapierProcessorBase {
     final String componentClassName = component.getSimpleName().toString();
     final String moduleClassName = "Rapier" + componentClassName + "CliModule";
 
-    final CliHelpMetadata commandHelp = component.getAnnotationMirrors().stream()
-        .flatMap(am -> CliHelpMetadata.fromAnnotationMirror(am).stream()).findFirst().orElse(null);
+    final CommandHelpMetadata commandHelp = component.getAnnotationMirrors().stream()
+        .flatMap(am -> CommandHelpMetadata.fromAnnotationMirror(am).stream()).findFirst()
+        .orElse(null);
 
     final List<DaggerInjectionSite> qualifiedInjectionSites =
         new DaggerComponentAnalyzer(getProcessingEnv()).analyzeComponent(component)
@@ -180,12 +183,20 @@ public class CliProcessor extends RapierProcessorBase {
       return;
     }
 
-    boolean valid =
+    final boolean injectionSitesAreValid =
         validateInjectionSites(component, positionalInjectionSites, positionalMetadataService,
             optionInjectionSites, optionMetadataService, flagInjectionSites, flagMetadataService);
 
-    if (valid == false)
+    final boolean standardHelpIsValid = validateStandardHelp(component, commandHelp,
+        optionInjectionSites, optionMetadataService, flagInjectionSites, flagMetadataService);
+
+    final boolean standardVersionIsValid = validateStandardVersion(component, commandHelp,
+        optionInjectionSites, optionMetadataService, flagInjectionSites, flagMetadataService);
+
+    if (injectionSitesAreValid == false || standardHelpIsValid == false
+        || standardVersionIsValid == false) {
       return;
+    }
 
     final String moduleSource = generateModuleSource(componentPackageName, moduleClassName,
         commandHelp, positionalInjectionSites, positionalMetadataService, optionInjectionSites,
@@ -244,6 +255,136 @@ public class CliProcessor extends RapierProcessorBase {
         optionMetadataService, flagInjectionSites, flagMetadataService);
 
     return positionalAreValids && switchNamesAreValid;
+  }
+
+  private static final String STANDARD_HELP_LONG_NAME = "help";
+
+  private static final Character STANDARD_HELP_SHORT_NAME = 'h';
+
+  private boolean validateStandardHelp(TypeElement component, CommandHelpMetadata commandHelp,
+      SortedMap<OptionParameterKey, List<DaggerInjectionSite>> optionInjectionSites,
+      OptionParameterMetadataService optionMetadataService,
+      SortedMap<FlagParameterKey, List<DaggerInjectionSite>> flagInjectionSites,
+      FlagParameterMetadataService flagMetadataService) {
+    if (!commandHelp.isProvideStandardHelp())
+      return true;
+
+    boolean result = true;
+
+    if (optionInjectionSites.keySet().stream()
+        .anyMatch(p -> Objects.equals(STANDARD_HELP_SHORT_NAME, p.getShortName().orElse(null)))) {
+      getMessager().printMessage(Diagnostic.Kind.ERROR, "Cannot use short name '-"
+          + STANDARD_HELP_SHORT_NAME + "' for option when standard help is enabled");
+      // TODO Print example standard help
+      result = false;
+    }
+
+    if (optionInjectionSites.keySet().stream()
+        .anyMatch(p -> Objects.equals(STANDARD_HELP_LONG_NAME, p.getLongName().orElse(null)))) {
+      getMessager().printMessage(Diagnostic.Kind.ERROR, "Cannot use long name '--"
+          + STANDARD_HELP_LONG_NAME + "' for option when standard help is enabled");
+      // TODO Print example standard help
+      result = false;
+    }
+
+    if (flagInjectionSites.keySet().stream().anyMatch(
+        p -> Objects.equals(STANDARD_HELP_SHORT_NAME, p.getPositiveShortName().orElse(null)))) {
+      getMessager().printMessage(Diagnostic.Kind.ERROR, "Cannot use short name '-"
+          + STANDARD_HELP_SHORT_NAME + "' for flag when standard help is enabled");
+      // TODO Print example standard help
+      result = false;
+    }
+
+    if (flagInjectionSites.keySet().stream().anyMatch(
+        p -> Objects.equals(STANDARD_HELP_LONG_NAME, p.getPositiveLongName().orElse(null)))) {
+      getMessager().printMessage(Diagnostic.Kind.ERROR, "Cannot use long name '--"
+          + STANDARD_HELP_LONG_NAME + "' for flag when standard help is enabled");
+      // TODO Print example standard help
+      result = false;
+    }
+
+    if (flagInjectionSites.keySet().stream().anyMatch(
+        p -> Objects.equals(STANDARD_HELP_SHORT_NAME, p.getNegativeShortName().orElse(null)))) {
+      getMessager().printMessage(Diagnostic.Kind.ERROR, "Cannot use short name '-"
+          + STANDARD_HELP_SHORT_NAME + "' for flag when standard help is enabled");
+      // TODO Print example standard help
+      result = false;
+    }
+
+    if (flagInjectionSites.keySet().stream().anyMatch(
+        p -> Objects.equals(STANDARD_HELP_LONG_NAME, p.getNegativeLongName().orElse(null)))) {
+      getMessager().printMessage(Diagnostic.Kind.ERROR, "Cannot use long name '--"
+          + STANDARD_HELP_LONG_NAME + "' for flag when standard help is enabled");
+      // TODO Print example standard help
+      result = false;
+    }
+
+    return result;
+  }
+
+  private static final String STANDARD_VERSION_LONG_NAME = "version";
+
+  private static final Character STANDARD_VERSION_SHORT_NAME = 'v';
+
+  private boolean validateStandardVersion(TypeElement component, CommandHelpMetadata commandHelp,
+      SortedMap<OptionParameterKey, List<DaggerInjectionSite>> optionInjectionSites,
+      OptionParameterMetadataService optionMetadataService,
+      SortedMap<FlagParameterKey, List<DaggerInjectionSite>> flagInjectionSites,
+      FlagParameterMetadataService flagMetadataService) {
+    if (!commandHelp.isProvideStandardVersion())
+      return true;
+
+    boolean result = true;
+
+    if (optionInjectionSites.keySet().stream().anyMatch(
+        p -> Objects.equals(STANDARD_VERSION_SHORT_NAME, p.getShortName().orElse(null)))) {
+      getMessager().printMessage(Diagnostic.Kind.ERROR, "Cannot use short name '-"
+          + STANDARD_VERSION_SHORT_NAME + "' for option when standard version is enabled");
+      // TODO Print example standard version
+      result = false;
+    }
+
+    if (optionInjectionSites.keySet().stream()
+        .anyMatch(p -> Objects.equals(STANDARD_VERSION_LONG_NAME, p.getLongName().orElse(null)))) {
+      getMessager().printMessage(Diagnostic.Kind.ERROR, "Cannot use long name '--"
+          + STANDARD_VERSION_LONG_NAME + "' for option when standard version is enabled");
+      // TODO Print example standard version
+      result = false;
+    }
+
+    if (flagInjectionSites.keySet().stream().anyMatch(
+        p -> Objects.equals(STANDARD_VERSION_SHORT_NAME, p.getPositiveShortName().orElse(null)))) {
+      getMessager().printMessage(Diagnostic.Kind.ERROR, "Cannot use short name '-"
+          + STANDARD_VERSION_SHORT_NAME + "' for flag when standard version is enabled");
+      // TODO Print example standard version
+      result = false;
+    }
+
+    if (flagInjectionSites.keySet().stream().anyMatch(
+        p -> Objects.equals(STANDARD_VERSION_LONG_NAME, p.getPositiveLongName().orElse(null)))) {
+      getMessager().printMessage(Diagnostic.Kind.ERROR, "Cannot use long name '--"
+          + STANDARD_VERSION_LONG_NAME + "' for flag when standard version is enabled");
+      // TODO Print example standard version
+      result = false;
+    }
+
+    if (flagInjectionSites.keySet().stream().anyMatch(
+        p -> Objects.equals(STANDARD_VERSION_SHORT_NAME, p.getNegativeShortName().orElse(null)))) {
+      getMessager().printMessage(Diagnostic.Kind.ERROR, "Cannot use short name '-"
+          + STANDARD_VERSION_SHORT_NAME + "' for flag when standard version is enabled");
+      // TODO Print example standard version
+      result = false;
+    }
+
+    if (flagInjectionSites.keySet().stream().anyMatch(
+        p -> Objects.equals(STANDARD_VERSION_LONG_NAME, p.getNegativeLongName().orElse(null)))) {
+      getMessager().printMessage(Diagnostic.Kind.ERROR, "Cannot use long name '--"
+          + STANDARD_VERSION_LONG_NAME + "' for flag when standard version is enabled");
+      // TODO Print example standard version
+      result = false;
+    }
+
+    return result;
   }
 
   private boolean validatePositionalInjectionSites(
@@ -746,7 +887,7 @@ public class CliProcessor extends RapierProcessorBase {
               Comparator.nullsFirst(Comparator.naturalOrder()));
 
   private String generateModuleSource(String packageName, String moduleClassName,
-      CliHelpMetadata commandHelp,
+      CommandHelpMetadata commandHelp,
       SortedMap<PositionalParameterKey, List<DaggerInjectionSite>> positionalInjectionSites,
       PositionalParameterMetadataService positionalMetadataService,
       SortedMap<OptionParameterKey, List<DaggerInjectionSite>> optionInjectionSites,
@@ -815,6 +956,7 @@ public class CliProcessor extends RapierProcessorBase {
       out.println("import java.util.Map;");
       out.println("import java.util.Optional;");
       out.println("import javax.annotation.Nullable;");
+      out.println("import rapier.cli.CliSyntaxException;");
       out.println("import rapier.cli.FlagCliParameter;");
       out.println("import rapier.cli.OptionCliParameter;");
       out.println("import rapier.cli.PositionalCliParameter;");
@@ -891,21 +1033,34 @@ public class CliProcessor extends RapierProcessorBase {
       out.println("        final Map<Character, String> flagNegativeShortNames = new HashMap<>();");
       out.println("        final Map<String, String> flagNegativeLongNames = new HashMap<>();");
       emitFlagParameterInstanceFieldInitPreparation(out, flagRepresentationsByParameter.keySet());
+      if (commandHelp.isProvideStandardHelp()) {
+        out.println("        // Add the standard help flags");
+        out.println("        flagPositiveShortNames.put('h', \"rapier.standard.help\");");
+        out.println("        flagPositiveLongNames.put(\"help\", \"rapier.standard.help\");");
+        out.println();
+      }
+      if (commandHelp.isProvideStandardVersion()) {
+        out.println("        // Add the version flag");
+        out.println("        flagPositiveShortNames.put('v', \"rapier.standard.version\");");
+        out.println("        flagPositiveLongNames.put(\"version\", \"rapier.standard.version\");");
+        out.println();
+      }
       out.println();
 
-      out.println("        // Parse the arguments");
-      out.println("        final JustArgs.ParsedArgs parsed = JustArgs.parseArgs(");
-      out.println("            args,");
-      out.println("            optionShortNames,");
-      out.println("            optionLongNames,");
-      out.println("            flagPositiveShortNames,");
-      out.println("            flagPositiveLongNames,");
-      out.println("            flagNegativeShortNames,");
-      out.println("            flagNegativeLongNames);");
+      out.println("        try {");
+      out.println("            // Parse the arguments");
+      out.println("            final JustArgs.ParsedArgs parsed = JustArgs.parseArgs(");
+      out.println("                args,");
+      out.println("                optionShortNames,");
+      out.println("                optionLongNames,");
+      out.println("                flagPositiveShortNames,");
+      out.println("                flagPositiveLongNames,");
+      out.println("                flagNegativeShortNames,");
+      out.println("                flagNegativeLongNames);");
       out.println();
 
       // Generate the initialization of each positional parameter representation
-      out.println("        // Initialize positional parameters");
+      out.println("            // Initialize positional parameters");
       for (PositionalParameterKey ppk : positionalRepresentationsByParameter.keySet()) {
         final int position = ppk.getPosition();
         final BindingMetadata metadata =
@@ -917,7 +1072,7 @@ public class CliProcessor extends RapierProcessorBase {
       }
       out.println();
 
-      out.println("        // Initialize option parameters");
+      out.println("            // Initialize option parameters");
       for (OptionParameterKey opk : optionRepresentationsByParameter.keySet()) {
         final Character optionShortName = opk.getShortName().orElse(null);
         final String optionLongName = opk.getLongName().orElse(null);
@@ -930,7 +1085,7 @@ public class CliProcessor extends RapierProcessorBase {
       }
       out.println();
 
-      out.println("        // Initialize flag parameters");
+      out.println("            // Initialize flag parameters");
       for (FlagParameterKey fpk : flagRepresentationsByParameter.keySet()) {
         final Character flagPositiveShortName = fpk.getPositiveShortName().orElse(null);
         final String flagPositiveLongName = fpk.getPositiveLongName().orElse(null);
@@ -945,6 +1100,69 @@ public class CliProcessor extends RapierProcessorBase {
             flagNegativeShortName, flagNegativeLongName, parameterIsRequired, parameterIsList);
       }
 
+      if (commandHelp.isProvideStandardHelp()) {
+        out.println("            // Check for standard help");
+        out.println(
+            "            final boolean standardHelpRequested = parsed.getFlags().containsKey(\"rapier.standard.help\");");
+        out.println();
+      }
+
+      if (commandHelp.isProvideStandardVersion()) {
+        out.println("            // Check for standard version");
+        out.println(
+            "            final boolean standardVersionRequested = parsed.getFlags().containsKey(\"rapier.standard.version\");");
+        out.println();
+      }
+
+      if (commandHelp.isProvideStandardVersion()) {
+        out.println("            if(standardVersionRequested) {");
+        out.println("                System.err.println(standardVersionMessage());");
+        out.println("            }");
+        out.println();
+      }
+
+      if (commandHelp.isProvideStandardHelp()) {
+        out.println("            if(standardHelpRequested) {");
+        out.println("                System.err.println(standardHelpMessage());");
+        out.println("            }");
+        out.println();
+      }
+
+      if (commandHelp.isProvideStandardHelp() || commandHelp.isProvideStandardVersion()) {
+        final List<String> conditions = new ArrayList<>(2);
+        if (commandHelp.isProvideStandardHelp())
+          conditions.add("standardHelpRequested");
+        if (commandHelp.isProvideStandardVersion())
+          conditions.add("standardVersionRequested");
+        out.println("            if(" + String.join(" || ", conditions) + ") {");
+        out.println("                System.exit(0);");
+        out.println("                throw new AssertionError(\"exited\");");
+        out.println("            }");
+      }
+
+      out.println("        }");
+      out.println("        catch (JustArgs.IllegalSyntaxException e) {");
+      if (commandHelp.isProvideStandardHelp()) {
+        out.println("            // Standard help is active. Print the help message and exit.");
+        out.println("            System.err.println(standardHelpMessage());");
+        out.println("            System.exit(1);");
+        out.println("            throw new AssertionError(\"exited\");");
+      } else {
+        out.println("            // Standard help is not active. Map and propagate the exception.");
+        out.println("            throw new CliSyntaxException(e.getMessage());");
+      }
+      out.println("        }");
+      out.println("        catch(CliSyntaxException e) {");
+      if (commandHelp.isProvideStandardHelp()) {
+        out.println("            // Standard help is active. Print the help message and exit.");
+        out.println("            System.err.println(standardHelpMessage());");
+        out.println("            System.exit(1);");
+        out.println("            throw new AssertionError(\"exited\");");
+      } else {
+        out.println("            // Standard help is not active. Propagate the exception.");
+        out.println("            throw e;");
+      }
+      out.println("        }");
       out.println("    }");
       out.println();
 
@@ -1009,9 +1227,16 @@ public class CliProcessor extends RapierProcessorBase {
       }
 
       // Generate the help message
-      emitHelpMessageMethod(out, commandHelp, positionalRepresentationsByParameter,
-          positionalMetadataService, optionRepresentationsByParameter, optionMetadataService,
-          flagRepresentationsByParameter, flagMetadataService);
+      if (commandHelp.isProvideStandardHelp()) {
+        emitStandardHelpMessageMethod(out, commandHelp, positionalRepresentationsByParameter,
+            positionalMetadataService, optionRepresentationsByParameter, optionMetadataService,
+            flagRepresentationsByParameter, flagMetadataService);
+      }
+
+      // Generate the version message
+      if (commandHelp.isProvideStandardVersion()) {
+        emitStandardVersionMessageMethod(out, commandHelp);
+      }
 
       out.println("}");
     }
@@ -1065,16 +1290,17 @@ public class CliProcessor extends RapierProcessorBase {
 
     final String defaultValueExpr = "null";
 
-    out.println("        if(parsed.getArgs().size() > " + position + ") {");
-    out.println("            this." + fieldName + " = " + extractValueExpr + ";");
-    out.println("        } else {");
+    out.println("            if(parsed.getArgs().size() > " + position + ") {");
+    out.println("                this." + fieldName + " = " + extractValueExpr + ";");
+    out.println("            } else {");
     if (parameterIsRequired) {
-      out.println("            throw new IllegalArgumentException(");
-      out.println("                \"Missing required positional parameter " + position + "\");");
+      out.println("                throw new CliSyntaxException(");
+      out.println(
+          "                    \"Missing required positional parameter " + position + "\");");
     } else {
-      out.println("            this." + fieldName + " = " + defaultValueExpr + ";");
+      out.println("                this." + fieldName + " = " + defaultValueExpr + ";");
     }
-    out.println("        }");
+    out.println("            }");
     out.println();
   }
 
@@ -1377,24 +1603,24 @@ public class CliProcessor extends RapierProcessorBase {
     final String signature = optionParameterSignature(shortName, longName);
     final String userFacingString = optionParameterUserFacingString(shortName, longName);
 
-    out.println("        if(parsed.getOptions().containsKey(\"" + signature + "\")) {");
-    out.println("            List<String> " + fieldName + " = parsed.getOptions().get(\""
+    out.println("            if(parsed.getOptions().containsKey(\"" + signature + "\")) {");
+    out.println("                List<String> " + fieldName + " = parsed.getOptions().get(\""
         + signature + "\");");
     if (parameterIsList) {
-      out.println("            this." + fieldName + " = unmodifiableList(" + fieldName + "));");
+      out.println("                this." + fieldName + " = unmodifiableList(" + fieldName + "));");
     } else {
-      out.println("            this." + fieldName + " = " + fieldName + ".get(" + fieldName
+      out.println("                this." + fieldName + " = " + fieldName + ".get(" + fieldName
           + ".size()-1);");
     }
-    out.println("        } else {");
+    out.println("            } else {");
     if (parameterIsRequired) {
-      out.println("            throw new IllegalArgumentException(");
+      out.println("                throw new CliSyntaxException(");
       out.println(
-          "                \"Missing required option parameter " + userFacingString + "\");");
+          "                    \"Missing required option parameter " + userFacingString + "\");");
     } else {
-      out.println("            this." + fieldName + " = null;");
+      out.println("                this." + fieldName + " = null;");
     }
-    out.println("        }");
+    out.println("            }");
     out.println();
   }
 
@@ -1763,23 +1989,24 @@ public class CliProcessor extends RapierProcessorBase {
     final String userFacingString = flagParameterUserFacingString(positiveShortName,
         positiveLongName, negativeShortName, negativeLongName);
 
-    out.println("        if(parsed.getFlags().containsKey(\"" + signature + "\")) {");
-    out.println("            List<Boolean> " + fieldName + " = parsed.getFlags().get(\"" + signature
-        + "\");");
+    out.println("            if(parsed.getFlags().containsKey(\"" + signature + "\")) {");
+    out.println("                List<Boolean> " + fieldName + " = parsed.getFlags().get(\""
+        + signature + "\");");
     if (parameterIsList) {
-      out.println("            this." + fieldName + " = unmodifiableList(" + fieldName + "));");
+      out.println("                this." + fieldName + " = unmodifiableList(" + fieldName + "));");
     } else {
-      out.println("            this." + fieldName + " = " + fieldName + ".get(" + fieldName
+      out.println("                this." + fieldName + " = " + fieldName + ".get(" + fieldName
           + ".size()-1);");
     }
-    out.println("        } else {");
+    out.println("            } else {");
     if (parameterIsRequired) {
-      out.println("            throw new IllegalArgumentException(");
-      out.println("                \"Missing required flag parameter " + userFacingString + "\");");
+      out.println("                throw new CliSyntaxException(");
+      out.println(
+          "                    \"Missing required flag parameter " + userFacingString + "\");");
     } else {
-      out.println("            this." + fieldName + " = null;");
+      out.println("                this." + fieldName + " = null;");
     }
-    out.println("        }");
+    out.println("            }");
     out.println();
   }
 
@@ -2062,17 +2289,67 @@ public class CliProcessor extends RapierProcessorBase {
   //////////////////////////////////////////////////////////////////////////////////////////////////
   private static final int HELP_MESSAGE_MAX_WIDTH = 80;
 
-  private void emitHelpMessageMethod(PrintWriter out, CliHelpMetadata commandHelp,
+  private void emitStandardHelpMessageMethod(PrintWriter out, CommandHelpMetadata commandHelp,
       SortedMap<PositionalParameterKey, Collection<PositionalRepresentationKey>> positionalRepresentationsByParameter,
       PositionalParameterMetadataService positionalMetadataService,
       SortedMap<OptionParameterKey, Collection<OptionRepresentationKey>> optionRepresentationsByParameter,
       OptionParameterMetadataService optionMetadataService,
       SortedMap<FlagParameterKey, Collection<FlagRepresentationKey>> flagRepresentationsByParameter,
       FlagParameterMetadataService flagMetadataService) {
-    out.println("    public String helpMessage() {");
+    assert commandHelp.isProvideStandardHelp();
+
+    final SortedSet<PositionalParameterKey> positionalParameters =
+        new TreeSet<PositionalParameterKey>(POSITIONAL_PARAMETER_KEY_COMPARATOR);
+    positionalParameters.addAll(positionalRepresentationsByParameter.keySet());
+
+    final SortedSet<OptionParameterKey> optionParameters =
+        new TreeSet<OptionParameterKey>(OPTION_PARAMETER_KEY_COMPARATOR);
+    optionParameters.addAll(optionRepresentationsByParameter.keySet());
+
+    final SortedSet<FlagParameterKey> flagParameters =
+        new TreeSet<FlagParameterKey>(FLAG_PARAMETER_KEY_COMPARATOR);
+    flagParameters.addAll(flagRepresentationsByParameter.keySet());
+    if (commandHelp.isProvideStandardHelp()) {
+      final FlagParameterKey standardHelpFlagParameterKey =
+          new FlagParameterKey(STANDARD_HELP_SHORT_NAME, STANDARD_HELP_LONG_NAME, null, null);
+      flagParameters.add(standardHelpFlagParameterKey);
+      final FlagParameterMetadataService flagMetadataService0 = flagMetadataService;
+      flagMetadataService = new FlagParameterMetadataService() {
+        @Override
+        public BindingMetadata getFlagParameterMetadata(Character shortPositiveName,
+            String positiveLongName, Character negativeShortName, String negativeLongName) {
+          final FlagParameterKey key = new FlagParameterKey(shortPositiveName, positiveLongName,
+              negativeShortName, negativeLongName);
+          if (key.equals(standardHelpFlagParameterKey))
+            return new BindingMetadata(false, false, "help", "Print this help message and exit");
+          return flagMetadataService0.getFlagParameterMetadata(shortPositiveName, positiveLongName,
+              negativeShortName, negativeLongName);
+        }
+      };
+    }
+    if (commandHelp.isProvideStandardVersion()) {
+      final FlagParameterKey standardHelpFlagParameterKey =
+          new FlagParameterKey(STANDARD_VERSION_SHORT_NAME, STANDARD_VERSION_LONG_NAME, null, null);
+      flagParameters.add(standardHelpFlagParameterKey);
+      final FlagParameterMetadataService flagMetadataService0 = flagMetadataService;
+      flagMetadataService = new FlagParameterMetadataService() {
+        @Override
+        public BindingMetadata getFlagParameterMetadata(Character shortPositiveName,
+            String positiveLongName, Character negativeShortName, String negativeLongName) {
+          final FlagParameterKey key = new FlagParameterKey(shortPositiveName, positiveLongName,
+              negativeShortName, negativeLongName);
+          if (key.equals(standardHelpFlagParameterKey))
+            return new BindingMetadata(false, false, "version", "Print a version message and exit");
+          return flagMetadataService0.getFlagParameterMetadata(shortPositiveName, positiveLongName,
+              negativeShortName, negativeLongName);
+        }
+      };
+    }
+
+    out.println("    public String standardHelpMessage() {");
     out.println("        return String.join(\"\\n\", ");
 
-    final String commandName = commandHelp.getName().orElse("command");
+    final String commandName = commandHelp.getName();
     final List<String> positionalNames =
         positionalRepresentationsByParameter.keySet().stream()
             .sorted(Comparator.comparingInt(PositionalParameterKey::getPosition))
@@ -2115,10 +2392,10 @@ public class CliProcessor extends RapierProcessorBase {
     }
     // @formatter:on
 
-    if (!positionalRepresentationsByParameter.isEmpty()) {
+    if (!positionalParameters.isEmpty()) {
       out.println("            \"Positional parameters:\",");
 
-      final int maxNameLength = positionalRepresentationsByParameter.keySet().stream()
+      final int maxNameLength = positionalParameters.stream()
           .map(p -> positionalMetadataService.getPositionalParameterMetadata(p.getPosition()))
           .map(m -> m.getHelpName().orElse("PARAMETER")).mapToInt(String::length).max()
           .orElseThrow();
@@ -2128,7 +2405,7 @@ public class CliProcessor extends RapierProcessorBase {
       final int descriptionWidth =
           Math.max(HELP_MESSAGE_MAX_WIDTH - maxNameLength - lineIndentLength - borderWidth, 20);
 
-      for (PositionalParameterKey parameter : positionalRepresentationsByParameter.keySet()) {
+      for (PositionalParameterKey parameter : positionalParameters) {
         final BindingMetadata metadata =
             positionalMetadataService.getPositionalParameterMetadata(parameter.getPosition());
         final String name = metadata.getHelpName().orElse("PARAMETER");
@@ -2160,10 +2437,10 @@ public class CliProcessor extends RapierProcessorBase {
       out.println("            \"\",");
     }
 
-    if (!optionRepresentationsByParameter.isEmpty()) {
+    if (!optionParameters.isEmpty()) {
       out.println("            \"Option parameters:\",");
 
-      final int maxNameLength = optionRepresentationsByParameter.keySet().stream()
+      final int maxNameLength = optionParameters.stream()
           .map(p -> optionParameterUserFacingString(p.getShortName().orElse(null),
               p.getLongName().orElse(null)))
           .mapToInt(String::length).max().orElseThrow();
@@ -2173,7 +2450,7 @@ public class CliProcessor extends RapierProcessorBase {
       final int descriptionWidth =
           Math.max(HELP_MESSAGE_MAX_WIDTH - maxNameLength - lineIndentLength - borderWidth, 20);
 
-      for (OptionParameterKey parameter : optionRepresentationsByParameter.keySet()) {
+      for (OptionParameterKey parameter : optionParameters) {
         final BindingMetadata metadata = optionMetadataService.getOptionParameterMetadata(
             parameter.getShortName().orElse(null), parameter.getLongName().orElse(null));
         final String name = optionParameterUserFacingString(parameter.getShortName().orElse(null),
@@ -2209,7 +2486,7 @@ public class CliProcessor extends RapierProcessorBase {
     if (!flagRepresentationsByParameter.isEmpty()) {
       out.println("            \"Flag parameters:\",");
 
-      final int maxNameLength = flagRepresentationsByParameter.keySet().stream()
+      final int maxNameLength = flagParameters.stream()
           .flatMap(p -> flagParameterHelpFacingStrings(p.getPositiveShortName().orElse(null),
               p.getPositiveLongName().orElse(null), p.getNegativeShortName().orElse(null),
               p.getNegativeLongName().orElse(null)).stream())
@@ -2220,7 +2497,7 @@ public class CliProcessor extends RapierProcessorBase {
       final int descriptionWidth =
           Math.max(HELP_MESSAGE_MAX_WIDTH - maxNameLength - lineIndentLength - borderWidth, 20);
 
-      for (FlagParameterKey parameter : flagRepresentationsByParameter.keySet()) {
+      for (FlagParameterKey parameter : flagParameters) {
         final BindingMetadata metadata = flagMetadataService.getFlagParameterMetadata(
             parameter.getPositiveShortName().orElse(null),
             parameter.getPositiveLongName().orElse(null),
@@ -2368,6 +2645,21 @@ public class CliProcessor extends RapierProcessorBase {
 
     return unmodifiableList(columns);
   }
+
+  //////////////////////////////////////////////////////////////////////////////////////////////////
+  // VERSION MESSAGE ///////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////////////////////////
+  private void emitStandardVersionMessageMethod(PrintWriter out, CommandHelpMetadata commandHelp) {
+    assert commandHelp.isProvideStandardVersion();
+
+    final String versionString = commandHelp.getName() + " version " + commandHelp.getVersion();
+
+    out.println("    public String standardVersionMessage() {");
+    out.println("        return \"" + Java.escapeString(versionString) + "\";");
+    out.println("    }");
+    out.println();
+  }
+
 
   //////////////////////////////////////////////////////////////////////////////////////////////////
   // OTHER /////////////////////////////////////////////////////////////////////////////////////////

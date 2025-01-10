@@ -40,7 +40,9 @@ public class CliProcessorTest extends RapierTestBase {
     final JavaFileObject source = prepareSourceFile("""
         package com.example;
 
-        @rapier.cli.CliHelp(name="foobar", description="A simple commmand to foo the bar")
+        @rapier.cli.CliCommandHelp(
+            name="foobar",
+            description="A simple commmand to foo the bar")
         @dagger.Component(modules = {RapierExampleComponentCliModule.class})
         public interface ExampleComponent {
             @rapier.cli.PositionalCliParameter(0)
@@ -83,6 +85,7 @@ public class CliProcessorTest extends RapierTestBase {
             import java.util.Map;
             import java.util.Optional;
             import javax.annotation.Nullable;
+            import rapier.cli.CliSyntaxException;
             import rapier.cli.FlagCliParameter;
             import rapier.cli.OptionCliParameter;
             import rapier.cli.PositionalCliParameter;
@@ -140,45 +143,85 @@ public class CliProcessorTest extends RapierTestBase {
                     flagNegativeShortNames.put('B', "59dcb7a");
                     flagNegativeLongNames.put("no-bravo", "59dcb7a");
 
+                    // Add the standard help flags
+                    flagPositiveShortNames.put('h', "rapier.standard.help");
+                    flagPositiveLongNames.put("help", "rapier.standard.help");
 
-                    // Parse the arguments
-                    final JustArgs.ParsedArgs parsed = JustArgs.parseArgs(
-                        args,
-                        optionShortNames,
-                        optionLongNames,
-                        flagPositiveShortNames,
-                        flagPositiveLongNames,
-                        flagNegativeShortNames,
-                        flagNegativeLongNames);
+                    // Add the version flag
+                    flagPositiveShortNames.put('v', "rapier.standard.version");
+                    flagPositiveLongNames.put("version", "rapier.standard.version");
 
-                    // Initialize positional parameters
-                    if(parsed.getArgs().size() > 0) {
-                        this.positional0 = parsed.getArgs().get(0);
-                    } else {
-                        throw new IllegalArgumentException(
-                            "Missing required positional parameter 0");
+
+                    try {
+                        // Parse the arguments
+                        final JustArgs.ParsedArgs parsed = JustArgs.parseArgs(
+                            args,
+                            optionShortNames,
+                            optionLongNames,
+                            flagPositiveShortNames,
+                            flagPositiveLongNames,
+                            flagNegativeShortNames,
+                            flagNegativeLongNames);
+
+                        // Initialize positional parameters
+                        if(parsed.getArgs().size() > 0) {
+                            this.positional0 = parsed.getArgs().get(0);
+                        } else {
+                            throw new CliSyntaxException(
+                                "Missing required positional parameter 0");
+                        }
+
+
+                        // Initialize option parameters
+                        if(parsed.getOptions().containsKey("da97be1")) {
+                            List<String> optionda97be1 = parsed.getOptions().get("da97be1");
+                            this.optionda97be1 = optionda97be1.get(optionda97be1.size()-1);
+                        } else {
+                            throw new CliSyntaxException(
+                                "Missing required option parameter -a, --alpha");
+                        }
+
+
+                        // Initialize flag parameters
+                        if(parsed.getFlags().containsKey("59dcb7a")) {
+                            List<Boolean> flag59dcb7a = parsed.getFlags().get("59dcb7a");
+                            this.flag59dcb7a = flag59dcb7a.get(flag59dcb7a.size()-1);
+                        } else {
+                            throw new CliSyntaxException(
+                                "Missing required flag parameter -b, --bravo, -B, --no-bravo");
+                        }
+
+                        // Check for standard help
+                        final boolean standardHelpRequested = parsed.getFlags().containsKey("rapier.standard.help");
+
+                        // Check for standard version
+                        final boolean standardVersionRequested = parsed.getFlags().containsKey("rapier.standard.version");
+
+                        if(standardVersionRequested) {
+                            System.err.println(standardVersionMessage());
+                        }
+
+                        if(standardHelpRequested) {
+                            System.err.println(standardHelpMessage());
+                        }
+
+                        if(standardHelpRequested || standardVersionRequested) {
+                            System.exit(0);
+                            throw new AssertionError("exited");
+                        }
                     }
-
-
-                    // Initialize option parameters
-                    if(parsed.getOptions().containsKey("da97be1")) {
-                        List<String> optionda97be1 = parsed.getOptions().get("da97be1");
-                        this.optionda97be1 = optionda97be1.get(optionda97be1.size()-1);
-                    } else {
-                        throw new IllegalArgumentException(
-                            "Missing required option parameter -a, --alpha");
+                    catch (JustArgs.IllegalSyntaxException e) {
+                        // Standard help is active. Print the help message and exit.
+                        System.err.println(standardHelpMessage());
+                        System.exit(1);
+                        throw new AssertionError("exited");
                     }
-
-
-                    // Initialize flag parameters
-                    if(parsed.getFlags().containsKey("59dcb7a")) {
-                        List<Boolean> flag59dcb7a = parsed.getFlags().get("59dcb7a");
-                        this.flag59dcb7a = flag59dcb7a.get(flag59dcb7a.size()-1);
-                    } else {
-                        throw new IllegalArgumentException(
-                            "Missing required flag parameter -b, --bravo, -B, --no-bravo");
+                    catch(CliSyntaxException e) {
+                        // Standard help is active. Print the help message and exit.
+                        System.err.println(standardHelpMessage());
+                        System.exit(1);
+                        throw new AssertionError("exited");
                     }
-
                 }
 
                 @Provides
@@ -211,7 +254,7 @@ public class CliProcessorTest extends RapierTestBase {
                     return flag59dcb7a;
                 }
 
-                public String helpMessage() {
+                public String standardHelpMessage() {
                     return String.join("\\n",
                         "Usage: foobar [OPTIONS | FLAGS] <zulu>",
                         "",
@@ -226,8 +269,14 @@ public class CliProcessorTest extends RapierTestBase {
                         "Flag parameters:",
                         "  -b, --bravo       Whether or not to bravo",
                         "  -B, --no-bravo    ",
+                        "  -h, --help        Print this help message and exit",
+                        "  -v, --version     Print a version message and exit",
                         "",
                         "");
+                }
+
+                public String standardVersionMessage() {
+                    return "foobar version 0.0.0";
                 }
 
             }
