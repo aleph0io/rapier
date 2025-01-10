@@ -40,15 +40,20 @@ public class CliProcessorTest extends RapierTestBase {
     final JavaFileObject source = prepareSourceFile("""
         package com.example;
 
+        @rapier.cli.CliHelp(name="foobar", description="A simple commmand to foo the bar")
         @dagger.Component(modules = {RapierExampleComponentCliModule.class})
         public interface ExampleComponent {
             @rapier.cli.PositionalCliParameter(0)
+            @rapier.cli.CliHelp(name="zulu", description="The first zulu parameter")
             public Integer provisionPositional0AsInt();
 
+            @rapier.cli.CliHelp(description="The value to use for alpha")
             @rapier.cli.OptionCliParameter(shortName = 'a', longName = "alpha")
             public Long provisionAlphaOptionAsLong();
 
-            @rapier.cli.FlagCliParameter(positiveShortName = 'b', positiveLongName = "bravo")
+            @rapier.cli.CliHelp(description="Whether or not to bravo")
+            @rapier.cli.FlagCliParameter(positiveShortName = 'b', positiveLongName = "bravo",
+                negativeShortName = 'B', negativeLongName = "no-bravo")
             public Boolean provisionBravoFlagAsBoolean();
         }
         """);
@@ -60,6 +65,9 @@ public class CliProcessorTest extends RapierTestBase {
     assertThat(compilation).succeeded();
 
     // Assert generated file content
+    // NOTE: If you get a parse error, it could be from the helpMessage() method below. It's easy
+    // to forget that we're still quoted because triple quotes are so easy to use, but we are, so
+    // we have to double-escape the newline.
     final JavaFileObject expectedOutput = JavaFileObjects.forSourceString(
         "com.example.RapierExampleComponentCliModule",
         """
@@ -104,8 +112,10 @@ public class CliProcessorTest extends RapierTestBase {
                  * Flag parameter
                  * positiveShortName b
                  * positiveLongName bravo
+                 * negativeShortName B
+                 * negativeLongName no-bravo
                  */
-                private final Boolean flage85f9a9;
+                private final Boolean flag59dcb7a;
 
 
                 public RapierExampleComponentCliModule(String[] args) {
@@ -125,8 +135,10 @@ public class CliProcessorTest extends RapierTestBase {
                     final Map<String, String> flagPositiveLongNames = new HashMap<>();
                     final Map<Character, String> flagNegativeShortNames = new HashMap<>();
                     final Map<String, String> flagNegativeLongNames = new HashMap<>();
-                    flagPositiveShortNames.put('b', "e85f9a9");
-                    flagPositiveLongNames.put("bravo", "e85f9a9");
+                    flagPositiveShortNames.put('b', "59dcb7a");
+                    flagPositiveLongNames.put("bravo", "59dcb7a");
+                    flagNegativeShortNames.put('B', "59dcb7a");
+                    flagNegativeLongNames.put("no-bravo", "59dcb7a");
 
 
                     // Parse the arguments
@@ -154,17 +166,17 @@ public class CliProcessorTest extends RapierTestBase {
                         this.optionda97be1 = optionda97be1.get(optionda97be1.size()-1);
                     } else {
                         throw new IllegalArgumentException(
-                            "Missing required option parameter -a / --alpha");
+                            "Missing required option parameter -a, --alpha");
                     }
 
 
                     // Initialize flag parameters
-                    if(parsed.getFlags().containsKey("e85f9a9")) {
-                        List<Boolean> flage85f9a9 = parsed.getFlags().get("e85f9a9");
-                        this.flage85f9a9 = flage85f9a9.get(flage85f9a9.size()-1);
+                    if(parsed.getFlags().containsKey("59dcb7a")) {
+                        List<Boolean> flag59dcb7a = parsed.getFlags().get("59dcb7a");
+                        this.flag59dcb7a = flag59dcb7a.get(flag59dcb7a.size()-1);
                     } else {
                         throw new IllegalArgumentException(
-                            "Missing required flag parameter -b / --bravo");
+                            "Missing required flag parameter -b, --bravo, -B, --no-bravo");
                     }
 
                 }
@@ -194,9 +206,28 @@ public class CliProcessorTest extends RapierTestBase {
                 }
 
                 @Provides
-                @FlagCliParameter(positiveShortName='b', positiveLongName="bravo")
-                public Boolean provideFlage85f9a9AsBoolean() {
-                    return flage85f9a9;
+                @FlagCliParameter(positiveShortName='b', positiveLongName="bravo", negativeShortName='B', negativeLongName="no-bravo")
+                public Boolean provideFlag59dcb7aAsBoolean() {
+                    return flag59dcb7a;
+                }
+
+                public String helpMessage() {
+                    return String.join("\\n",
+                        "Usage: foobar [OPTIONS | FLAGS] <zulu>",
+                        "",
+                        "Description: A simple commmand to foo the bar",
+                        "",
+                        "Positional parameters:",
+                        "  zulu    The first zulu parameter",
+                        "",
+                        "Option parameters:",
+                        "  -a, --alpha    The value to use for alpha",
+                        "",
+                        "Flag parameters:",
+                        "  -b, --bravo       Whether or not to bravo",
+                        "  -B, --no-bravo    ",
+                        "",
+                        "");
                 }
 
             }

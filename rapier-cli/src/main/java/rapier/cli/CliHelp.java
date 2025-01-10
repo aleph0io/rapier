@@ -1,6 +1,6 @@
 /*-
  * =================================LICENSE_START==================================
- * rapier-processor-cli
+ * rapier-cli
  * ====================================SECTION=====================================
  * Copyright (C) 2024 - 2025 Andy Boothe
  * ====================================SECTION=====================================
@@ -17,11 +17,23 @@
  * limitations under the License.
  * ==================================LICENSE_END===================================
  */
-package rapier.cli.compiler;
+package rapier.cli;
 
-import rapier.cli.compiler.model.BindingMetadata;
+import java.lang.annotation.ElementType;
+import java.lang.annotation.Retention;
+import java.lang.annotation.RetentionPolicy;
+import java.lang.annotation.Target;
 
-public interface FlagParameterMetadataService {
-  public BindingMetadata getFlagParameterMetadata(Character shortPositiveName,
-      String positiveLongName, Character negativeShortName, String negativeLongName);
+@Retention(RetentionPolicy.CLASS)
+@Target({ElementType.PARAMETER, ElementType.FIELD, ElementType.METHOD, ElementType.TYPE})
+public @interface CliHelp {
+  /**
+   * The name used in the help message.
+   */
+  public String name() default "";
+
+  /**
+   * The description used in the help message.
+   */
+  public String description() default "";
 }

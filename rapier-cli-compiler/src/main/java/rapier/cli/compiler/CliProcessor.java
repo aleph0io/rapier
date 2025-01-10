@@ -19,6 +19,7 @@
  */
 package rapier.cli.compiler;
 
+import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
@@ -42,6 +43,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
@@ -64,6 +66,7 @@ import rapier.cli.FlagCliParameter;
 import rapier.cli.OptionCliParameter;
 import rapier.cli.PositionalCliParameter;
 import rapier.cli.compiler.model.BindingMetadata;
+import rapier.cli.compiler.model.CliHelpMetadata;
 import rapier.cli.compiler.model.FlagParameterKey;
 import rapier.cli.compiler.model.FlagRepresentationKey;
 import rapier.cli.compiler.model.OptionParameterKey;
@@ -146,6 +149,9 @@ public class CliProcessor extends RapierProcessorBase {
     final String componentClassName = component.getSimpleName().toString();
     final String moduleClassName = "Rapier" + componentClassName + "CliModule";
 
+    final CliHelpMetadata commandHelp = component.getAnnotationMirrors().stream()
+        .flatMap(am -> CliHelpMetadata.fromAnnotationMirror(am).stream()).findFirst().orElse(null);
+
     final List<DaggerInjectionSite> qualifiedInjectionSites =
         new DaggerComponentAnalyzer(getProcessingEnv()).analyzeComponent(component)
             .getInjectionSites().stream().filter(d -> d.getQualifier().isPresent())
@@ -182,7 +188,7 @@ public class CliProcessor extends RapierProcessorBase {
       return;
 
     final String moduleSource = generateModuleSource(componentPackageName, moduleClassName,
-        positionalInjectionSites, positionalMetadataService, optionInjectionSites,
+        commandHelp, positionalInjectionSites, positionalMetadataService, optionInjectionSites,
         optionMetadataService, flagInjectionSites, flagMetadataService);
 
     final Path shadeDir = Paths.get("src", "main", "shade");
@@ -459,7 +465,27 @@ public class CliProcessor extends RapierProcessorBase {
         continue;
       }
 
-      metadataByPositionalParameter.put(pk, new BindingMetadata(required, listy));
+      final List<CliHelpMetadata> helps = injectionSites.stream()
+          .flatMap(dis -> CliHelpMetadata.fromInjectionSite(dis).stream()).distinct()
+          .sorted(Comparator
+              .<CliHelpMetadata, String>comparing(h -> h.getName().orElse(null),
+                  Comparator.nullsLast(Comparator.naturalOrder()))
+              .thenComparing(h -> h.getDescription().orElse(null),
+                  Comparator.nullsLast(Comparator.naturalOrder())))
+          .collect(toList());
+      if (helps.size() > 1) {
+        getMessager().printMessage(Diagnostic.Kind.WARNING,
+            "Multiple help for positional parameter " + pk.getPosition()
+                + ", help message is not deterministic");
+        // TODO Print example conflicting help
+      }
+      final Optional<CliHelpMetadata> maybeHelp =
+          helps.isEmpty() ? Optional.empty() : Optional.of(helps.get(0));
+
+      metadataByPositionalParameter.put(pk,
+          new BindingMetadata(required, listy,
+              maybeHelp.flatMap(CliHelpMetadata::getName).orElse(null),
+              maybeHelp.flatMap(CliHelpMetadata::getDescription).orElse(null)));
     }
 
     if (valid == false)
@@ -535,14 +561,36 @@ public class CliProcessor extends RapierProcessorBase {
       }
       if (!stringy && !listy) {
         getMessager().printMessage(Diagnostic.Kind.ERROR,
-            "No conversion for positional parameter " + optionParameterUserFacingString(
+            "No conversion for option parameter " + optionParameterUserFacingString(
                 pk.getShortName().orElse(null), pk.getLongName().orElse(null)));
         // TODO Print example no conversion
         valid = false;
         continue;
       }
 
-      metadataByOptionParameter.put(pk, new BindingMetadata(required, listy));
+      final List<CliHelpMetadata> helps = injectionSites.stream()
+          .flatMap(dis -> CliHelpMetadata.fromInjectionSite(dis).stream()).distinct()
+          .sorted(Comparator
+              .<CliHelpMetadata, String>comparing(h -> h.getName().orElse(null),
+                  Comparator.nullsLast(Comparator.naturalOrder()))
+              .thenComparing(h -> h.getDescription().orElse(null),
+                  Comparator.nullsLast(Comparator.naturalOrder())))
+          .collect(toList());
+      if (helps.size() > 1) {
+        getMessager().printMessage(Diagnostic.Kind.WARNING,
+            "Multiple help for option parameter "
+                + optionParameterUserFacingString(pk.getShortName().orElse(null),
+                    pk.getLongName().orElse(null))
+                + ", help message is not deterministic");
+        // TODO Print example conflicting help
+      }
+      final Optional<CliHelpMetadata> maybeHelp =
+          helps.isEmpty() ? Optional.empty() : Optional.of(helps.get(0));
+
+      metadataByOptionParameter.put(pk,
+          new BindingMetadata(required, listy,
+              maybeHelp.flatMap(CliHelpMetadata::getName).orElse(null),
+              maybeHelp.flatMap(CliHelpMetadata::getDescription).orElse(null)));
     }
 
     if (valid == false)
@@ -624,7 +672,7 @@ public class CliProcessor extends RapierProcessorBase {
       }
       if (!stringy && !listy) {
         getMessager().printMessage(Diagnostic.Kind.ERROR,
-            "No conversion for positional parameter " + flagParameterUserFacingString(
+            "No conversion for flag parameter " + flagParameterUserFacingString(
                 pk.getPositiveShortName().orElse(null), pk.getPositiveLongName().orElse(null),
                 pk.getNegativeShortName().orElse(null), pk.getNegativeLongName().orElse(null)));
         // TODO Print example no conversion
@@ -632,7 +680,31 @@ public class CliProcessor extends RapierProcessorBase {
         continue;
       }
 
-      metadataByFlagParameter.put(pk, new BindingMetadata(required, listy));
+
+      final List<CliHelpMetadata> helps = injectionSites.stream()
+          .flatMap(dis -> CliHelpMetadata.fromInjectionSite(dis).stream()).distinct()
+          .sorted(Comparator
+              .<CliHelpMetadata, String>comparing(h -> h.getName().orElse(null),
+                  Comparator.nullsLast(Comparator.naturalOrder()))
+              .thenComparing(h -> h.getDescription().orElse(null),
+                  Comparator.nullsLast(Comparator.naturalOrder())))
+          .collect(toList());
+      if (helps.size() > 1) {
+        getMessager()
+            .printMessage(Diagnostic.Kind.WARNING,
+                "Multiple help for flag parameter " + flagParameterUserFacingString(
+                    pk.getPositiveShortName().orElse(null), pk.getPositiveLongName().orElse(null),
+                    pk.getNegativeShortName().orElse(null), pk.getNegativeLongName().orElse(null))
+                    + ", help message is not deterministic");
+        // TODO Print example conflicting help
+      }
+      final Optional<CliHelpMetadata> maybeHelp =
+          helps.isEmpty() ? Optional.empty() : Optional.of(helps.get(0));
+
+      metadataByFlagParameter.put(pk,
+          new BindingMetadata(required, listy,
+              maybeHelp.flatMap(CliHelpMetadata::getName).orElse(null),
+              maybeHelp.flatMap(CliHelpMetadata::getDescription).orElse(null)));
     }
 
     if (valid == false)
@@ -674,6 +746,7 @@ public class CliProcessor extends RapierProcessorBase {
               Comparator.nullsFirst(Comparator.naturalOrder()));
 
   private String generateModuleSource(String packageName, String moduleClassName,
+      CliHelpMetadata commandHelp,
       SortedMap<PositionalParameterKey, List<DaggerInjectionSite>> positionalInjectionSites,
       PositionalParameterMetadataService positionalMetadataService,
       SortedMap<OptionParameterKey, List<DaggerInjectionSite>> optionInjectionSites,
@@ -770,7 +843,7 @@ public class CliProcessor extends RapierProcessorBase {
         final Character optionShortName = opk.getShortName().orElse(null);
         final String optionLongName = opk.getLongName().orElse(null);
         final BindingMetadata metadata =
-            optionMetadataService.getPositionalParameterMetadata(optionShortName, optionLongName);
+            optionMetadataService.getOptionParameterMetadata(optionShortName, optionLongName);
         final boolean parameterIsRequired = metadata.isRequired();
         final boolean parameterIsList = metadata.isList();
         emitOptionParameterInstanceFieldDeclaration(out, optionShortName, optionLongName,
@@ -786,7 +859,7 @@ public class CliProcessor extends RapierProcessorBase {
         final Character flagNegativeShortName = fpk.getNegativeShortName().orElse(null);
         final String flagNegativeLongName = fpk.getNegativeLongName().orElse(null);
         final BindingMetadata metadata =
-            flagMetadataService.getPositionalParameterMetadata(flagPositiveShortName,
+            flagMetadataService.getFlagParameterMetadata(flagPositiveShortName,
                 flagPositiveLongName, flagNegativeShortName, flagNegativeLongName);
         final boolean parameterIsRequired = metadata.isRequired();
         final boolean parameterIsList = metadata.isList();
@@ -849,7 +922,7 @@ public class CliProcessor extends RapierProcessorBase {
         final Character optionShortName = opk.getShortName().orElse(null);
         final String optionLongName = opk.getLongName().orElse(null);
         final BindingMetadata metadata =
-            optionMetadataService.getPositionalParameterMetadata(optionShortName, optionLongName);
+            optionMetadataService.getOptionParameterMetadata(optionShortName, optionLongName);
         final boolean parameterIsRequired = metadata.isRequired();
         final boolean parameterIsList = metadata.isList();
         emitOptionParameterInstanceFieldInitClause(out, optionShortName, optionLongName,
@@ -864,7 +937,7 @@ public class CliProcessor extends RapierProcessorBase {
         final Character flagNegativeShortName = fpk.getNegativeShortName().orElse(null);
         final String flagNegativeLongName = fpk.getNegativeLongName().orElse(null);
         final BindingMetadata metadata =
-            flagMetadataService.getPositionalParameterMetadata(flagPositiveShortName,
+            flagMetadataService.getFlagParameterMetadata(flagPositiveShortName,
                 flagPositiveLongName, flagNegativeShortName, flagNegativeLongName);
         final boolean parameterIsRequired = metadata.isRequired();
         final boolean parameterIsList = metadata.isList();
@@ -900,7 +973,7 @@ public class CliProcessor extends RapierProcessorBase {
         final Character optionShortName = parameter.getShortName().orElse(null);
         final String optionLongName = parameter.getLongName().orElse(null);
         final BindingMetadata metadata =
-            optionMetadataService.getPositionalParameterMetadata(optionShortName, optionLongName);
+            optionMetadataService.getOptionParameterMetadata(optionShortName, optionLongName);
         final Collection<OptionRepresentationKey> representations = e.getValue();
         final boolean parameterIsRequired = metadata.isRequired();
         final boolean parameterIsList = metadata.isList();
@@ -921,7 +994,7 @@ public class CliProcessor extends RapierProcessorBase {
         final Character flagNegativeShortName = parameter.getNegativeShortName().orElse(null);
         final String flagNegativeLongName = parameter.getNegativeLongName().orElse(null);
         final BindingMetadata metadata =
-            flagMetadataService.getPositionalParameterMetadata(flagPositiveShortName,
+            flagMetadataService.getFlagParameterMetadata(flagPositiveShortName,
                 flagPositiveLongName, flagNegativeShortName, flagNegativeLongName);
         final Collection<FlagRepresentationKey> representations = e.getValue();
         final boolean parameterIsRequired = metadata.isRequired();
@@ -934,6 +1007,11 @@ public class CliProcessor extends RapierProcessorBase {
               parameterIsRequired, parameterIsList, representationType, representationDefaultValue);
         }
       }
+
+      // Generate the help message
+      emitHelpMessageMethod(out, commandHelp, positionalRepresentationsByParameter,
+          positionalMetadataService, optionRepresentationsByParameter, optionMetadataService,
+          flagRepresentationsByParameter, flagMetadataService);
 
       out.println("}");
     }
@@ -1541,7 +1619,7 @@ public class CliProcessor extends RapierProcessorBase {
 
   private String optionParameterUserFacingString(Character shortName, String longName) {
     if (shortName != null && longName != null) {
-      return "-" + shortName + " / --" + longName;
+      return "-" + shortName + ", --" + longName;
     }
     if (shortName != null) {
       return "-" + shortName;
@@ -1960,7 +2038,7 @@ public class CliProcessor extends RapierProcessorBase {
     if (parts.isEmpty())
       throw new IllegalArgumentException(
           "positiveShortName, positiveLongName, negativeShortName, negativeLongName cannot all be null");
-    return String.join(" / ", parts);
+    return String.join(", ", parts);
   }
 
   private String flagParameterSignature(Character positiveShortName, String positiveLongName,
@@ -1979,6 +2057,317 @@ public class CliProcessor extends RapierProcessorBase {
         key.getNegativeLongName().orElse(null), key.getDefaultValue().orElse(null));
   }
 
+  //////////////////////////////////////////////////////////////////////////////////////////////////
+  // HELP MESSAGE //////////////////////////////////////////////////////////////////////////////////
+  //////////////////////////////////////////////////////////////////////////////////////////////////
+  private static final int HELP_MESSAGE_MAX_WIDTH = 80;
+
+  private void emitHelpMessageMethod(PrintWriter out, CliHelpMetadata commandHelp,
+      SortedMap<PositionalParameterKey, Collection<PositionalRepresentationKey>> positionalRepresentationsByParameter,
+      PositionalParameterMetadataService positionalMetadataService,
+      SortedMap<OptionParameterKey, Collection<OptionRepresentationKey>> optionRepresentationsByParameter,
+      OptionParameterMetadataService optionMetadataService,
+      SortedMap<FlagParameterKey, Collection<FlagRepresentationKey>> flagRepresentationsByParameter,
+      FlagParameterMetadataService flagMetadataService) {
+    out.println("    public String helpMessage() {");
+    out.println("        return String.join(\"\\n\", ");
+
+    final String commandName = commandHelp.getName().orElse("command");
+    final List<String> positionalNames =
+        positionalRepresentationsByParameter.keySet().stream()
+            .sorted(Comparator.comparingInt(PositionalParameterKey::getPosition))
+            .map(p -> Map.entry(p,
+                positionalMetadataService.getPositionalParameterMetadata(p.getPosition())))
+            .map(e -> {
+              final String name = e.getValue().getHelpName().orElse("PARAMETER");
+              final boolean parameterIsRequired = e.getValue().isRequired();
+              final boolean parameterIsList = e.getValue().isList();
+              if (parameterIsRequired) {
+                return "<" + name + ">";
+              } else if (parameterIsList) {
+                return "[" + name + "...]";
+              } else {
+                return "[" + name + "]";
+              }
+            }).collect(toList());
+
+    final boolean hasOptions = !optionRepresentationsByParameter.isEmpty();
+    final boolean hasFlags = !flagRepresentationsByParameter.isEmpty();
+
+    final String optionsAndFlags;
+    if (hasOptions && hasFlags) {
+      optionsAndFlags = "[OPTIONS | FLAGS] ";
+    } else if (hasOptions) {
+      optionsAndFlags = "[OPTIONS] ";
+    } else if (hasFlags) {
+      optionsAndFlags = "[FLAGS] ";
+    } else {
+      optionsAndFlags = "";
+    }
+
+    // @formatter:off
+    out.println("            \"Usage: " + commandName + " " + optionsAndFlags + String.join(" ", positionalNames) + "\",");
+    out.println("            \"\",");
+    if (commandHelp.getDescription().isPresent()) {
+      for(String line : wordwrap("Description: " + commandHelp.getDescription().orElseThrow(), HELP_MESSAGE_MAX_WIDTH))
+        out.println("            \"" + Java.escapeString(line) + "\",");
+      out.println("            \"\",");
+    }
+    // @formatter:on
+
+    if (!positionalRepresentationsByParameter.isEmpty()) {
+      out.println("            \"Positional parameters:\",");
+
+      final int maxNameLength = positionalRepresentationsByParameter.keySet().stream()
+          .map(p -> positionalMetadataService.getPositionalParameterMetadata(p.getPosition()))
+          .map(m -> m.getHelpName().orElse("PARAMETER")).mapToInt(String::length).max()
+          .orElseThrow();
+
+      final int lineIndentLength = 2;
+      final int borderWidth = 4;
+      final int descriptionWidth =
+          Math.max(HELP_MESSAGE_MAX_WIDTH - maxNameLength - lineIndentLength - borderWidth, 20);
+
+      for (PositionalParameterKey parameter : positionalRepresentationsByParameter.keySet()) {
+        final BindingMetadata metadata =
+            positionalMetadataService.getPositionalParameterMetadata(parameter.getPosition());
+        final String name = metadata.getHelpName().orElse("PARAMETER");
+        final String description = metadata.getHelpDescription().orElse("");
+        final List<String> descriptionLines = wordwrap(description, descriptionWidth);
+        // @formatter:off
+        out.println("            \"" + Java.escapeString(String.format(
+            new StringBuilder()
+                .append(repeat(" ", lineIndentLength))
+                .append("%").append("-" + maxNameLength).append("s")
+                .append(repeat(" ", borderWidth))
+                .append("%").append("s")
+                .toString(),
+            name,
+            descriptionLines.isEmpty() ? "" : descriptionLines.get(0))) + "\",");
+        // @formatter:on
+        for (int i = 1; i < descriptionLines.size(); i++) {
+          // @formatter:off
+          out.println("            \"" + Java.escapeString(String.format(
+              new StringBuilder()
+                  .append(repeat(" ", lineIndentLength + maxNameLength + borderWidth))
+                  .append("%").append("-" + maxNameLength).append("s")
+                  .toString(),
+              descriptionLines.get(i))) + "\",");
+          // @formatter:on
+        }
+      }
+
+      out.println("            \"\",");
+    }
+
+    if (!optionRepresentationsByParameter.isEmpty()) {
+      out.println("            \"Option parameters:\",");
+
+      final int maxNameLength = optionRepresentationsByParameter.keySet().stream()
+          .map(p -> optionParameterUserFacingString(p.getShortName().orElse(null),
+              p.getLongName().orElse(null)))
+          .mapToInt(String::length).max().orElseThrow();
+
+      final int lineIndentLength = 2;
+      final int borderWidth = 4;
+      final int descriptionWidth =
+          Math.max(HELP_MESSAGE_MAX_WIDTH - maxNameLength - lineIndentLength - borderWidth, 20);
+
+      for (OptionParameterKey parameter : optionRepresentationsByParameter.keySet()) {
+        final BindingMetadata metadata = optionMetadataService.getOptionParameterMetadata(
+            parameter.getShortName().orElse(null), parameter.getLongName().orElse(null));
+        final String name = optionParameterUserFacingString(parameter.getShortName().orElse(null),
+            parameter.getLongName().orElse(null));
+        final String description = metadata.getHelpDescription().orElse("");
+        final List<String> descriptionLines = wordwrap(description, descriptionWidth);
+        // @formatter:off
+        out.println("            \"" + Java.escapeString(String.format(
+            new StringBuilder()
+                .append(repeat(" ", lineIndentLength))
+                .append("%").append("-" + maxNameLength).append("s")
+                .append(repeat(" ", borderWidth))
+                .append("%").append("s")
+                .toString(),
+            name,
+            descriptionLines.isEmpty() ? "" : descriptionLines.get(0))) + "\",");
+        // @formatter:on
+        for (int i = 1; i < descriptionLines.size(); i++) {
+          // @formatter:off
+          out.println("            \"" + Java.escapeString(String.format(
+              new StringBuilder()
+                  .append(repeat(" ", lineIndentLength + maxNameLength + borderWidth))
+                  .append("%").append("-" + maxNameLength).append("s")
+                  .toString(),
+              descriptionLines.get(i))) + "\",");
+          // @formatter:on
+        }
+      }
+
+      out.println("            \"\",");
+    }
+
+    if (!flagRepresentationsByParameter.isEmpty()) {
+      out.println("            \"Flag parameters:\",");
+
+      final int maxNameLength = flagRepresentationsByParameter.keySet().stream()
+          .flatMap(p -> flagParameterHelpFacingStrings(p.getPositiveShortName().orElse(null),
+              p.getPositiveLongName().orElse(null), p.getNegativeShortName().orElse(null),
+              p.getNegativeLongName().orElse(null)).stream())
+          .mapToInt(String::length).max().orElseThrow();
+
+      final int lineIndentLength = 2;
+      final int borderWidth = 4;
+      final int descriptionWidth =
+          Math.max(HELP_MESSAGE_MAX_WIDTH - maxNameLength - lineIndentLength - borderWidth, 20);
+
+      for (FlagParameterKey parameter : flagRepresentationsByParameter.keySet()) {
+        final BindingMetadata metadata = flagMetadataService.getFlagParameterMetadata(
+            parameter.getPositiveShortName().orElse(null),
+            parameter.getPositiveLongName().orElse(null),
+            parameter.getNegativeShortName().orElse(null),
+            parameter.getNegativeLongName().orElse(null));
+
+        final List<String> nameLines =
+            flagParameterHelpFacingStrings(parameter.getPositiveShortName().orElse(null),
+                parameter.getPositiveLongName().orElse(null),
+                parameter.getNegativeShortName().orElse(null),
+                parameter.getNegativeLongName().orElse(null));
+
+        final String description = metadata.getHelpDescription().orElse("");
+        final List<String> descriptionLines = wordwrap(description, descriptionWidth);
+
+        final List<List<String>> rows = pivot(List.of(nameLines, descriptionLines));
+
+        for (List<String> row : rows) {
+          // @formatter:off
+          out.println("            \"" + Java.escapeString(String.format(
+              new StringBuilder()
+                  .append(repeat(" ", lineIndentLength))
+                  .append("%").append("-" + maxNameLength).append("s")
+                  .append(repeat(" ", borderWidth))
+                  .append("%").append("s")
+                  .toString(),
+              Optional.ofNullable(row.get(0)).orElse(""),
+              Optional.ofNullable(row.get(1)).orElse(""))) + "\",");
+          // @formatter:on
+        }
+      }
+
+      out.println("            \"\",");
+    }
+
+
+    out.println("            \"\");");
+    out.println("    }");
+    out.println();
+  }
+
+  private static List<String> flagParameterHelpFacingStrings(Character positiveShortName,
+      String positiveLongName, Character negativeShortName, String negativeLongName) {
+    final List<String> result = new ArrayList<>(2);
+    if (positiveShortName != null || positiveLongName != null) {
+      result.add(Stream
+          .of(positiveShortName == null ? null : "-" + positiveShortName,
+              positiveLongName == null ? null : "--" + positiveLongName)
+          .filter(Objects::nonNull).collect(Collectors.joining(", ")));
+    }
+    if (negativeShortName != null || negativeLongName != null) {
+      result.add(Stream
+          .of(negativeShortName == null ? null : "-" + negativeShortName,
+              negativeLongName == null ? null : "--" + negativeLongName)
+          .filter(Objects::nonNull).collect(Collectors.joining(", ")));
+    }
+    return unmodifiableList(result);
+  }
+
+  private static String repeat(String s, int repetitions) {
+    if (s == null)
+      throw new NullPointerException();
+    if (repetitions < 0)
+      throw new IllegalArgumentException("repetition must be non-negative");
+    if (repetitions == 0)
+      return "";
+    if (s == "")
+      return s;
+    if (repetitions == 1)
+      return s;
+    final StringBuilder result = new StringBuilder(s.length() * repetitions);
+    for (int i = 0; i < repetitions; i++)
+      result.append(s);
+    return result.toString();
+  }
+
+  private static List<String> wordwrap(String input, int maxLength) {
+    if (input == null)
+      throw new NullPointerException();
+    if (maxLength < 1)
+      throw new IllegalArgumentException("maxLength must be positive");
+
+    final List<String> result = new ArrayList<>();
+
+    final String[] words = input.split("\\s+");
+    final StringBuilder currentLine = new StringBuilder();
+    for (String word : words) {
+      if (currentLine.length() + word.length() <= maxLength) {
+        if (currentLine.length() > 0) {
+          currentLine.append(" ");
+        }
+        currentLine.append(word);
+      } else {
+        if (currentLine.length() > 0) {
+          result.add(currentLine.toString());
+        }
+        // Start a new line with the current word
+        currentLine.setLength(0);
+        currentLine.append(word);
+      }
+    }
+
+    // Add the last line if it contains any text
+    if (currentLine.length() > 0) {
+      result.add(currentLine.toString());
+    }
+
+    return result;
+  }
+
+  /**
+   * Takes a list of logical "rows" and pivots them into logical "columns". The resulting list of
+   * columns is such that the first element of the list is the first column of the input rows, the
+   * second element is the second column of the input rows, and so on. The number of columns is
+   * equal to the size of the longest row in the input. If a row is shorter than the longest row,
+   * the corresponding column will be padded with nulls.
+   * 
+   * @param <T> the type of the elements in the rows
+   * @param rows the list of rows
+   * @return the list of columns
+   */
+  private static <T> List<List<T>> pivot(List<List<T>> rows) {
+    final List<List<T>> columns = new ArrayList<>();
+
+    int index = 0;
+    boolean touched;
+    do {
+      touched = false;
+
+      final List<T> column = new ArrayList<>(rows.size());
+      for (List<T> row : rows) {
+        if (index < row.size()) {
+          column.add(row.get(index));
+          touched = true;
+        } else {
+          column.add(null);
+        }
+      }
+
+      if (touched) {
+        columns.add(unmodifiableList(column));
+        index++;
+      }
+    } while (touched);
+
+    return unmodifiableList(columns);
+  }
 
   //////////////////////////////////////////////////////////////////////////////////////////////////
   // OTHER /////////////////////////////////////////////////////////////////////////////////////////

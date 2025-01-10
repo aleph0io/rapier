@@ -22,5 +22,5 @@ package rapier.cli.compiler;
 import rapier.cli.compiler.model.BindingMetadata;
 
 public interface OptionParameterMetadataService {
-  public BindingMetadata getPositionalParameterMetadata(Character shortName, String longName);
+  public BindingMetadata getOptionParameterMetadata(Character shortName, String longName);
 }

@@ -20,6 +20,7 @@
 package rapier.cli.compiler.model;
 
 import java.util.Objects;
+import java.util.Optional;
 
 public class BindingMetadata {
   private final boolean required;
@@ -30,9 +31,21 @@ public class BindingMetadata {
    */
   private final boolean list;
 
-  public BindingMetadata(boolean nullable, boolean list) {
-    this.required = nullable;
+  /**
+   * The name of the parameter for use in the help message
+   */
+  private final String helpName;
+
+  /**
+   * The description of the parameter for use in the help message
+   */
+  private final String helpDescription;
+
+  public BindingMetadata(boolean required, boolean list, String helpName, String helpDescription) {
+    this.required = required;
     this.list = list;
+    this.helpName = helpName;
+    this.helpDescription = helpDescription;
   }
 
   public boolean isRequired() {
@@ -43,9 +56,17 @@ public class BindingMetadata {
     return list;
   }
 
+  public Optional<String> getHelpName() {
+    return Optional.ofNullable(helpName);
+  }
+
+  public Optional<String> getHelpDescription() {
+    return Optional.ofNullable(helpDescription);
+  }
+
   @Override
   public int hashCode() {
-    return Objects.hash(list, required);
+    return Objects.hash(helpDescription, helpName, list, required);
   }
 
   @Override
@@ -57,11 +78,14 @@ public class BindingMetadata {
     if (getClass() != obj.getClass())
       return false;
     BindingMetadata other = (BindingMetadata) obj;
-    return list == other.list && required == other.required;
+    return Objects.equals(helpDescription, other.helpDescription)
+        && Objects.equals(helpName, other.helpName) && list == other.list
+        && required == other.required;
   }
 
   @Override
   public String toString() {
-    return "NamedBindingMetadata [required=" + required + ", list=" + list + "]";
+    return "BindingMetadata [required=" + required + ", list=" + list + ", helpName=" + helpName
+        + ", helpDescription=" + helpDescription + "]";
   }
 }
