@@ -19,8 +19,8 @@
  */
 package rapier.cli.compiler;
 
-import rapier.cli.compiler.model.BindingMetadata;
+import rapier.cli.compiler.model.PositionalParameterMetadata;
 
 public interface PositionalParameterMetadataService {
-  public BindingMetadata getPositionalParameterMetadata(int position);
+  public PositionalParameterMetadata getPositionalParameterMetadata(int position);
 }

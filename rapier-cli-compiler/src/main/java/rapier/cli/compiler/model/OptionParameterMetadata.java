@@ -22,7 +22,7 @@ package rapier.cli.compiler.model;
 import java.util.Objects;
 import java.util.Optional;
 
-public class BindingMetadata {
+public class OptionParameterMetadata {
   private final boolean required;
 
   /**
@@ -34,17 +34,18 @@ public class BindingMetadata {
   /**
    * The name of the parameter for use in the help message
    */
-  private final String helpName;
+  private final String helpValueName;
 
   /**
    * The description of the parameter for use in the help message
    */
   private final String helpDescription;
 
-  public BindingMetadata(boolean required, boolean list, String helpName, String helpDescription) {
+  public OptionParameterMetadata(boolean required, boolean list, String helpValueName,
+      String helpDescription) {
     this.required = required;
     this.list = list;
-    this.helpName = helpName;
+    this.helpValueName = helpValueName;
     this.helpDescription = helpDescription;
   }
 
@@ -56,8 +57,8 @@ public class BindingMetadata {
     return list;
   }
 
-  public Optional<String> getHelpName() {
-    return Optional.ofNullable(helpName);
+  public Optional<String> getHelpValueName() {
+    return Optional.ofNullable(helpValueName);
   }
 
   public Optional<String> getHelpDescription() {
@@ -66,7 +67,7 @@ public class BindingMetadata {
 
   @Override
   public int hashCode() {
-    return Objects.hash(helpDescription, helpName, list, required);
+    return Objects.hash(helpDescription, helpValueName, list, required);
   }
 
   @Override
@@ -77,15 +78,15 @@ public class BindingMetadata {
       return false;
     if (getClass() != obj.getClass())
       return false;
-    BindingMetadata other = (BindingMetadata) obj;
+    OptionParameterMetadata other = (OptionParameterMetadata) obj;
     return Objects.equals(helpDescription, other.helpDescription)
-        && Objects.equals(helpName, other.helpName) && list == other.list
+        && Objects.equals(helpValueName, other.helpValueName) && list == other.list
         && required == other.required;
   }
 
   @Override
   public String toString() {
-    return "BindingMetadata [required=" + required + ", list=" + list + ", helpName=" + helpName
-        + ", helpDescription=" + helpDescription + "]";
+    return "BindingMetadata [required=" + required + ", list=" + list + ", helpValueName="
+        + helpValueName + ", helpDescription=" + helpDescription + "]";
   }
 }

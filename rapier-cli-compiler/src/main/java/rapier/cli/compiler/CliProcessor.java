@@ -66,14 +66,16 @@ import dagger.Component;
 import rapier.cli.CliFlagParameter;
 import rapier.cli.CliOptionParameter;
 import rapier.cli.CliPositionalParameter;
-import rapier.cli.compiler.model.BindingMetadata;
 import rapier.cli.compiler.model.CommandHelpMetadata;
+import rapier.cli.compiler.model.FlagParameterMetadata;
 import rapier.cli.compiler.model.FlagParameterHelp;
 import rapier.cli.compiler.model.FlagParameterKey;
 import rapier.cli.compiler.model.FlagRepresentationKey;
+import rapier.cli.compiler.model.OptionParameterMetadata;
 import rapier.cli.compiler.model.OptionParameterHelp;
 import rapier.cli.compiler.model.OptionParameterKey;
 import rapier.cli.compiler.model.OptionRepresentationKey;
+import rapier.cli.compiler.model.PositionalParameterMetadata;
 import rapier.cli.compiler.model.PositionalParameterHelp;
 import rapier.cli.compiler.model.PositionalParameterKey;
 import rapier.cli.compiler.model.PositionalRepresentationKey;
@@ -410,7 +412,7 @@ public class CliProcessor extends RapierProcessorBase {
         continue;
       }
 
-      final BindingMetadata metadata =
+      final PositionalParameterMetadata metadata =
           positionalMetadataService.getPositionalParameterMetadata(position);
 
       final boolean parameterIsRequired = metadata.isRequired();
@@ -566,7 +568,7 @@ public class CliProcessor extends RapierProcessorBase {
   private PositionalParameterMetadataService createPositionalParameterMetadataService(
       Map<PositionalParameterKey, List<DaggerInjectionSite>> positionalInjectionSites) {
     boolean valid = true;
-    final Map<PositionalParameterKey, BindingMetadata> metadataByPositionalParameter =
+    final Map<PositionalParameterKey, PositionalParameterMetadata> metadataByPositionalParameter =
         new HashMap<>();
     for (Map.Entry<PositionalParameterKey, List<DaggerInjectionSite>> entry : positionalInjectionSites
         .entrySet()) {
@@ -628,7 +630,7 @@ public class CliProcessor extends RapierProcessorBase {
           helps.isEmpty() ? Optional.empty() : Optional.of(helps.get(0));
 
       metadataByPositionalParameter.put(pk,
-          new BindingMetadata(required, listy,
+          new PositionalParameterMetadata(required, listy,
               maybeHelp.map(PositionalParameterHelp::getName).orElse(null),
               maybeHelp.flatMap(PositionalParameterHelp::getDescription).orElse(null)));
     }
@@ -666,7 +668,8 @@ public class CliProcessor extends RapierProcessorBase {
   private OptionParameterMetadataService createOptionParameterMetadataService(
       Map<OptionParameterKey, List<DaggerInjectionSite>> optionInjectionSites) {
     boolean valid = true;
-    final Map<OptionParameterKey, BindingMetadata> metadataByOptionParameter = new HashMap<>();
+    final Map<OptionParameterKey, OptionParameterMetadata> metadataByOptionParameter =
+        new HashMap<>();
     for (Map.Entry<OptionParameterKey, List<DaggerInjectionSite>> entry : optionInjectionSites
         .entrySet()) {
       final OptionParameterKey pk = entry.getKey();
@@ -731,7 +734,7 @@ public class CliProcessor extends RapierProcessorBase {
           helps.isEmpty() ? Optional.empty() : Optional.of(helps.get(0));
 
       metadataByOptionParameter.put(pk,
-          new BindingMetadata(required, listy,
+          new OptionParameterMetadata(required, listy,
               maybeHelp.map(OptionParameterHelp::getValueName).orElse(null),
               maybeHelp.flatMap(OptionParameterHelp::getDescription).orElse(null)));
     }
@@ -773,7 +776,7 @@ public class CliProcessor extends RapierProcessorBase {
   private FlagParameterMetadataService createFlagParameterMetadataService(
       Map<FlagParameterKey, List<DaggerInjectionSite>> flagInjectionSites) {
     boolean valid = true;
-    final Map<FlagParameterKey, BindingMetadata> metadataByFlagParameter = new HashMap<>();
+    final Map<FlagParameterKey, FlagParameterMetadata> metadataByFlagParameter = new HashMap<>();
     for (Map.Entry<FlagParameterKey, List<DaggerInjectionSite>> entry : flagInjectionSites
         .entrySet()) {
       final FlagParameterKey pk = entry.getKey();
@@ -843,7 +846,7 @@ public class CliProcessor extends RapierProcessorBase {
       final Optional<FlagParameterHelp> maybeHelp =
           helps.isEmpty() ? Optional.empty() : Optional.of(helps.get(0));
 
-      metadataByFlagParameter.put(pk, new BindingMetadata(required, listy, null,
+      metadataByFlagParameter.put(pk, new FlagParameterMetadata(required, listy,
           maybeHelp.flatMap(FlagParameterHelp::getDescription).orElse(null)));
     }
 
@@ -969,7 +972,7 @@ public class CliProcessor extends RapierProcessorBase {
       out.println("    // Positional parameters");
       for (PositionalParameterKey ppk : positionalRepresentationsByParameter.keySet()) {
         final int position = ppk.getPosition();
-        final BindingMetadata metadata =
+        final PositionalParameterMetadata metadata =
             positionalMetadataService.getPositionalParameterMetadata(position);
         final boolean parameterIsRequired = metadata.isRequired();
         final boolean parameterIsList = metadata.isList();
@@ -983,7 +986,7 @@ public class CliProcessor extends RapierProcessorBase {
       for (OptionParameterKey opk : optionRepresentationsByParameter.keySet()) {
         final Character optionShortName = opk.getShortName().orElse(null);
         final String optionLongName = opk.getLongName().orElse(null);
-        final BindingMetadata metadata =
+        final OptionParameterMetadata metadata =
             optionMetadataService.getOptionParameterMetadata(optionShortName, optionLongName);
         final boolean parameterIsRequired = metadata.isRequired();
         final boolean parameterIsList = metadata.isList();
@@ -999,7 +1002,7 @@ public class CliProcessor extends RapierProcessorBase {
         final String flagPositiveLongName = fpk.getPositiveLongName().orElse(null);
         final Character flagNegativeShortName = fpk.getNegativeShortName().orElse(null);
         final String flagNegativeLongName = fpk.getNegativeLongName().orElse(null);
-        final BindingMetadata metadata =
+        final FlagParameterMetadata metadata =
             flagMetadataService.getFlagParameterMetadata(flagPositiveShortName,
                 flagPositiveLongName, flagNegativeShortName, flagNegativeLongName);
         final boolean parameterIsRequired = metadata.isRequired();
@@ -1062,7 +1065,7 @@ public class CliProcessor extends RapierProcessorBase {
       out.println("            // Initialize positional parameters");
       for (PositionalParameterKey ppk : positionalRepresentationsByParameter.keySet()) {
         final int position = ppk.getPosition();
-        final BindingMetadata metadata =
+        final PositionalParameterMetadata metadata =
             positionalMetadataService.getPositionalParameterMetadata(position);
         final boolean parameterIsRequired = metadata.isRequired();
         final boolean parameterIsList = metadata.isList();
@@ -1075,7 +1078,7 @@ public class CliProcessor extends RapierProcessorBase {
       for (OptionParameterKey opk : optionRepresentationsByParameter.keySet()) {
         final Character optionShortName = opk.getShortName().orElse(null);
         final String optionLongName = opk.getLongName().orElse(null);
-        final BindingMetadata metadata =
+        final OptionParameterMetadata metadata =
             optionMetadataService.getOptionParameterMetadata(optionShortName, optionLongName);
         final boolean parameterIsRequired = metadata.isRequired();
         final boolean parameterIsList = metadata.isList();
@@ -1090,7 +1093,7 @@ public class CliProcessor extends RapierProcessorBase {
         final String flagPositiveLongName = fpk.getPositiveLongName().orElse(null);
         final Character flagNegativeShortName = fpk.getNegativeShortName().orElse(null);
         final String flagNegativeLongName = fpk.getNegativeLongName().orElse(null);
-        final BindingMetadata metadata =
+        final FlagParameterMetadata metadata =
             flagMetadataService.getFlagParameterMetadata(flagPositiveShortName,
                 flagPositiveLongName, flagNegativeShortName, flagNegativeLongName);
         final boolean parameterIsRequired = metadata.isRequired();
@@ -1169,7 +1172,7 @@ public class CliProcessor extends RapierProcessorBase {
       for (Map.Entry<PositionalParameterKey, ? extends Collection<PositionalRepresentationKey>> e : positionalRepresentationsByParameter
           .entrySet()) {
         final PositionalParameterKey parameter = e.getKey();
-        final BindingMetadata metadata =
+        final PositionalParameterMetadata metadata =
             positionalMetadataService.getPositionalParameterMetadata(parameter.getPosition());
         final Collection<PositionalRepresentationKey> representations = e.getValue();
         final int position = parameter.getPosition();
@@ -1189,7 +1192,7 @@ public class CliProcessor extends RapierProcessorBase {
         final OptionParameterKey parameter = e.getKey();
         final Character optionShortName = parameter.getShortName().orElse(null);
         final String optionLongName = parameter.getLongName().orElse(null);
-        final BindingMetadata metadata =
+        final OptionParameterMetadata metadata =
             optionMetadataService.getOptionParameterMetadata(optionShortName, optionLongName);
         final Collection<OptionRepresentationKey> representations = e.getValue();
         final boolean parameterIsRequired = metadata.isRequired();
@@ -1210,7 +1213,7 @@ public class CliProcessor extends RapierProcessorBase {
         final String flagPositiveLongName = parameter.getPositiveLongName().orElse(null);
         final Character flagNegativeShortName = parameter.getNegativeShortName().orElse(null);
         final String flagNegativeLongName = parameter.getNegativeLongName().orElse(null);
-        final BindingMetadata metadata =
+        final FlagParameterMetadata metadata =
             flagMetadataService.getFlagParameterMetadata(flagPositiveShortName,
                 flagPositiveLongName, flagNegativeShortName, flagNegativeLongName);
         final Collection<FlagRepresentationKey> representations = e.getValue();
@@ -2317,12 +2320,12 @@ public class CliProcessor extends RapierProcessorBase {
       final FlagParameterMetadataService flagMetadataService0 = flagMetadataService;
       flagMetadataService = new FlagParameterMetadataService() {
         @Override
-        public BindingMetadata getFlagParameterMetadata(Character shortPositiveName,
+        public FlagParameterMetadata getFlagParameterMetadata(Character shortPositiveName,
             String positiveLongName, Character negativeShortName, String negativeLongName) {
           final FlagParameterKey key = new FlagParameterKey(shortPositiveName, positiveLongName,
               negativeShortName, negativeLongName);
           if (key.equals(standardHelpFlagParameterKey))
-            return new BindingMetadata(false, false, "help", "Print this help message and exit");
+            return new FlagParameterMetadata(false, false, "Print this help message and exit");
           return flagMetadataService0.getFlagParameterMetadata(shortPositiveName, positiveLongName,
               negativeShortName, negativeLongName);
         }
@@ -2335,12 +2338,12 @@ public class CliProcessor extends RapierProcessorBase {
       final FlagParameterMetadataService flagMetadataService0 = flagMetadataService;
       flagMetadataService = new FlagParameterMetadataService() {
         @Override
-        public BindingMetadata getFlagParameterMetadata(Character shortPositiveName,
+        public FlagParameterMetadata getFlagParameterMetadata(Character shortPositiveName,
             String positiveLongName, Character negativeShortName, String negativeLongName) {
           final FlagParameterKey key = new FlagParameterKey(shortPositiveName, positiveLongName,
               negativeShortName, negativeLongName);
           if (key.equals(standardHelpFlagParameterKey))
-            return new BindingMetadata(false, false, "version", "Print a version message and exit");
+            return new FlagParameterMetadata(false, false, "Print a version message and exit");
           return flagMetadataService0.getFlagParameterMetadata(shortPositiveName, positiveLongName,
               negativeShortName, negativeLongName);
         }
@@ -2407,7 +2410,7 @@ public class CliProcessor extends RapierProcessorBase {
           Math.max(HELP_MESSAGE_MAX_WIDTH - maxNameLength - lineIndentLength - borderWidth, 20);
 
       for (PositionalParameterKey parameter : positionalParameters) {
-        final BindingMetadata metadata =
+        final PositionalParameterMetadata metadata =
             positionalMetadataService.getPositionalParameterMetadata(parameter.getPosition());
         final String name = metadata.getHelpName().orElse("PARAMETER");
         final String description = metadata.getHelpDescription().orElse("");
@@ -2452,7 +2455,7 @@ public class CliProcessor extends RapierProcessorBase {
           Math.max(HELP_MESSAGE_MAX_WIDTH - maxNameLength - lineIndentLength - borderWidth, 20);
 
       for (OptionParameterKey parameter : optionParameters) {
-        final BindingMetadata metadata = optionMetadataService.getOptionParameterMetadata(
+        final OptionParameterMetadata metadata = optionMetadataService.getOptionParameterMetadata(
             parameter.getShortName().orElse(null), parameter.getLongName().orElse(null));
         final String name = optionParameterUserFacingString(parameter.getShortName().orElse(null),
             parameter.getLongName().orElse(null));
@@ -2499,7 +2502,7 @@ public class CliProcessor extends RapierProcessorBase {
           Math.max(HELP_MESSAGE_MAX_WIDTH - maxNameLength - lineIndentLength - borderWidth, 20);
 
       for (FlagParameterKey parameter : flagParameters) {
-        final BindingMetadata metadata = flagMetadataService.getFlagParameterMetadata(
+        final FlagParameterMetadata metadata = flagMetadataService.getFlagParameterMetadata(
             parameter.getPositiveShortName().orElse(null),
             parameter.getPositiveLongName().orElse(null),
             parameter.getNegativeShortName().orElse(null),

@@ -19,9 +19,9 @@
  */
 package rapier.cli.compiler;
 
-import rapier.cli.compiler.model.BindingMetadata;
+import rapier.cli.compiler.model.FlagParameterMetadata;
 
 public interface FlagParameterMetadataService {
-  public BindingMetadata getFlagParameterMetadata(Character shortPositiveName,
+  public FlagParameterMetadata getFlagParameterMetadata(Character shortPositiveName,
       String positiveLongName, Character negativeShortName, String negativeLongName);
 }

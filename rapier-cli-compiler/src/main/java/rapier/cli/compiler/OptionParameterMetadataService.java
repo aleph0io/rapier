@@ -19,8 +19,8 @@
  */
 package rapier.cli.compiler;
 
-import rapier.cli.compiler.model.BindingMetadata;
+import rapier.cli.compiler.model.OptionParameterMetadata;
 
 public interface OptionParameterMetadataService {
-  public BindingMetadata getOptionParameterMetadata(Character shortName, String longName);
+  public OptionParameterMetadata getOptionParameterMetadata(Character shortName, String longName);
 }
