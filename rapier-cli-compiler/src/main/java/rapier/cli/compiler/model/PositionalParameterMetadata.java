@@ -19,6 +19,7 @@
  */
 package rapier.cli.compiler.model;
 
+import static java.util.Objects.requireNonNull;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -41,10 +42,11 @@ public class PositionalParameterMetadata {
    */
   private final String helpDescription;
 
-  public PositionalParameterMetadata(boolean required, boolean list, String helpName, String helpDescription) {
+  public PositionalParameterMetadata(boolean required, boolean list, String helpName,
+      String helpDescription) {
     this.required = required;
     this.list = list;
-    this.helpName = helpName;
+    this.helpName = requireNonNull(helpName);
     this.helpDescription = helpDescription;
   }
 
@@ -56,8 +58,8 @@ public class PositionalParameterMetadata {
     return list;
   }
 
-  public Optional<String> getHelpName() {
-    return Optional.ofNullable(helpName);
+  public String getHelpName() {
+    return helpName;
   }
 
   public Optional<String> getHelpDescription() {

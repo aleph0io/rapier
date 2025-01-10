@@ -67,17 +67,17 @@ import rapier.cli.CliFlagParameter;
 import rapier.cli.CliOptionParameter;
 import rapier.cli.CliPositionalParameter;
 import rapier.cli.compiler.model.CommandHelpMetadata;
-import rapier.cli.compiler.model.FlagParameterMetadata;
 import rapier.cli.compiler.model.FlagParameterHelp;
 import rapier.cli.compiler.model.FlagParameterKey;
+import rapier.cli.compiler.model.FlagParameterMetadata;
 import rapier.cli.compiler.model.FlagRepresentationKey;
-import rapier.cli.compiler.model.OptionParameterMetadata;
 import rapier.cli.compiler.model.OptionParameterHelp;
 import rapier.cli.compiler.model.OptionParameterKey;
+import rapier.cli.compiler.model.OptionParameterMetadata;
 import rapier.cli.compiler.model.OptionRepresentationKey;
-import rapier.cli.compiler.model.PositionalParameterMetadata;
 import rapier.cli.compiler.model.PositionalParameterHelp;
 import rapier.cli.compiler.model.PositionalParameterKey;
+import rapier.cli.compiler.model.PositionalParameterMetadata;
 import rapier.cli.compiler.model.PositionalRepresentationKey;
 import rapier.cli.compiler.thirdparty.com.sigpwned.just.args.JustArgs;
 import rapier.cli.compiler.util.CliProcessing;
@@ -1848,7 +1848,7 @@ public class CliProcessor extends RapierProcessorBase {
 
   private String optionParameterUserFacingString(Character shortName, String longName) {
     if (shortName != null && longName != null) {
-      return "-" + shortName + ", --" + longName;
+      return "-" + shortName + " / --" + longName;
     }
     if (shortName != null) {
       return "-" + shortName;
@@ -2269,7 +2269,7 @@ public class CliProcessor extends RapierProcessorBase {
     if (parts.isEmpty())
       throw new IllegalArgumentException(
           "positiveShortName, positiveLongName, negativeShortName, negativeLongName cannot all be null");
-    return String.join(", ", parts);
+    return String.join(" / ", parts);
   }
 
   private String flagParameterSignature(Character positiveShortName, String positiveLongName,
@@ -2360,7 +2360,7 @@ public class CliProcessor extends RapierProcessorBase {
             .map(p -> Map.entry(p,
                 positionalMetadataService.getPositionalParameterMetadata(p.getPosition())))
             .map(e -> {
-              final String name = e.getValue().getHelpName().orElse("PARAMETER");
+              final String name = e.getValue().getHelpName();
               final boolean parameterIsRequired = e.getValue().isRequired();
               final boolean parameterIsList = e.getValue().isList();
               if (parameterIsRequired) {
@@ -2401,7 +2401,7 @@ public class CliProcessor extends RapierProcessorBase {
 
       final int maxNameLength = positionalParameters.stream()
           .map(p -> positionalMetadataService.getPositionalParameterMetadata(p.getPosition()))
-          .map(m -> m.getHelpName().orElse("PARAMETER")).mapToInt(String::length).max()
+          .map(PositionalParameterMetadata::getHelpName).mapToInt(String::length).max()
           .orElseThrow();
 
       final int lineIndentLength = 2;
@@ -2412,7 +2412,7 @@ public class CliProcessor extends RapierProcessorBase {
       for (PositionalParameterKey parameter : positionalParameters) {
         final PositionalParameterMetadata metadata =
             positionalMetadataService.getPositionalParameterMetadata(parameter.getPosition());
-        final String name = metadata.getHelpName().orElse("PARAMETER");
+        final String name = metadata.getHelpName();
         final String description = metadata.getHelpDescription().orElse("");
         final List<String> descriptionLines = wordwrap(description, descriptionWidth);
         // @formatter:off
@@ -2457,7 +2457,7 @@ public class CliProcessor extends RapierProcessorBase {
       for (OptionParameterKey parameter : optionParameters) {
         final OptionParameterMetadata metadata = optionMetadataService.getOptionParameterMetadata(
             parameter.getShortName().orElse(null), parameter.getLongName().orElse(null));
-        final String name = optionParameterUserFacingString(parameter.getShortName().orElse(null),
+        final String name = optionParameterHelpFacingString(parameter.getShortName().orElse(null),
             parameter.getLongName().orElse(null));
         final String description = metadata.getHelpDescription().orElse("");
         final List<String> descriptionLines = wordwrap(description, descriptionWidth);
@@ -2541,6 +2541,16 @@ public class CliProcessor extends RapierProcessorBase {
     out.println("            \"\");");
     out.println("    }");
     out.println();
+  }
+
+  private static String optionParameterHelpFacingString(Character shortName, String longName) {
+    if (shortName == null && longName == null)
+      throw new IllegalArgumentException("shortName and longName cannot both be null");
+    if (shortName != null && longName != null)
+      return "-" + shortName + ", --" + longName;
+    if (shortName != null)
+      return "-" + shortName;
+    return "--" + longName;
   }
 
   private static List<String> flagParameterHelpFacingStrings(Character positiveShortName,

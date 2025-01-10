@@ -92,9 +92,9 @@ public class CliProcessorTest extends RapierTestBase {
             import java.util.Optional;
             import javax.annotation.Nullable;
             import rapier.cli.CliSyntaxException;
-            import rapier.cli.FlagCliParameter;
-            import rapier.cli.OptionCliParameter;
-            import rapier.cli.PositionalCliParameter;
+            import rapier.cli.CliFlagParameter;
+            import rapier.cli.CliOptionParameter;
+            import rapier.cli.CliPositionalParameter;
             import rapier.cli.compiler.thirdparty.com.sigpwned.just.args.JustArgs;
 
             @Module
@@ -184,7 +184,7 @@ public class CliProcessorTest extends RapierTestBase {
                             this.optionda97be1 = optionda97be1.get(optionda97be1.size()-1);
                         } else {
                             throw new CliSyntaxException(
-                                "Missing required option parameter -a, --alpha");
+                                "Missing required option parameter -a / --alpha");
                         }
 
 
@@ -194,7 +194,7 @@ public class CliProcessorTest extends RapierTestBase {
                             this.flag59dcb7a = flag59dcb7a.get(flag59dcb7a.size()-1);
                         } else {
                             throw new CliSyntaxException(
-                                "Missing required flag parameter -b, --bravo, -B, --no-bravo");
+                                "Missing required flag parameter -b / --bravo / -B / --no-bravo");
                         }
 
                         // Check for standard help
@@ -231,31 +231,31 @@ public class CliProcessorTest extends RapierTestBase {
                 }
 
                 @Provides
-                @PositionalCliParameter(0)
-                public java.lang.Integer providePositional0AsInteger(@PositionalCliParameter(0) String value) {
+                @CliPositionalParameter(0)
+                public java.lang.Integer providePositional0AsInteger(@CliPositionalParameter(0) String value) {
                     return java.lang.Integer.valueOf(value);
                 }
 
                 @Provides
-                @PositionalCliParameter(0)
+                @CliPositionalParameter(0)
                 public String providePositional0AsString() {
                     return positional0;
                 }
 
                 @Provides
-                @OptionCliParameter(shortName='a', longName="alpha")
-                public java.lang.Long provideOptionda97be1AsLong(@OptionCliParameter(shortName='a', longName="alpha") String value) {
+                @CliOptionParameter(shortName='a', longName="alpha")
+                public java.lang.Long provideOptionda97be1AsLong(@CliOptionParameter(shortName='a', longName="alpha") String value) {
                     return java.lang.Long.valueOf(value);
                 }
 
                 @Provides
-                @OptionCliParameter(shortName='a', longName="alpha")
+                @CliOptionParameter(shortName='a', longName="alpha")
                 public String provideOptionda97be1AsString() {
                     return optionda97be1;
                 }
 
                 @Provides
-                @FlagCliParameter(positiveShortName='b', positiveLongName="bravo", negativeShortName='B', negativeLongName="no-bravo")
+                @CliFlagParameter(positiveShortName='b', positiveLongName="bravo", negativeShortName='B', negativeLongName="no-bravo")
                 public Boolean provideFlag59dcb7aAsBoolean() {
                     return flag59dcb7a;
                 }
@@ -270,7 +270,7 @@ public class CliProcessorTest extends RapierTestBase {
                         "  zulu    The first zulu parameter",
                         "",
                         "Option parameters:",
-                        "  -a, --alpha    The value to use for alpha",
+                        "  -a, --alpha     The value to use for alpha",
                         "",
                         "Flag parameters:",
                         "  -b, --bravo       Whether or not to bravo",
