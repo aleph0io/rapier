@@ -1573,7 +1573,7 @@ public class CliProcessor extends RapierProcessorBase {
       final String parameterSignature =
           optionParameterSignature(shortName, parameter.getLongName().orElse(null));
       out.println(
-          "        optionShortNames.put(\'" + shortName + "\', \"" + parameterSignature + "\");");
+          "        optionShortNames.put(\'" + shortName + "\', \"rapier.option." + parameterSignature + "\");");
     }
     for (OptionParameterKey parameter : parameters) {
       final String longName = parameter.getLongName().orElse(null);
@@ -1582,7 +1582,7 @@ public class CliProcessor extends RapierProcessorBase {
       final String parameterSignature =
           optionParameterSignature(parameter.getShortName().orElse(null), longName);
       out.println(
-          "        optionLongNames.put(\"" + longName + "\", \"" + parameterSignature + "\");");
+          "        optionLongNames.put(\"" + longName + "\", \"rapier.option." + parameterSignature + "\");");
     }
     out.println();
   }
@@ -1603,8 +1603,8 @@ public class CliProcessor extends RapierProcessorBase {
     final String signature = optionParameterSignature(shortName, longName);
     final String userFacingString = optionParameterUserFacingString(shortName, longName);
 
-    out.println("            if(parsed.getOptions().containsKey(\"" + signature + "\")) {");
-    out.println("                List<String> " + fieldName + " = parsed.getOptions().get(\""
+    out.println("            if(parsed.getOptions().containsKey(\"rapier.option." + signature + "\")) {");
+    out.println("                List<String> " + fieldName + " = parsed.getOptions().get(\"rapier.option."
         + signature + "\");");
     if (parameterIsList) {
       out.println("                this." + fieldName + " = unmodifiableList(" + fieldName + "));");
@@ -1928,7 +1928,7 @@ public class CliProcessor extends RapierProcessorBase {
           flagParameterSignature(positiveShortName, parameter.getPositiveLongName().orElse(null),
               parameter.getNegativeShortName().orElse(null),
               parameter.getNegativeLongName().orElse(null));
-      out.println("        flagPositiveShortNames.put(\'" + positiveShortName + "\', \""
+      out.println("        flagPositiveShortNames.put(\'" + positiveShortName + "\', \"rapier.flag."
           + parameterSignature + "\");");
     }
     for (FlagParameterKey parameter : set) {
@@ -1939,7 +1939,7 @@ public class CliProcessor extends RapierProcessorBase {
           flagParameterSignature(parameter.getPositiveShortName().orElse(null), positiveLongName,
               parameter.getNegativeShortName().orElse(null),
               parameter.getNegativeLongName().orElse(null));
-      out.println("        flagPositiveLongNames.put(\"" + positiveLongName + "\", \""
+      out.println("        flagPositiveLongNames.put(\"" + positiveLongName + "\", \"rapier.flag."
           + parameterSignature + "\");");
     }
     for (FlagParameterKey parameter : set) {
@@ -1950,7 +1950,7 @@ public class CliProcessor extends RapierProcessorBase {
           flagParameterSignature(parameter.getPositiveShortName().orElse(null),
               parameter.getPositiveLongName().orElse(null), negativeShortName,
               parameter.getNegativeLongName().orElse(null));
-      out.println("        flagNegativeShortNames.put(\'" + negativeShortName + "\', \""
+      out.println("        flagNegativeShortNames.put(\'" + negativeShortName + "\', \"rapier.flag."
           + parameterSignature + "\");");
     }
     for (FlagParameterKey parameter : set) {
@@ -1961,7 +1961,7 @@ public class CliProcessor extends RapierProcessorBase {
           flagParameterSignature(parameter.getPositiveShortName().orElse(null),
               parameter.getPositiveLongName().orElse(null),
               parameter.getNegativeShortName().orElse(null), negativeLongName);
-      out.println("        flagNegativeLongNames.put(\"" + negativeLongName + "\", \""
+      out.println("        flagNegativeLongNames.put(\"" + negativeLongName + "\", \"rapier.flag."
           + parameterSignature + "\");");
     }
     out.println();
@@ -1989,8 +1989,8 @@ public class CliProcessor extends RapierProcessorBase {
     final String userFacingString = flagParameterUserFacingString(positiveShortName,
         positiveLongName, negativeShortName, negativeLongName);
 
-    out.println("            if(parsed.getFlags().containsKey(\"" + signature + "\")) {");
-    out.println("                List<Boolean> " + fieldName + " = parsed.getFlags().get(\""
+    out.println("            if(parsed.getFlags().containsKey(\"rapier.flag." + signature + "\")) {");
+    out.println("                List<Boolean> " + fieldName + " = parsed.getFlags().get(\"rapier.flag."
         + signature + "\");");
     if (parameterIsList) {
       out.println("                this." + fieldName + " = unmodifiableList(" + fieldName + "));");

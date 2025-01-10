@@ -129,8 +129,8 @@ public class CliProcessorTest extends RapierTestBase {
                     // Generate the maps for option short names and long names
                     final Map<Character, String> optionShortNames = new HashMap<>();
                     final Map<String, String> optionLongNames = new HashMap<>();
-                    optionShortNames.put('a', "da97be1");
-                    optionLongNames.put("alpha", "da97be1");
+                    optionShortNames.put('a', "rapier.option.da97be1");
+                    optionLongNames.put("alpha", "rapier.option.da97be1");
 
 
                     // Generate the maps for flag short names and long names
@@ -138,10 +138,10 @@ public class CliProcessorTest extends RapierTestBase {
                     final Map<String, String> flagPositiveLongNames = new HashMap<>();
                     final Map<Character, String> flagNegativeShortNames = new HashMap<>();
                     final Map<String, String> flagNegativeLongNames = new HashMap<>();
-                    flagPositiveShortNames.put('b', "59dcb7a");
-                    flagPositiveLongNames.put("bravo", "59dcb7a");
-                    flagNegativeShortNames.put('B', "59dcb7a");
-                    flagNegativeLongNames.put("no-bravo", "59dcb7a");
+                    flagPositiveShortNames.put('b', "rapier.flag.59dcb7a");
+                    flagPositiveLongNames.put("bravo", "rapier.flag.59dcb7a");
+                    flagNegativeShortNames.put('B', "rapier.flag.59dcb7a");
+                    flagNegativeLongNames.put("no-bravo", "rapier.flag.59dcb7a");
 
                     // Add the standard help flags
                     flagPositiveShortNames.put('h', "rapier.standard.help");
@@ -173,8 +173,8 @@ public class CliProcessorTest extends RapierTestBase {
 
 
                         // Initialize option parameters
-                        if(parsed.getOptions().containsKey("da97be1")) {
-                            List<String> optionda97be1 = parsed.getOptions().get("da97be1");
+                        if(parsed.getOptions().containsKey("rapier.option.da97be1")) {
+                            List<String> optionda97be1 = parsed.getOptions().get("rapier.option.da97be1");
                             this.optionda97be1 = optionda97be1.get(optionda97be1.size()-1);
                         } else {
                             throw new CliSyntaxException(
@@ -183,8 +183,8 @@ public class CliProcessorTest extends RapierTestBase {
 
 
                         // Initialize flag parameters
-                        if(parsed.getFlags().containsKey("59dcb7a")) {
-                            List<Boolean> flag59dcb7a = parsed.getFlags().get("59dcb7a");
+                        if(parsed.getFlags().containsKey("rapier.flag.59dcb7a")) {
+                            List<Boolean> flag59dcb7a = parsed.getFlags().get("rapier.flag.59dcb7a");
                             this.flag59dcb7a = flag59dcb7a.get(flag59dcb7a.size()-1);
                         } else {
                             throw new CliSyntaxException(
