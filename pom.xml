@@ -25,7 +25,6 @@
         <connection>scm:git:ssh://git@github.com/sigpwned/rapier.git</connection>
         <developerConnection>scm:git:ssh://git@github.com/sigpwned/rapier.git</developerConnection>
         <url>https://github.com/sigpwned/rapier/tree/main</url>
-        <tag>v70.1.0</tag>
     </scm>
 
     <licenses>
@@ -263,6 +262,8 @@
         <module>rapier-core</module>
         <module>rapier-environment-variable</module>
         <module>rapier-environment-variable-compiler</module>
+        <module>rapier-system-property</module>
+        <module>rapier-system-property-compiler</module>
         <module>rapier-cli</module>
         <module>rapier-cli-compiler</module>
         <module>rapier-processor-system-property</module>
