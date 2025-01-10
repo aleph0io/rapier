@@ -63,10 +63,12 @@ import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 import dagger.Component;
+import rapier.cli.CliCommandHelp;
 import rapier.cli.CliFlagParameter;
 import rapier.cli.CliOptionParameter;
 import rapier.cli.CliPositionalParameter;
-import rapier.cli.compiler.model.CommandHelpMetadata;
+import rapier.cli.compiler.model.CommandHelp;
+import rapier.cli.compiler.model.CommandMetadata;
 import rapier.cli.compiler.model.FlagParameterHelp;
 import rapier.cli.compiler.model.FlagParameterKey;
 import rapier.cli.compiler.model.FlagParameterMetadata;
@@ -155,9 +157,13 @@ public class CliProcessor extends RapierProcessorBase {
     final String componentClassName = component.getSimpleName().toString();
     final String moduleClassName = "Rapier" + componentClassName + "CliModule";
 
-    final CommandHelpMetadata commandHelp = component.getAnnotationMirrors().stream()
-        .flatMap(am -> CommandHelpMetadata.fromAnnotationMirror(am).stream()).findFirst()
-        .orElse(null);
+    final CommandHelp commandHelp = component.getAnnotationMirrors().stream()
+        .flatMap(am -> CommandHelp.fromAnnotationMirror(am).stream()).findFirst().orElse(null);
+    final CommandMetadata commandMetadata = Optional.ofNullable(commandHelp)
+        .map(h -> new CommandMetadata(h.getName(), h.getVersion(), h.getDescription().orElse(null),
+            h.isProvideStandardHelp(), h.isProvideStandardVersion()))
+        .orElseGet(
+            () -> new CommandMetadata("command", CliCommandHelp.DEFAULT_VERSION, null, true, true));
 
     System.out.println(new DaggerComponentAnalyzer(getProcessingEnv()).analyzeComponent(component)
         .getInjectionSites());
@@ -206,7 +212,7 @@ public class CliProcessor extends RapierProcessorBase {
     }
 
     final String moduleSource = generateModuleSource(componentPackageName, moduleClassName,
-        commandHelp, positionalInjectionSites, positionalMetadataService, optionInjectionSites,
+        commandMetadata, positionalInjectionSites, positionalMetadataService, optionInjectionSites,
         optionMetadataService, flagInjectionSites, flagMetadataService);
 
     final Path shadeDir = Paths.get("src", "main", "shade");
@@ -268,7 +274,7 @@ public class CliProcessor extends RapierProcessorBase {
 
   private static final Character STANDARD_HELP_SHORT_NAME = 'h';
 
-  private boolean validateStandardHelp(TypeElement component, CommandHelpMetadata commandHelp,
+  private boolean validateStandardHelp(TypeElement component, CommandHelp commandHelp,
       SortedMap<OptionParameterKey, List<DaggerInjectionSite>> optionInjectionSites,
       OptionParameterMetadataService optionMetadataService,
       SortedMap<FlagParameterKey, List<DaggerInjectionSite>> flagInjectionSites,
@@ -333,7 +339,7 @@ public class CliProcessor extends RapierProcessorBase {
 
   private static final Character STANDARD_VERSION_SHORT_NAME = 'v';
 
-  private boolean validateStandardVersion(TypeElement component, CommandHelpMetadata commandHelp,
+  private boolean validateStandardVersion(TypeElement component, CommandHelp commandHelp,
       SortedMap<OptionParameterKey, List<DaggerInjectionSite>> optionInjectionSites,
       OptionParameterMetadataService optionMetadataService,
       SortedMap<FlagParameterKey, List<DaggerInjectionSite>> flagInjectionSites,
@@ -889,7 +895,7 @@ public class CliProcessor extends RapierProcessorBase {
               Comparator.nullsFirst(Comparator.naturalOrder()));
 
   private String generateModuleSource(String packageName, String moduleClassName,
-      CommandHelpMetadata commandHelp,
+      CommandMetadata commandMetadata,
       SortedMap<PositionalParameterKey, List<DaggerInjectionSite>> positionalInjectionSites,
       PositionalParameterMetadataService positionalMetadataService,
       SortedMap<OptionParameterKey, List<DaggerInjectionSite>> optionInjectionSites,
@@ -1035,13 +1041,13 @@ public class CliProcessor extends RapierProcessorBase {
       out.println("        final Map<Character, String> flagNegativeShortNames = new HashMap<>();");
       out.println("        final Map<String, String> flagNegativeLongNames = new HashMap<>();");
       emitFlagParameterInstanceFieldInitPreparation(out, flagRepresentationsByParameter.keySet());
-      if (commandHelp.isProvideStandardHelp()) {
+      if (commandMetadata.isProvideStandardHelp()) {
         out.println("        // Add the standard help flags");
         out.println("        flagPositiveShortNames.put('h', \"rapier.standard.help\");");
         out.println("        flagPositiveLongNames.put(\"help\", \"rapier.standard.help\");");
         out.println();
       }
-      if (commandHelp.isProvideStandardVersion()) {
+      if (commandMetadata.isProvideStandardVersion()) {
         out.println("        // Add the version flag");
         out.println("        flagPositiveShortNames.put('v', \"rapier.standard.version\");");
         out.println("        flagPositiveLongNames.put(\"version\", \"rapier.standard.version\");");
@@ -1102,39 +1108,39 @@ public class CliProcessor extends RapierProcessorBase {
             flagNegativeShortName, flagNegativeLongName, parameterIsRequired, parameterIsList);
       }
 
-      if (commandHelp.isProvideStandardHelp()) {
+      if (commandMetadata.isProvideStandardHelp()) {
         out.println("            // Check for standard help");
         out.println(
             "            final boolean standardHelpRequested = parsed.getFlags().containsKey(\"rapier.standard.help\");");
         out.println();
       }
 
-      if (commandHelp.isProvideStandardVersion()) {
+      if (commandMetadata.isProvideStandardVersion()) {
         out.println("            // Check for standard version");
         out.println(
             "            final boolean standardVersionRequested = parsed.getFlags().containsKey(\"rapier.standard.version\");");
         out.println();
       }
 
-      if (commandHelp.isProvideStandardVersion()) {
+      if (commandMetadata.isProvideStandardVersion()) {
         out.println("            if(standardVersionRequested) {");
         out.println("                System.err.println(standardVersionMessage());");
         out.println("            }");
         out.println();
       }
 
-      if (commandHelp.isProvideStandardHelp()) {
+      if (commandMetadata.isProvideStandardHelp()) {
         out.println("            if(standardHelpRequested) {");
         out.println("                System.err.println(standardHelpMessage());");
         out.println("            }");
         out.println();
       }
 
-      if (commandHelp.isProvideStandardHelp() || commandHelp.isProvideStandardVersion()) {
+      if (commandMetadata.isProvideStandardHelp() || commandMetadata.isProvideStandardVersion()) {
         final List<String> conditions = new ArrayList<>(2);
-        if (commandHelp.isProvideStandardHelp())
+        if (commandMetadata.isProvideStandardHelp())
           conditions.add("standardHelpRequested");
-        if (commandHelp.isProvideStandardVersion())
+        if (commandMetadata.isProvideStandardVersion())
           conditions.add("standardVersionRequested");
         out.println("            if(" + String.join(" || ", conditions) + ") {");
         out.println("                System.exit(0);");
@@ -1144,7 +1150,7 @@ public class CliProcessor extends RapierProcessorBase {
 
       out.println("        }");
       out.println("        catch (JustArgs.IllegalSyntaxException e) {");
-      if (commandHelp.isProvideStandardHelp()) {
+      if (commandMetadata.isProvideStandardHelp()) {
         out.println("            // Standard help is active. Print the help message and exit.");
         out.println("            System.err.println(standardHelpMessage());");
         out.println("            System.exit(1);");
@@ -1155,7 +1161,7 @@ public class CliProcessor extends RapierProcessorBase {
       }
       out.println("        }");
       out.println("        catch(CliSyntaxException e) {");
-      if (commandHelp.isProvideStandardHelp()) {
+      if (commandMetadata.isProvideStandardHelp()) {
         out.println("            // Standard help is active. Print the help message and exit.");
         out.println("            System.err.println(standardHelpMessage());");
         out.println("            System.exit(1);");
@@ -1229,15 +1235,15 @@ public class CliProcessor extends RapierProcessorBase {
       }
 
       // Generate the help message
-      if (commandHelp.isProvideStandardHelp()) {
-        emitStandardHelpMessageMethod(out, commandHelp, positionalRepresentationsByParameter,
+      if (commandMetadata.isProvideStandardHelp()) {
+        emitStandardHelpMessageMethod(out, commandMetadata, positionalRepresentationsByParameter,
             positionalMetadataService, optionRepresentationsByParameter, optionMetadataService,
             flagRepresentationsByParameter, flagMetadataService);
       }
 
       // Generate the version message
-      if (commandHelp.isProvideStandardVersion()) {
-        emitStandardVersionMessageMethod(out, commandHelp);
+      if (commandMetadata.isProvideStandardVersion()) {
+        emitStandardVersionMessageMethod(out, commandMetadata);
       }
 
       out.println("}");
@@ -2293,14 +2299,14 @@ public class CliProcessor extends RapierProcessorBase {
   //////////////////////////////////////////////////////////////////////////////////////////////////
   private static final int HELP_MESSAGE_MAX_WIDTH = 80;
 
-  private void emitStandardHelpMessageMethod(PrintWriter out, CommandHelpMetadata commandHelp,
+  private void emitStandardHelpMessageMethod(PrintWriter out, CommandMetadata commandMetadata,
       SortedMap<PositionalParameterKey, Collection<PositionalRepresentationKey>> positionalRepresentationsByParameter,
       PositionalParameterMetadataService positionalMetadataService,
       SortedMap<OptionParameterKey, Collection<OptionRepresentationKey>> optionRepresentationsByParameter,
       OptionParameterMetadataService optionMetadataService,
       SortedMap<FlagParameterKey, Collection<FlagRepresentationKey>> flagRepresentationsByParameter,
       FlagParameterMetadataService flagMetadataService) {
-    assert commandHelp.isProvideStandardHelp();
+    assert commandMetadata.isProvideStandardHelp();
 
     final SortedSet<PositionalParameterKey> positionalParameters =
         new TreeSet<PositionalParameterKey>(POSITIONAL_PARAMETER_KEY_COMPARATOR);
@@ -2313,7 +2319,7 @@ public class CliProcessor extends RapierProcessorBase {
     final SortedSet<FlagParameterKey> flagParameters =
         new TreeSet<FlagParameterKey>(FLAG_PARAMETER_KEY_COMPARATOR);
     flagParameters.addAll(flagRepresentationsByParameter.keySet());
-    if (commandHelp.isProvideStandardHelp()) {
+    if (commandMetadata.isProvideStandardHelp()) {
       final FlagParameterKey standardHelpFlagParameterKey =
           new FlagParameterKey(STANDARD_HELP_SHORT_NAME, STANDARD_HELP_LONG_NAME, null, null);
       flagParameters.add(standardHelpFlagParameterKey);
@@ -2331,7 +2337,7 @@ public class CliProcessor extends RapierProcessorBase {
         }
       };
     }
-    if (commandHelp.isProvideStandardVersion()) {
+    if (commandMetadata.isProvideStandardVersion()) {
       final FlagParameterKey standardHelpFlagParameterKey =
           new FlagParameterKey(STANDARD_VERSION_SHORT_NAME, STANDARD_VERSION_LONG_NAME, null, null);
       flagParameters.add(standardHelpFlagParameterKey);
@@ -2353,7 +2359,7 @@ public class CliProcessor extends RapierProcessorBase {
     out.println("    public String standardHelpMessage() {");
     out.println("        return String.join(\"\\n\", ");
 
-    final String commandName = commandHelp.getName();
+    final String commandName = commandMetadata.getName();
     final List<String> positionalNames =
         positionalRepresentationsByParameter.keySet().stream()
             .sorted(Comparator.comparingInt(PositionalParameterKey::getPosition))
@@ -2389,8 +2395,8 @@ public class CliProcessor extends RapierProcessorBase {
     // @formatter:off
     out.println("            \"Usage: " + commandName + " " + optionsAndFlags + String.join(" ", positionalNames) + "\",");
     out.println("            \"\",");
-    if (commandHelp.getDescription().isPresent()) {
-      for(String line : wordwrap("Description: " + commandHelp.getDescription().orElseThrow(), HELP_MESSAGE_MAX_WIDTH))
+    if (commandMetadata.getDescription().isPresent()) {
+      for(String line : wordwrap("Description: " + commandMetadata.getDescription().orElseThrow(), HELP_MESSAGE_MAX_WIDTH))
         out.println("            \"" + Java.escapeString(line) + "\",");
       out.println("            \"\",");
     }
@@ -2663,10 +2669,10 @@ public class CliProcessor extends RapierProcessorBase {
   //////////////////////////////////////////////////////////////////////////////////////////////////
   // VERSION MESSAGE ///////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////////////////////////
-  private void emitStandardVersionMessageMethod(PrintWriter out, CommandHelpMetadata commandHelp) {
-    assert commandHelp.isProvideStandardVersion();
+  private void emitStandardVersionMessageMethod(PrintWriter out, CommandMetadata metadata) {
+    assert metadata.isProvideStandardVersion();
 
-    final String versionString = commandHelp.getName() + " version " + commandHelp.getVersion();
+    final String versionString = metadata.getName() + " version " + metadata.getVersion();
 
     out.println("    public String standardVersionMessage() {");
     out.println("        return \"" + Java.escapeString(versionString) + "\";");

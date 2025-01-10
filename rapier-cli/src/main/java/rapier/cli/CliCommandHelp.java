@@ -27,15 +27,17 @@ import java.lang.annotation.Target;
 @Retention(RetentionPolicy.CLASS)
 @Target({ElementType.TYPE})
 public @interface CliCommandHelp {
+  public static final String DEFAULT_VERSION = "0.0.0";
+
   /**
    * The name used in the help message.
    */
   public String name();
-  
+
   /**
    * The version used in the help message.
    */
-  public String version() default "0.0.0";
+  public String version() default DEFAULT_VERSION;
 
   /**
    * Print a standard help message and exit with a nonzero exit code on syntax errors or in response

@@ -27,8 +27,8 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.util.SimpleAnnotationValueVisitor8;
 import rapier.cli.CliCommandHelp;
 
-public class CommandHelpMetadata {
-  public static Optional<CommandHelpMetadata> fromAnnotationMirror(AnnotationMirror annotation) {
+public class CommandHelp {
+  public static Optional<CommandHelp> fromAnnotationMirror(AnnotationMirror annotation) {
     if (annotation == null)
       throw new NullPointerException();
 
@@ -41,7 +41,7 @@ public class CommandHelpMetadata {
     final Boolean provideStandardHelp = extractProvideStandardHelp(annotation);
     final Boolean provideStandardVersion = extractProvideStandardVersion(annotation);
 
-    return Optional.of(new CommandHelpMetadata(name, version, description, provideStandardHelp,
+    return Optional.of(new CommandHelp(name, version, description, provideStandardHelp,
         provideStandardVersion));
   }
 
@@ -55,7 +55,7 @@ public class CommandHelpMetadata {
 
   private final boolean provideStandardVersion;
 
-  public CommandHelpMetadata(String name, String version, String description,
+  public CommandHelp(String name, String version, String description,
       Boolean provideStandardHelp, Boolean provideStandardVersion) {
     this.name = requireNonNull(name);
     this.version = requireNonNull(version);
@@ -86,7 +86,7 @@ public class CommandHelpMetadata {
 
   @Override
   public String toString() {
-    return "CommandHelpMetadata [name=" + name + ", version=" + version + ", description="
+    return "CommandHelp [name=" + name + ", version=" + version + ", description="
         + description + ", provideStandardHelp=" + provideStandardHelp + ", provideStandardVersion="
         + provideStandardVersion + "]";
   }
@@ -104,7 +104,7 @@ public class CommandHelpMetadata {
       return false;
     if (getClass() != obj.getClass())
       return false;
-    CommandHelpMetadata other = (CommandHelpMetadata) obj;
+    CommandHelp other = (CommandHelp) obj;
     return Objects.equals(description, other.description) && Objects.equals(name, other.name)
         && provideStandardHelp == other.provideStandardHelp
         && provideStandardVersion == other.provideStandardVersion
