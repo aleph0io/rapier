@@ -43,7 +43,13 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.ssm.SsmClient;
 import software.amazon.awssdk.services.ssm.model.DescribeParametersResponse;
 
-public class AwsSsmProcessorTest extends RapierTestBase {
+/**
+ * These tests run against LocalStack using a live AWS Java SDK v2. This requires using the JVM's
+ * classpath to handle importing the whole AWS Java SDK v2 and all its transitive dependencies. This
+ * is an important set of tests, but less controlled than we'd like. We have a separate set of tests
+ * that uses a more controlled set of imports with mocks in another test class.
+ */
+public class AwsSsmProcessorLocalStackTest extends RapierTestBase {
   private static final DockerImageName LOCALSTACK_IMAGE =
       DockerImageName.parse("localstack/localstack:3.5.0");
   private static LocalStackContainer localstack;
@@ -310,30 +316,36 @@ public class AwsSsmProcessorTest extends RapierTestBase {
 
     assertEquals("null", output);
   }
-  //
-  // @Override
-  // protected ClassLoader getRunParentClassLoader() {
-  // // The AWS SDK requires a ton of transitive dependencies. To avoid building that classpath
-  // // ourselves, which is error-prone and brittle, we'll just use the current thread's context
-  // // ClassLoader for our LocalStack tests. For unit tests, we'll do something a little more
-  // // carefully controlled.
-  // return Thread.currentThread().getContextClassLoader();
-  // }
+
 
   @Override
   protected List<File> getCompileClasspath() throws FileNotFoundException {
+    // Obviously we want to include whatever our parent class thinks we should include
     final List<File> superClasspathFiles = super.getCompileClasspath();
 
+    // However, the classpath for the AWS Java SDK v2 is truly gnarly with transitive dependencies.
+    // Rather than try to rebuild that classpath from scratch here, which would be both error-prone
+    // and fragile, we will simply include the classpath of the JVM that is running this test.
+    // It has to have the AWS Java SDK v2 on its classpath, or the test would not be running at all.
+    // This is a bit of a hack, but it should Just Work. We're not trying to test the AWS SDK here,
+    // just our own code that uses it. We'll do something a little more controlled with unit tests
+    // and mocks in a separate set of tests.
     final String jvmClasspathString = System.getProperty("java.class.path");
     final List<File> jvmClasspathFiles = new ArrayList<>();
     for (String element : jvmClasspathString.split(Pattern.quote(File.pathSeparator)))
       jvmClasspathFiles.add(new File(element));
 
     final Set<String> result = new LinkedHashSet<>();
+    
+    // Include our parent class's classpath
     for (File file : superClasspathFiles)
       result.add(file.toPath().normalize().toAbsolutePath().toString());
+    
+    // Add our sister project's classes
     result.add(resolveProjectFile("../rapier-aws-ssm/target/classes").toPath().normalize()
         .toAbsolutePath().toString());
+    
+    // Add the JVM classpath
     for (File file : jvmClasspathFiles)
       result.add(file.toPath().normalize().toAbsolutePath().toString());
 
