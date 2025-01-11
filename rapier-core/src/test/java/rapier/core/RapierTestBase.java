@@ -57,8 +57,6 @@ import rapier.core.util.Maven;
  */
 public abstract class RapierTestBase {
   public Compilation doCompile(JavaFileObject... source) throws IOException {
-    System.out.println(getCompileClasspath());
-    System.out.println(getAnnotationProcessors());
     return Compiler.javac().withClasspath(getCompileClasspath())
         .withProcessors(getAnnotationProcessors()).compile(source);
   }
