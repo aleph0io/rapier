@@ -46,8 +46,9 @@ import software.amazon.awssdk.services.ssm.model.DescribeParametersResponse;
 /**
  * These tests run against LocalStack using a live AWS Java SDK v2. This requires using the JVM's
  * classpath to handle importing the whole AWS Java SDK v2 and all its transitive dependencies. This
- * is an important set of tests, but less controlled than we'd like. We have a separate set of tests
- * that uses a more controlled set of imports with mocks in another test class.
+ * is an important set of tests, but less controlled than we'd like. We have
+ * {@link AwsSsmProcessorUnitTest a separate set of tests} that uses a more controlled set of
+ * imports with mocks in another test class.
  */
 public class AwsSsmProcessorLocalStackTest extends RapierTestBase {
   private static final DockerImageName LOCALSTACK_IMAGE =
@@ -314,11 +315,11 @@ public class AwsSsmProcessorLocalStackTest extends RapierTestBase {
         .replace("%ACCESS_KEY%", localstack.getAccessKey())
         .replace("%SECRET_KEY%", localstack.getSecretKey())
         .replace("%REGION%", localstack.getRegion()));
-    
+
     final Compilation compilation = doCompile(componentSource, appSource);
-    
+
     assertThat(compilation).succeeded();
-    
+
     final String output = doRun(compilation).trim();
 
     assertEquals("null", output);

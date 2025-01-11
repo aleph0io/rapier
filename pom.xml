@@ -58,6 +58,7 @@
         <javax.inject.version>1</javax.inject.version>
         <jakarta.inject-api.version>2.0.1</jakarta.inject-api.version>
         <jsr305.version>3.0.2</jsr305.version>
+        <awssdk.version>2.29.43</awssdk.version>
     </properties>
 
     <build>
@@ -90,6 +91,7 @@
                             <maven.javax.inject.version>${javax.inject.version}</maven.javax.inject.version>
                             <maven.jakarta.inject-api.version>${jakarta.inject-api.version}</maven.jakarta.inject-api.version>
                             <maven.jsr305.version>${jsr305.version}</maven.jsr305.version>
+                            <maven.awssdk.version>${awssdk.version}</maven.awssdk.version>
                             <maven.project.basedir>${project.basedir}</maven.project.basedir>
                         </systemPropertyVariables>
                     </configuration>
@@ -206,7 +208,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.29.43</version>
+                <version>${awssdk.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
