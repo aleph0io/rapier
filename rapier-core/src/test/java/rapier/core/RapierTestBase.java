@@ -81,8 +81,8 @@ public abstract class RapierTestBase {
       throw new IllegalArgumentException("Multiple main methods found");
     final JavaFileObject main = mains.get(0);
 
-    try (URLClassLoader classLoader = new URLClassLoader(classpathAsUrls.toArray(URL[]::new),
-        ClassLoader.getPlatformClassLoader())) {
+    try (URLClassLoader classLoader =
+        new URLClassLoader(classpathAsUrls.toArray(URL[]::new), getRunParentClassLoader())) {
 
       final Class<?> mainClass = classLoader.loadClass(toQualifiedClassName(main));
 
@@ -211,7 +211,7 @@ public abstract class RapierTestBase {
 
   protected List<File> getRunClasspath(Compilation compilation) throws IOException {
     List<File> result = new ArrayList<>();
-    
+
     // We need everything on the compile classpath
     result.addAll(getCompileClasspath());
 
@@ -238,13 +238,21 @@ public abstract class RapierTestBase {
         }
       }
     }
-    
+
     // We also want the compiled classes to actually run the application
     final File tmpdirAsFile = tmpdir.toFile();
     result.add(tmpdirAsFile);
     tmpdirAsFile.deleteOnExit();
 
     return unmodifiableList(result);
+  }
+
+  /**
+   * The {@link ClassLoader} to use as the parent of the class loader used to run the application.
+   */
+  protected ClassLoader getRunParentClassLoader() {
+    // By default, we want to use the bootstrap class loader.
+    return ClassLoader.getPlatformClassLoader();
   }
 
   protected List<File> getCompileClasspath() throws FileNotFoundException {

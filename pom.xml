@@ -267,5 +267,7 @@
         <module>rapier-cli</module>
         <module>rapier-cli-compiler</module>
         <module>rapier-processor-aws-ssm</module>
+        <module>rapier-aws-ssm</module>
+        <module>rapier-aws-ssm-compiler</module>
     </modules>
 </project>
