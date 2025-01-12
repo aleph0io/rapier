@@ -19,7 +19,6 @@
  */
 package rapier.cli.compiler;
 
-import static java.util.Collections.unmodifiableList;
 import static java.util.Collections.unmodifiableSet;
 import static java.util.stream.Collectors.groupingBy;
 import static java.util.stream.Collectors.mapping;
@@ -337,7 +336,7 @@ public class CliProcessor extends RapierProcessorBase {
 
   private static final String STANDARD_VERSION_LONG_NAME = "version";
 
-  private static final Character STANDARD_VERSION_SHORT_NAME = 'v';
+  private static final Character STANDARD_VERSION_SHORT_NAME = 'V';
 
   private boolean validateStandardVersion(TypeElement component, CommandHelp commandHelp,
       SortedMap<OptionParameterKey, List<DaggerInjectionSite>> optionInjectionSites,
@@ -2299,6 +2298,11 @@ public class CliProcessor extends RapierProcessorBase {
   //////////////////////////////////////////////////////////////////////////////////////////////////
   private static final int HELP_MESSAGE_MAX_WIDTH = 80;
 
+  private static final int HELP_MAX_SAME_LINE_NAME_WIDTH = 16;
+
+  private static final int HELP_DESCRIPTION_WIDTH = 60;
+
+
   private void emitStandardHelpMessageMethod(PrintWriter out, CommandMetadata commandMetadata,
       SortedMap<PositionalParameterKey, Collection<PositionalRepresentationKey>> positionalRepresentationsByParameter,
       PositionalParameterMetadataService positionalMetadataService,
@@ -2402,46 +2406,15 @@ public class CliProcessor extends RapierProcessorBase {
     }
     // @formatter:on
 
-    if (!positionalParameters.isEmpty()) {
+    if (positionalParameters.stream().anyMatch(p -> positionalMetadataService
+        .getPositionalParameterMetadata(p.getPosition()).getHelpDescription().isPresent())) {
       out.println("            \"Positional parameters:\",");
-
-      final int maxNameLength = positionalParameters.stream()
-          .map(p -> positionalMetadataService.getPositionalParameterMetadata(p.getPosition()))
-          .map(PositionalParameterMetadata::getHelpName).mapToInt(String::length).max()
-          .orElseThrow();
-
-      final int lineIndentLength = 2;
-      final int borderWidth = 4;
-      final int descriptionWidth =
-          Math.max(HELP_MESSAGE_MAX_WIDTH - maxNameLength - lineIndentLength - borderWidth, 20);
-
       for (PositionalParameterKey parameter : positionalParameters) {
         final PositionalParameterMetadata metadata =
             positionalMetadataService.getPositionalParameterMetadata(parameter.getPosition());
         final String name = metadata.getHelpName();
         final String description = metadata.getHelpDescription().orElse("");
-        final List<String> descriptionLines = wordwrap(description, descriptionWidth);
-        // @formatter:off
-        out.println("            \"" + Java.escapeString(String.format(
-            new StringBuilder()
-                .append(repeat(" ", lineIndentLength))
-                .append("%").append("-" + maxNameLength).append("s")
-                .append(repeat(" ", borderWidth))
-                .append("%").append("s")
-                .toString(),
-            name,
-            descriptionLines.isEmpty() ? "" : descriptionLines.get(0))) + "\",");
-        // @formatter:on
-        for (int i = 1; i < descriptionLines.size(); i++) {
-          // @formatter:off
-          out.println("            \"" + Java.escapeString(String.format(
-              new StringBuilder()
-                  .append(repeat(" ", lineIndentLength + maxNameLength + borderWidth))
-                  .append("%").append("-" + maxNameLength).append("s")
-                  .toString(),
-              descriptionLines.get(i))) + "\",");
-          // @formatter:on
-        }
+        emitNameAndDescription(out, name, description);
       }
 
       out.println("            \"\",");
@@ -2449,45 +2422,13 @@ public class CliProcessor extends RapierProcessorBase {
 
     if (!optionParameters.isEmpty()) {
       out.println("            \"Option parameters:\",");
-
-      final int maxNameLength = optionParameters.stream()
-          .map(p -> optionParameterUserFacingString(p.getShortName().orElse(null),
-              p.getLongName().orElse(null)))
-          .mapToInt(String::length).max().orElseThrow();
-
-      final int lineIndentLength = 2;
-      final int borderWidth = 4;
-      final int descriptionWidth =
-          Math.max(HELP_MESSAGE_MAX_WIDTH - maxNameLength - lineIndentLength - borderWidth, 20);
-
       for (OptionParameterKey parameter : optionParameters) {
         final OptionParameterMetadata metadata = optionMetadataService.getOptionParameterMetadata(
             parameter.getShortName().orElse(null), parameter.getLongName().orElse(null));
         final String name = optionParameterHelpFacingString(parameter.getShortName().orElse(null),
-            parameter.getLongName().orElse(null));
+            parameter.getLongName().orElse(null), metadata.getHelpValueName());
         final String description = metadata.getHelpDescription().orElse("");
-        final List<String> descriptionLines = wordwrap(description, descriptionWidth);
-        // @formatter:off
-        out.println("            \"" + Java.escapeString(String.format(
-            new StringBuilder()
-                .append(repeat(" ", lineIndentLength))
-                .append("%").append("-" + maxNameLength).append("s")
-                .append(repeat(" ", borderWidth))
-                .append("%").append("s")
-                .toString(),
-            name,
-            descriptionLines.isEmpty() ? "" : descriptionLines.get(0))) + "\",");
-        // @formatter:on
-        for (int i = 1; i < descriptionLines.size(); i++) {
-          // @formatter:off
-          out.println("            \"" + Java.escapeString(String.format(
-              new StringBuilder()
-                  .append(repeat(" ", lineIndentLength + maxNameLength + borderWidth))
-                  .append("%").append("-" + maxNameLength).append("s")
-                  .toString(),
-              descriptionLines.get(i))) + "\",");
-          // @formatter:on
-        }
+        emitNameAndDescription(out, name, description);
       }
 
       out.println("            \"\",");
@@ -2495,18 +2436,6 @@ public class CliProcessor extends RapierProcessorBase {
 
     if (!flagRepresentationsByParameter.isEmpty()) {
       out.println("            \"Flag parameters:\",");
-
-      final int maxNameLength = flagParameters.stream()
-          .flatMap(p -> flagParameterHelpFacingStrings(p.getPositiveShortName().orElse(null),
-              p.getPositiveLongName().orElse(null), p.getNegativeShortName().orElse(null),
-              p.getNegativeLongName().orElse(null)).stream())
-          .mapToInt(String::length).max().orElseThrow();
-
-      final int lineIndentLength = 2;
-      final int borderWidth = 4;
-      final int descriptionWidth =
-          Math.max(HELP_MESSAGE_MAX_WIDTH - maxNameLength - lineIndentLength - borderWidth, 20);
-
       for (FlagParameterKey parameter : flagParameters) {
         final FlagParameterMetadata metadata = flagMetadataService.getFlagParameterMetadata(
             parameter.getPositiveShortName().orElse(null),
@@ -2514,67 +2443,100 @@ public class CliProcessor extends RapierProcessorBase {
             parameter.getNegativeShortName().orElse(null),
             parameter.getNegativeLongName().orElse(null));
 
-        final List<String> nameLines =
-            flagParameterHelpFacingStrings(parameter.getPositiveShortName().orElse(null),
+        final String name =
+            flagParameterHelpFacingString(parameter.getPositiveShortName().orElse(null),
                 parameter.getPositiveLongName().orElse(null),
                 parameter.getNegativeShortName().orElse(null),
                 parameter.getNegativeLongName().orElse(null));
-
         final String description = metadata.getHelpDescription().orElse("");
-        final List<String> descriptionLines = wordwrap(description, descriptionWidth);
-
-        final List<List<String>> rows = pivot(List.of(nameLines, descriptionLines));
-
-        for (List<String> row : rows) {
-          // @formatter:off
-          out.println("            \"" + Java.escapeString(String.format(
-              new StringBuilder()
-                  .append(repeat(" ", lineIndentLength))
-                  .append("%").append("-" + maxNameLength).append("s")
-                  .append(repeat(" ", borderWidth))
-                  .append("%").append("s")
-                  .toString(),
-              Optional.ofNullable(row.get(0)).orElse(""),
-              Optional.ofNullable(row.get(1)).orElse(""))) + "\",");
-          // @formatter:on
-        }
+        emitNameAndDescription(out, name, description);
       }
 
       out.println("            \"\",");
     }
-
 
     out.println("            \"\");");
     out.println("    }");
     out.println();
   }
 
-  private static String optionParameterHelpFacingString(Character shortName, String longName) {
+  private static String optionParameterHelpFacingString(Character shortName, String longName,
+      String valueName) {
     if (shortName == null && longName == null)
       throw new IllegalArgumentException("shortName and longName cannot both be null");
-    if (shortName != null && longName != null)
-      return "-" + shortName + ", --" + longName;
+    List<String> result = new ArrayList<>(2);
     if (shortName != null)
-      return "-" + shortName;
-    return "--" + longName;
+      result.add("-" + shortName + " <" + valueName + ">");
+    if (longName != null)
+      result.add("--" + longName + " <" + valueName + ">");
+    return String.join(", ", result);
   }
 
-  private static List<String> flagParameterHelpFacingStrings(Character positiveShortName,
+  private static String flagParameterHelpFacingString(Character positiveShortName,
       String positiveLongName, Character negativeShortName, String negativeLongName) {
-    final List<String> result = new ArrayList<>(2);
-    if (positiveShortName != null || positiveLongName != null) {
-      result.add(Stream
-          .of(positiveShortName == null ? null : "-" + positiveShortName,
-              positiveLongName == null ? null : "--" + positiveLongName)
-          .filter(Objects::nonNull).collect(Collectors.joining(", ")));
+    final List<String> result = new ArrayList<>(4);
+    if (positiveShortName != null)
+      result.add("-" + positiveShortName);
+    if (positiveLongName != null)
+      result.add("--" + positiveLongName);
+    if (negativeShortName != null)
+      result.add("-" + negativeShortName);
+    if (negativeLongName != null)
+      result.add("--" + negativeLongName);
+    return String.join(", ", result);
+  }
+
+  private static void emitNameAndDescription(PrintWriter out, String name, String description) {
+    final List<String> descriptionLines = wordwrap(description, HELP_DESCRIPTION_WIDTH);
+    if (descriptionLines.isEmpty()) {
+      // @formatter:off
+      out.println("            \"" + Java.escapeString(String.format(
+          new StringBuilder()
+              .append(repeat(" ", 2))
+              .append("%").append("-" + HELP_MAX_SAME_LINE_NAME_WIDTH).append("s")
+              .toString(),
+          name)) + "\",");
+      // @formatter:on
+    } else {
+      if (name.length() <= HELP_MAX_SAME_LINE_NAME_WIDTH) {
+        // @formatter:off
+        out.println("            \"" + Java.escapeString(String.format(
+            new StringBuilder()
+                .append(repeat(" ", 2))
+                .append("%").append("-" + HELP_MAX_SAME_LINE_NAME_WIDTH).append("s")
+                .append(repeat(" ", 2))
+                .append("%").append("s")
+                .toString(),
+            name, 
+            descriptionLines.get(0))) + "\",");
+        // @formatter:on
+      } else {
+        // @formatter:off
+        out.println("            \"" + Java.escapeString(String.format(
+            new StringBuilder()
+                .append(repeat(" ", 2))
+                .append("%").append("s")
+                .toString(),
+            name)) + "\",");
+        out.println("            \"" + Java.escapeString(String.format(
+            new StringBuilder()
+                .append(repeat(" ", 2 + HELP_MAX_SAME_LINE_NAME_WIDTH + 2))
+                .append("%").append("s")
+                .toString(),
+            descriptionLines.get(0))) + "\",");
+        // @formatter:on
+      }
+      for (int i = 1; i < descriptionLines.size(); i++) {
+        // @formatter:off
+        out.println("            \"" + Java.escapeString(String.format(
+            new StringBuilder()
+                .append(repeat(" ", 2 + HELP_MAX_SAME_LINE_NAME_WIDTH + 2))
+                .append("%").append("s")
+                .toString(),
+            descriptionLines.get(i))) + "\",");
+        // @formatter:on
+      }
     }
-    if (negativeShortName != null || negativeLongName != null) {
-      result.add(Stream
-          .of(negativeShortName == null ? null : "-" + negativeShortName,
-              negativeLongName == null ? null : "--" + negativeLongName)
-          .filter(Objects::nonNull).collect(Collectors.joining(", ")));
-    }
-    return unmodifiableList(result);
   }
 
   private static String repeat(String s, int repetitions) {
@@ -2599,6 +2561,10 @@ public class CliProcessor extends RapierProcessorBase {
       throw new NullPointerException();
     if (maxLength < 1)
       throw new IllegalArgumentException("maxLength must be positive");
+
+    input = input.trim();
+    if (input.isEmpty())
+      return List.of();
 
     final List<String> result = new ArrayList<>();
 
@@ -2626,44 +2592,6 @@ public class CliProcessor extends RapierProcessorBase {
     }
 
     return result;
-  }
-
-  /**
-   * Takes a list of logical "rows" and pivots them into logical "columns". The resulting list of
-   * columns is such that the first element of the list is the first column of the input rows, the
-   * second element is the second column of the input rows, and so on. The number of columns is
-   * equal to the size of the longest row in the input. If a row is shorter than the longest row,
-   * the corresponding column will be padded with nulls.
-   * 
-   * @param <T> the type of the elements in the rows
-   * @param rows the list of rows
-   * @return the list of columns
-   */
-  private static <T> List<List<T>> pivot(List<List<T>> rows) {
-    final List<List<T>> columns = new ArrayList<>();
-
-    int index = 0;
-    boolean touched;
-    do {
-      touched = false;
-
-      final List<T> column = new ArrayList<>(rows.size());
-      for (List<T> row : rows) {
-        if (index < row.size()) {
-          column.add(row.get(index));
-          touched = true;
-        } else {
-          column.add(null);
-        }
-      }
-
-      if (touched) {
-        columns.add(unmodifiableList(column));
-        index++;
-      }
-    } while (touched);
-
-    return unmodifiableList(columns);
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////////////

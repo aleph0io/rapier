@@ -19,6 +19,7 @@
  */
 package rapier.cli.compiler.model;
 
+import static java.util.Objects.requireNonNull;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -45,7 +46,7 @@ public class OptionParameterMetadata {
       String helpDescription) {
     this.required = required;
     this.list = list;
-    this.helpValueName = helpValueName;
+    this.helpValueName = requireNonNull(helpValueName);
     this.helpDescription = helpDescription;
   }
 
@@ -57,8 +58,8 @@ public class OptionParameterMetadata {
     return list;
   }
 
-  public Optional<String> getHelpValueName() {
-    return Optional.ofNullable(helpValueName);
+  public String getHelpValueName() {
+    return helpValueName;
   }
 
   public Optional<String> getHelpDescription() {
