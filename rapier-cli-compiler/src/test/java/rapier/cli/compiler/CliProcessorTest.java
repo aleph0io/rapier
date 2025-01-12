@@ -76,8 +76,7 @@ public class CliProcessorTest extends RapierTestBase {
     // NOTE: If you get a parse error, it could be from the helpMessage() method below. It's easy
     // to forget that we're still quoted because triple quotes are so easy to use, but we are, so
     // we have to double-escape the newline.
-    final JavaFileObject expectedOutput = JavaFileObjects.forSourceString(
-        "com.example.RapierExampleComponentCliModule",
+    final JavaFileObject expectedOutput = prepareSourceFile(
         """
             package com.example;
 
@@ -292,7 +291,7 @@ public class CliProcessorTest extends RapierTestBase {
     assertThat(compilation).generatedSourceFile("com.example.RapierExampleComponentCliModule")
         .hasSourceEquivalentTo(expectedOutput);
   }
-  
+
   @Test
   public void givenComponentWithPositionalOptionFlagParametersAndStandardHelp_whenCompile_thenExpectedtModuleIsGenerated()
       throws IOException {
@@ -966,7 +965,7 @@ public class CliProcessorTest extends RapierTestBase {
     assertThat(compilation).generatedSourceFile("com.example.RapierExampleComponentCliModule")
         .hasSourceEquivalentTo(expectedOutput);
   }
-  
+
   /**
    * We need to include the generated classes from the rapier-cli module in the classpath for our
    * tests.
