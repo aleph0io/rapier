@@ -20,7 +20,6 @@
 package rapier.core.conversion.expr;
 
 import static java.util.Objects.requireNonNull;
-import java.util.List;
 import java.util.Optional;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
@@ -29,14 +28,13 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
 import rapier.core.ConversionExprFactory;
 
-public class ElementwiseListConversionExprFactory implements ConversionExprFactory {
+public class IdentityConversionExprFactory implements ConversionExprFactory {
   private final Types types;
-  private final ConversionExprFactory elementConversionExprFactory;
+  private final TypeMirror sourceType;
 
-  public ElementwiseListConversionExprFactory(Types types,
-      ConversionExprFactory elementConversionExprFactory) {
+  public IdentityConversionExprFactory(Types types, TypeMirror sourceType) {
     this.types = requireNonNull(types);
-    this.elementConversionExprFactory = requireNonNull(elementConversionExprFactory);
+    this.sourceType = requireNonNull(sourceType);
   }
 
   @Override
@@ -47,35 +45,17 @@ public class ElementwiseListConversionExprFactory implements ConversionExprFacto
     final TypeElement targetElement = (TypeElement) getTypes().asElement(targetType);
     final DeclaredType targetDeclaredType = (DeclaredType) targetType;
 
-    // Get type arguments
-    List<? extends TypeMirror> typeArguments = targetDeclaredType.getTypeArguments();
+    if (getTypes().isSameType(targetType, getSourceType()))
+      return Optional.of(sourceValue);
 
-    // Ensure there's exactly one type argument. There might be zero, but there really, really
-    // shouldn't be more than 1.
-    if (typeArguments.size() != 1)
-      return Optional.empty();
-
-    // Get the first type argument
-    final TypeMirror targetTypeArgument = typeArguments.get(0);
-    if (targetTypeArgument.getKind() != TypeKind.DECLARED)
-      return Optional.empty();
-
-    // Generate conversion expression for each element
-    final Optional<String> maybeElementConversionExpr =
-        getElementConversionExprFactory().generateConversionExpr(targetTypeArgument, "element");
-    if (maybeElementConversionExpr.isEmpty())
-      return Optional.empty();
-    final String elementConversionExpr = maybeElementConversionExpr.orElseThrow();
-
-    return Optional.of(sourceValue + ".stream().map(element -> " + elementConversionExpr
-        + ").collect(java.util.stream.Collectors.toList())");
+    return Optional.empty();
   }
 
   private Types getTypes() {
     return types;
   }
 
-  private ConversionExprFactory getElementConversionExprFactory() {
-    return elementConversionExprFactory;
+  private TypeMirror getSourceType() {
+    return sourceType;
   }
 }

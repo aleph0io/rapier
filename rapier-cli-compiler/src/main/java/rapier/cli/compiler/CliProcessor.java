@@ -88,7 +88,10 @@ import rapier.core.RapierProcessorBase;
 import rapier.core.conversion.expr.ConversionExprFactoryChain;
 import rapier.core.conversion.expr.ElementwiseListConversionExprFactory;
 import rapier.core.conversion.expr.FromStringConversionExprFactory;
+import rapier.core.conversion.expr.IdentityConversionExprFactory;
 import rapier.core.conversion.expr.SingleArgumentConstructorConversionExprFactory;
+import rapier.core.conversion.expr.StringToCharacterConversionExprFactory;
+import rapier.core.conversion.expr.StringToPrimitiveConversionExprFactory;
 import rapier.core.conversion.expr.ValueOfConversionExprFactory;
 import rapier.core.model.DaggerInjectionSite;
 import rapier.core.util.Java;
@@ -106,20 +109,26 @@ public class CliProcessor extends RapierProcessorBase {
     super.init(processingEnv);
 
     stringConverter = new ConversionExprFactoryChain(
+        new IdentityConversionExprFactory(getTypes(), getStringType()),
+        new StringToPrimitiveConversionExprFactory(getTypes()),
+        new StringToCharacterConversionExprFactory(getTypes()),
         new ValueOfConversionExprFactory(getTypes(), getStringType()),
         new FromStringConversionExprFactory(getTypes()),
         new SingleArgumentConstructorConversionExprFactory(getTypes(), getStringType()));
 
     listOfStringConverter = new ConversionExprFactoryChain(
+        new IdentityConversionExprFactory(getTypes(), getListOfStringType()),
         new ValueOfConversionExprFactory(getTypes(), getListOfStringType()),
         new SingleArgumentConstructorConversionExprFactory(getTypes(), getListOfStringType()),
         new ElementwiseListConversionExprFactory(getTypes(), stringConverter));
 
     booleanConverter = new ConversionExprFactoryChain(
+        new IdentityConversionExprFactory(getTypes(), getBooleanType()),
         new ValueOfConversionExprFactory(getTypes(), getBooleanType()),
         new SingleArgumentConstructorConversionExprFactory(getTypes(), getBooleanType()));
 
     listOfBooleanConverter = new ConversionExprFactoryChain(
+        new IdentityConversionExprFactory(getTypes(), getListOfBooleanType()),
         new ValueOfConversionExprFactory(getTypes(), getListOfBooleanType()),
         new SingleArgumentConstructorConversionExprFactory(getTypes(), getListOfBooleanType()),
         new ElementwiseListConversionExprFactory(getTypes(), booleanConverter));
@@ -196,10 +205,10 @@ public class CliProcessor extends RapierProcessorBase {
         validateInjectionSites(component, positionalInjectionSites, positionalMetadataService,
             optionInjectionSites, optionMetadataService, flagInjectionSites, flagMetadataService);
 
-    final boolean standardHelpIsValid = validateStandardHelp(component, commandHelp,
+    final boolean standardHelpIsValid = validateStandardHelp(component, commandMetadata,
         optionInjectionSites, optionMetadataService, flagInjectionSites, flagMetadataService);
 
-    final boolean standardVersionIsValid = validateStandardVersion(component, commandHelp,
+    final boolean standardVersionIsValid = validateStandardVersion(component, commandMetadata,
         optionInjectionSites, optionMetadataService, flagInjectionSites, flagMetadataService);
 
     if (injectionSitesAreValid == false || standardHelpIsValid == false
@@ -270,7 +279,7 @@ public class CliProcessor extends RapierProcessorBase {
 
   private static final Character STANDARD_HELP_SHORT_NAME = 'h';
 
-  private boolean validateStandardHelp(TypeElement component, CommandHelp commandHelp,
+  private boolean validateStandardHelp(TypeElement component, CommandMetadata commandHelp,
       SortedMap<OptionParameterKey, List<DaggerInjectionSite>> optionInjectionSites,
       OptionParameterMetadataService optionMetadataService,
       SortedMap<FlagParameterKey, List<DaggerInjectionSite>> flagInjectionSites,
@@ -335,12 +344,12 @@ public class CliProcessor extends RapierProcessorBase {
 
   private static final Character STANDARD_VERSION_SHORT_NAME = 'V';
 
-  private boolean validateStandardVersion(TypeElement component, CommandHelp commandHelp,
+  private boolean validateStandardVersion(TypeElement component, CommandMetadata commandMetadata,
       SortedMap<OptionParameterKey, List<DaggerInjectionSite>> optionInjectionSites,
       OptionParameterMetadataService optionMetadataService,
       SortedMap<FlagParameterKey, List<DaggerInjectionSite>> flagInjectionSites,
       FlagParameterMetadataService flagMetadataService) {
-    if (!commandHelp.isProvideStandardVersion())
+    if (!commandMetadata.isProvideStandardVersion())
       return true;
 
     boolean result = true;
@@ -633,7 +642,7 @@ public class CliProcessor extends RapierProcessorBase {
 
       metadataByPositionalParameter.put(pk,
           new PositionalParameterMetadata(required, listy,
-              maybeHelp.map(PositionalParameterHelp::getName).orElse(null),
+              maybeHelp.map(PositionalParameterHelp::getName).orElse("value"),
               maybeHelp.flatMap(PositionalParameterHelp::getDescription).orElse(null)));
     }
 
@@ -737,7 +746,7 @@ public class CliProcessor extends RapierProcessorBase {
 
       metadataByOptionParameter.put(pk,
           new OptionParameterMetadata(required, listy,
-              maybeHelp.map(OptionParameterHelp::getValueName).orElse(null),
+              maybeHelp.map(OptionParameterHelp::getValueName).orElse("value"),
               maybeHelp.flatMap(OptionParameterHelp::getDescription).orElse(null)));
     }
 

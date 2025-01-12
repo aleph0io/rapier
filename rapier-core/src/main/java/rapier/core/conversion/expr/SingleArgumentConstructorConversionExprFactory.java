@@ -62,8 +62,6 @@ public class SingleArgumentConstructorConversionExprFactory implements Conversio
 
         if (!getTypes().isSameType(getSourceType(), constructorType.getParameterTypes().get(0)))
           continue;
-        if (!getTypes().isSameType(targetType, constructorType.getReturnType()))
-          continue;
 
         return Optional.of("new " + targetType.toString() + "(" + sourceValue + ")");
       }

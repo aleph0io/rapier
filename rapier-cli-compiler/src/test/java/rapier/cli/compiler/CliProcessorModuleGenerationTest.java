@@ -220,12 +220,14 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
                     }
                     catch (JustArgs.IllegalSyntaxException e) {
                         // Standard help is active. Print the help message and exit.
+                        System.err.println(e.getMessage());
                         System.err.println(standardHelpMessage());
                         System.exit(1);
                         throw new AssertionError("exited");
                     }
                     catch(CliSyntaxException e) {
                         // Standard help is active. Print the help message and exit.
+                        System.err.println(e.getMessage());
                         System.err.println(standardHelpMessage());
                         System.exit(1);
                         throw new AssertionError("exited");
@@ -470,12 +472,14 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
                     }
                     catch (JustArgs.IllegalSyntaxException e) {
                         // Standard help is active. Print the help message and exit.
+                        System.err.println(e.getMessage());
                         System.err.println(standardHelpMessage());
                         System.exit(1);
                         throw new AssertionError("exited");
                     }
                     catch(CliSyntaxException e) {
                         // Standard help is active. Print the help message and exit.
+                        System.err.println(e.getMessage());
                         System.err.println(standardHelpMessage());
                         System.exit(1);
                         throw new AssertionError("exited");
