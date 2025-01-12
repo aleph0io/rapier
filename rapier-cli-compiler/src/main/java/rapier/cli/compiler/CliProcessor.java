@@ -1042,14 +1042,18 @@ public class CliProcessor extends RapierProcessorBase {
       emitFlagParameterInstanceFieldInitPreparation(out, flagRepresentationsByParameter.keySet());
       if (commandMetadata.isProvideStandardHelp()) {
         out.println("        // Add the standard help flags");
-        out.println("        flagPositiveShortNames.put('h', \"rapier.standard.help\");");
-        out.println("        flagPositiveLongNames.put(\"help\", \"rapier.standard.help\");");
+        out.println("        flagPositiveShortNames.put('" + STANDARD_HELP_SHORT_NAME
+            + "', \"rapier.standard.help\");");
+        out.println("        flagPositiveLongNames.put(\"" + STANDARD_HELP_LONG_NAME
+            + "\", \"rapier.standard.help\");");
         out.println();
       }
       if (commandMetadata.isProvideStandardVersion()) {
         out.println("        // Add the version flag");
-        out.println("        flagPositiveShortNames.put('v', \"rapier.standard.version\");");
-        out.println("        flagPositiveLongNames.put(\"version\", \"rapier.standard.version\");");
+        out.println("        flagPositiveShortNames.put('" + STANDARD_VERSION_SHORT_NAME
+            + "', \"rapier.standard.version\");");
+        out.println("        flagPositiveLongNames.put(\"" + STANDARD_VERSION_LONG_NAME
+            + "\", \"rapier.standard.version\");");
         out.println();
       }
       out.println();

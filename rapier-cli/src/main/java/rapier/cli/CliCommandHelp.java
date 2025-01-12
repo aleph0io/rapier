@@ -49,7 +49,7 @@ public @interface CliCommandHelp {
    * Print a standard version message and exit with a nonzero exit code in response to the flags
    * {@code --version} or {@code -v}.
    */
-  public boolean provideStadnardVersion() default true;
+  public boolean provideStandardVersion() default true;
 
   /**
    * The description used in the help message.
