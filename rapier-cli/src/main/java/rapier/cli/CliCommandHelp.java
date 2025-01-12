@@ -55,4 +55,9 @@ public @interface CliCommandHelp {
    * The description used in the help message.
    */
   public String description() default "";
+
+  /**
+   * Indicates that testing code should be emitted, not production code. For internal use only.
+   */
+  public boolean testing() default false;
 }

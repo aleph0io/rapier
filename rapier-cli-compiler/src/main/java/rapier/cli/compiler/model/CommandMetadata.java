@@ -34,13 +34,16 @@ public class CommandMetadata {
 
   private final boolean provideStandardVersion;
 
+  private final boolean testing;
+
   public CommandMetadata(String name, String version, String description,
-      Boolean provideStandardHelp, Boolean provideStandardVersion) {
+      boolean provideStandardHelp, boolean provideStandardVersion, boolean testing) {
     this.name = requireNonNull(name);
     this.version = requireNonNull(version);
     this.description = description;
     this.provideStandardHelp = provideStandardHelp;
     this.provideStandardVersion = provideStandardVersion;
+    this.testing = testing;
   }
 
   public String getName() {
@@ -63,16 +66,14 @@ public class CommandMetadata {
     return provideStandardVersion;
   }
 
-  @Override
-  public String toString() {
-    return "CommandHelp [name=" + name + ", version=" + version + ", description=" + description
-        + ", provideStandardHelp=" + provideStandardHelp + ", provideStandardVersion="
-        + provideStandardVersion + "]";
+  public boolean isTesting() {
+    return testing;
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(description, name, provideStandardHelp, provideStandardVersion, version);
+    return Objects.hash(description, name, provideStandardHelp, provideStandardVersion, testing,
+        version);
   }
 
   @Override
@@ -86,7 +87,14 @@ public class CommandMetadata {
     CommandMetadata other = (CommandMetadata) obj;
     return Objects.equals(description, other.description) && Objects.equals(name, other.name)
         && provideStandardHelp == other.provideStandardHelp
-        && provideStandardVersion == other.provideStandardVersion
+        && provideStandardVersion == other.provideStandardVersion && testing == other.testing
         && Objects.equals(version, other.version);
+  }
+
+  @Override
+  public String toString() {
+    return "CommandMetadata [name=" + name + ", version=" + version + ", description=" + description
+        + ", provideStandardHelp=" + provideStandardHelp + ", provideStandardVersion="
+        + provideStandardVersion + ", testing=" + testing + "]";
   }
 }

@@ -32,7 +32,10 @@ import com.google.testing.compile.Compilation;
 import com.google.testing.compile.JavaFileObjects;
 import rapier.core.RapierTestBase;
 
-public class CliProcessorTest extends RapierTestBase {
+/**
+ * Test code generation for modules
+ */
+public class CliProcessorModuleGenerationTest extends RapierTestBase {
   @Test
   public void givenComponentWithPositionalOptionFlagParametersAndStandardHelpAndStandardVersion_whenCompile_thenExpectedtModuleIsGenerated()
       throws IOException {

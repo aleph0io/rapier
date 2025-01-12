@@ -160,12 +160,9 @@ public class CliProcessor extends RapierProcessorBase {
         .flatMap(am -> CommandHelp.fromAnnotationMirror(am).stream()).findFirst().orElse(null);
     final CommandMetadata commandMetadata = Optional.ofNullable(commandHelp)
         .map(h -> new CommandMetadata(h.getName(), h.getVersion(), h.getDescription().orElse(null),
-            h.isProvideStandardHelp(), h.isProvideStandardVersion()))
-        .orElseGet(
-            () -> new CommandMetadata("command", CliCommandHelp.DEFAULT_VERSION, null, true, true));
-
-    System.out.println(new DaggerComponentAnalyzer(getProcessingEnv()).analyzeComponent(component)
-        .getInjectionSites());
+            h.isProvideStandardHelp(), h.isProvideStandardVersion(), h.isTesting()))
+        .orElseGet(() -> new CommandMetadata("command", CliCommandHelp.DEFAULT_VERSION, null, true,
+            true, false));
 
     final List<DaggerInjectionSite> qualifiedInjectionSites =
         new DaggerComponentAnalyzer(getProcessingEnv()).analyzeComponent(component)
@@ -973,6 +970,20 @@ public class CliProcessor extends RapierProcessorBase {
       out.println("public class " + moduleClassName + " {");
       out.println();
 
+      if (commandMetadata.isTesting()) {
+        // If testing is enabled, generate an exception class to use instead of exiting. It's hard
+        // to test your library if your tests just exit the program running the tests!
+        out.println("    @SuppressWarnings(\"serial\")");
+        out.println("    public static class ExitException extends RuntimeException {");
+        out.println("        private final int status;");
+        out.println("        public ExitException(int status) {");
+        out.println("            this.status = status;");
+        out.println("        }");
+        out.println("        public int getStatus() { return status; }");
+        out.println("    }");
+        out.println();
+      }
+
       // Generate instance fields for each positional parameter representation
       out.println("    // Positional parameters");
       for (PositionalParameterKey ppk : positionalRepresentationsByParameter.keySet()) {
@@ -1127,14 +1138,24 @@ public class CliProcessor extends RapierProcessorBase {
 
       if (commandMetadata.isProvideStandardVersion()) {
         out.println("            if(standardVersionRequested) {");
-        out.println("                System.err.println(standardVersionMessage());");
+        if (commandMetadata.isTesting()) {
+          // We print to System.out so we capture the help as program output for testing
+          out.println("                System.out.println(standardVersionMessage());");
+        } else {
+          out.println("                System.err.println(standardVersionMessage());");
+        }
         out.println("            }");
         out.println();
       }
 
       if (commandMetadata.isProvideStandardHelp()) {
         out.println("            if(standardHelpRequested) {");
-        out.println("                System.err.println(standardHelpMessage());");
+        if (commandMetadata.isTesting()) {
+          // We print to System.out so we capture the help as program output for testing
+          out.println("                System.out.println(standardHelpMessage());");
+        } else {
+          out.println("                System.err.println(standardHelpMessage());");
+        }
         out.println("            }");
         out.println();
       }
@@ -1146,8 +1167,12 @@ public class CliProcessor extends RapierProcessorBase {
         if (commandMetadata.isProvideStandardVersion())
           conditions.add("standardVersionRequested");
         out.println("            if(" + String.join(" || ", conditions) + ") {");
-        out.println("                System.exit(0);");
-        out.println("                throw new AssertionError(\"exited\");");
+        if (commandMetadata.isTesting()) {
+          out.println("                throw new ExitException(0);");
+        } else {
+          out.println("                System.exit(0);");
+          out.println("                throw new AssertionError(\"exited\");");
+        }
         out.println("            }");
       }
 
@@ -1155,9 +1180,16 @@ public class CliProcessor extends RapierProcessorBase {
       out.println("        catch (JustArgs.IllegalSyntaxException e) {");
       if (commandMetadata.isProvideStandardHelp()) {
         out.println("            // Standard help is active. Print the help message and exit.");
-        out.println("            System.err.println(standardHelpMessage());");
-        out.println("            System.exit(1);");
-        out.println("            throw new AssertionError(\"exited\");");
+        if (commandMetadata.isTesting()) {
+          out.println("            System.out.println(e.getMessage());");
+          out.println("            System.out.println(standardHelpMessage());");
+          out.println("            throw new ExitException(1);");
+        } else {
+          out.println("            System.err.println(e.getMessage());");
+          out.println("            System.err.println(standardHelpMessage());");
+          out.println("            System.exit(1);");
+          out.println("            throw new AssertionError(\"exited\");");
+        }
       } else {
         out.println("            // Standard help is not active. Map and propagate the exception.");
         out.println("            throw new CliSyntaxException(e.getMessage());");
@@ -1166,9 +1198,16 @@ public class CliProcessor extends RapierProcessorBase {
       out.println("        catch(CliSyntaxException e) {");
       if (commandMetadata.isProvideStandardHelp()) {
         out.println("            // Standard help is active. Print the help message and exit.");
-        out.println("            System.err.println(standardHelpMessage());");
-        out.println("            System.exit(1);");
-        out.println("            throw new AssertionError(\"exited\");");
+        if (commandMetadata.isTesting()) {
+          out.println("            System.out.println(e.getMessage());");
+          out.println("            System.out.println(standardHelpMessage());");
+          out.println("            throw new ExitException(1);");
+        } else {
+          out.println("            System.err.println(e.getMessage());");
+          out.println("            System.err.println(standardHelpMessage());");
+          out.println("            System.exit(1);");
+          out.println("            throw new AssertionError(\"exited\");");
+        }
       } else {
         out.println("            // Standard help is not active. Propagate the exception.");
         out.println("            throw e;");

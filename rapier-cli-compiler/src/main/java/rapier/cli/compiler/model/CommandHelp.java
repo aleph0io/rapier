@@ -38,11 +38,12 @@ public class CommandHelp {
     final String name = extractName(annotation);
     final String version = extractVersion(annotation);
     final String description = extractDescription(annotation);
-    final Boolean provideStandardHelp = extractProvideStandardHelp(annotation);
-    final Boolean provideStandardVersion = extractProvideStandardVersion(annotation);
+    final boolean provideStandardHelp = extractProvideStandardHelp(annotation);
+    final boolean provideStandardVersion = extractProvideStandardVersion(annotation);
+    final boolean testing = extractTesting(annotation);
 
     return Optional.of(new CommandHelp(name, version, description, provideStandardHelp,
-        provideStandardVersion));
+        provideStandardVersion, testing));
   }
 
   private final String name;
@@ -55,13 +56,16 @@ public class CommandHelp {
 
   private final boolean provideStandardVersion;
 
-  public CommandHelp(String name, String version, String description,
-      Boolean provideStandardHelp, Boolean provideStandardVersion) {
+  private final boolean testing;
+
+  public CommandHelp(String name, String version, String description, boolean provideStandardHelp,
+      boolean provideStandardVersion, boolean testing) {
     this.name = requireNonNull(name);
     this.version = requireNonNull(version);
     this.description = description;
     this.provideStandardHelp = provideStandardHelp;
     this.provideStandardVersion = provideStandardVersion;
+    this.testing = testing;
   }
 
   public String getName() {
@@ -84,16 +88,21 @@ public class CommandHelp {
     return provideStandardVersion;
   }
 
+  public boolean isTesting() {
+    return testing;
+  }
+
   @Override
   public String toString() {
-    return "CommandHelp [name=" + name + ", version=" + version + ", description="
-        + description + ", provideStandardHelp=" + provideStandardHelp + ", provideStandardVersion="
-        + provideStandardVersion + "]";
+    return "CommandHelp [name=" + name + ", version=" + version + ", description=" + description
+        + ", provideStandardHelp=" + provideStandardHelp + ", provideStandardVersion="
+        + provideStandardVersion + ", testing=" + testing + "]";
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(description, name, provideStandardHelp, provideStandardVersion, version);
+    return Objects.hash(description, name, provideStandardHelp, provideStandardVersion, testing,
+        version);
   }
 
   @Override
@@ -107,7 +116,7 @@ public class CommandHelp {
     CommandHelp other = (CommandHelp) obj;
     return Objects.equals(description, other.description) && Objects.equals(name, other.name)
         && provideStandardHelp == other.provideStandardHelp
-        && provideStandardVersion == other.provideStandardVersion
+        && provideStandardVersion == other.provideStandardVersion && testing == other.testing
         && Objects.equals(version, other.version);
   }
 
@@ -137,7 +146,7 @@ public class CommandHelp {
         }, null)).findFirst().orElse("0.0.0");
   }
 
-  private static Boolean extractProvideStandardHelp(AnnotationMirror annotation) {
+  private static boolean extractProvideStandardHelp(AnnotationMirror annotation) {
     return annotation.getElementValues().entrySet().stream()
         .filter(e -> e.getKey().getSimpleName().contentEquals("provideStandardHelp"))
         .map(e -> e.getValue())
@@ -150,7 +159,7 @@ public class CommandHelp {
         }, null)).findFirst().orElse(true);
   }
 
-  private static Boolean extractProvideStandardVersion(AnnotationMirror annotation) {
+  private static boolean extractProvideStandardVersion(AnnotationMirror annotation) {
     return annotation.getElementValues().entrySet().stream()
         .filter(e -> e.getKey().getSimpleName().contentEquals("provideStandardVersion"))
         .map(e -> e.getValue())
@@ -171,5 +180,16 @@ public class CommandHelp {
             return s;
           }
         }, null)).filter(not(String::isEmpty)).findFirst().orElse(null);
+  }
+
+  private static boolean extractTesting(AnnotationMirror annotation) {
+    return annotation.getElementValues().entrySet().stream()
+        .filter(e -> e.getKey().getSimpleName().contentEquals("testing")).map(e -> e.getValue())
+        .map(v -> v.accept(new SimpleAnnotationValueVisitor8<Boolean, Void>() {
+          @Override
+          public Boolean visitBoolean(boolean b, Void p) {
+            return b;
+          }
+        }, null)).findFirst().orElse(false);
   }
 }

@@ -61,7 +61,7 @@ public abstract class RapierTestBase {
         .withProcessors(getAnnotationProcessors()).compile(source);
   }
 
-  public String doRun(Compilation compilation) throws IOException {
+  public String doRun(Compilation compilation, String... args) throws IOException {
     final List<File> classpathAsFiles = getRunClasspath(compilation);
 
     final List<URL> classpathAsUrls = new ArrayList<>();
@@ -95,7 +95,7 @@ public abstract class RapierTestBase {
         try {
           System.setOut(new PrintStream(stdout));
           System.setErr(new PrintStream(stderr));
-          mainMethod.invoke(null, (Object) new String[] {});
+          mainMethod.invoke(null, (Object) args);
         } finally {
           System.setOut(stdout0);
           System.setErr(stderr0);
