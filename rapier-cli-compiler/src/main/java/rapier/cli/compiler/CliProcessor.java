@@ -408,6 +408,8 @@ public class CliProcessor extends RapierProcessorBase {
     boolean seenList = false;
     final int size = positionalInjecionSites.size();
     for (int position = 0; position < size; position++) {
+      final boolean isLastParameter = position == size - 1;
+
       final List<DaggerInjectionSite> positionInjectionSites =
           positionalInjecionSites.get(PositionalParameterKey.forPosition(position));
       if (positionInjectionSites == null) {
@@ -431,12 +433,22 @@ public class CliProcessor extends RapierProcessorBase {
       }
 
       final boolean parameterIsList = metadata.isList();
-      if (seenList && parameterIsList) {
-        getMessager().printMessage(Diagnostic.Kind.ERROR,
-            "Positional parameter " + position + " is a list following another list");
+
+      if (parameterIsList && !isLastParameter) {
+        getMessager().printMessage(Diagnostic.Kind.ERROR, "Positional parameter " + position
+            + " appears to be varargs parameter, but is not last positional parameter");
         // TODO Print example list
         valid = false;
-      } else if (!seenList && parameterIsList) {
+      }
+
+      if (seenList) {
+        getMessager().printMessage(Diagnostic.Kind.ERROR, "Positional parameter " + position
+            + " follows varargs parameter, which should be last positional parameter");
+        // TODO Print example optional
+        valid = false;
+      }
+
+      if (parameterIsList) {
         seenList = true;
       }
     }
@@ -739,7 +751,7 @@ public class CliProcessor extends RapierProcessorBase {
           helps.isEmpty() ? Optional.empty() : Optional.of(helps.get(0));
 
       metadataByOptionParameter.put(pk,
-          new OptionParameterMetadata(required, listy,
+          new OptionParameterMetadata(required,
               maybeHelp.map(OptionParameterHelp::getValueName).orElse("value"),
               maybeHelp.flatMap(OptionParameterHelp::getDescription).orElse(null)));
     }
@@ -808,30 +820,6 @@ public class CliProcessor extends RapierProcessorBase {
 
       final boolean required = injectionSitesByRequired.keySet().stream().anyMatch(b -> b == true);
 
-      final boolean stringy = rkes.stream().allMatch(prke -> getStringConverter()
-          .generateConversionExpr(prke.getValue().getProvisionedType(), "_").isPresent());
-      final boolean listy = rkes.stream().allMatch(prke -> getListOfStringConverter()
-          .generateConversionExpr(prke.getValue().getProvisionedType(), "_").isPresent());
-      if (stringy && listy) {
-        getMessager().printMessage(Diagnostic.Kind.ERROR,
-            "Ambiguous flag parameter " + flagParameterUserFacingString(
-                pk.getPositiveShortName().orElse(null), pk.getPositiveLongName().orElse(null),
-                pk.getNegativeShortName().orElse(null), pk.getNegativeLongName().orElse(null)));
-        // TODO Print example ambiguous
-        valid = false;
-        continue;
-      }
-      if (!stringy && !listy) {
-        getMessager().printMessage(Diagnostic.Kind.ERROR,
-            "No conversion for flag parameter " + flagParameterUserFacingString(
-                pk.getPositiveShortName().orElse(null), pk.getPositiveLongName().orElse(null),
-                pk.getNegativeShortName().orElse(null), pk.getNegativeLongName().orElse(null)));
-        // TODO Print example no conversion
-        valid = false;
-        continue;
-      }
-
-
       final List<FlagParameterHelp> helps =
           injectionSites.stream().flatMap(dis -> FlagParameterHelp.fromInjectionSite(dis).stream())
               .distinct()
@@ -851,7 +839,7 @@ public class CliProcessor extends RapierProcessorBase {
       final Optional<FlagParameterHelp> maybeHelp =
           helps.isEmpty() ? Optional.empty() : Optional.of(helps.get(0));
 
-      metadataByFlagParameter.put(pk, new FlagParameterMetadata(required, listy,
+      metadataByFlagParameter.put(pk, new FlagParameterMetadata(required,
           maybeHelp.flatMap(FlagParameterHelp::getDescription).orElse(null)));
     }
 
@@ -931,6 +919,7 @@ public class CliProcessor extends RapierProcessorBase {
       final Collection<OptionRepresentationKey> representations = entry.getValue();
       for (OptionRepresentationKey representation : List.copyOf(representations)) {
         representations.add(toStringRepresentation(representation));
+        representations.add(toListOfStringRepresentation(representation));
       }
     }
 
@@ -946,6 +935,7 @@ public class CliProcessor extends RapierProcessorBase {
       final Collection<FlagRepresentationKey> representations = entry.getValue();
       for (FlagRepresentationKey representation : List.copyOf(representations)) {
         representations.add(toBooleanRepresentation(representation));
+        representations.add(toListOfBooleanRepresentation(representation));
       }
     }
 
@@ -955,6 +945,7 @@ public class CliProcessor extends RapierProcessorBase {
       out.println();
       out.println("import static java.util.Arrays.asList;");
       out.println("import static java.util.Collections.emptyList;");
+      out.println("import static java.util.Collections.unmodifiableList;");
       out.println();
       out.println("import dagger.Module;");
       out.println("import dagger.Provides;");
@@ -1008,9 +999,8 @@ public class CliProcessor extends RapierProcessorBase {
         final OptionParameterMetadata metadata =
             optionMetadataService.getOptionParameterMetadata(optionShortName, optionLongName);
         final boolean parameterIsRequired = metadata.isRequired();
-        final boolean parameterIsList = metadata.isList();
         emitOptionParameterInstanceFieldDeclaration(out, optionShortName, optionLongName,
-            parameterIsRequired, parameterIsList);
+            parameterIsRequired);
       }
       out.println();
 
@@ -1025,9 +1015,8 @@ public class CliProcessor extends RapierProcessorBase {
             flagMetadataService.getFlagParameterMetadata(flagPositiveShortName,
                 flagPositiveLongName, flagNegativeShortName, flagNegativeLongName);
         final boolean parameterIsRequired = metadata.isRequired();
-        final boolean parameterIsList = metadata.isList();
         emitFlagParameterInstanceFieldDeclaration(out, flagPositiveShortName, flagPositiveLongName,
-            flagNegativeShortName, flagNegativeLongName, parameterIsRequired, parameterIsList);
+            flagNegativeShortName, flagNegativeLongName, parameterIsRequired);
       }
       out.println();
 
@@ -1104,9 +1093,8 @@ public class CliProcessor extends RapierProcessorBase {
         final OptionParameterMetadata metadata =
             optionMetadataService.getOptionParameterMetadata(optionShortName, optionLongName);
         final boolean parameterIsRequired = metadata.isRequired();
-        final boolean parameterIsList = metadata.isList();
         emitOptionParameterInstanceFieldInitClause(out, optionShortName, optionLongName,
-            parameterIsRequired, parameterIsList);
+            parameterIsRequired);
       }
       out.println();
 
@@ -1120,9 +1108,8 @@ public class CliProcessor extends RapierProcessorBase {
             flagMetadataService.getFlagParameterMetadata(flagPositiveShortName,
                 flagPositiveLongName, flagNegativeShortName, flagNegativeLongName);
         final boolean parameterIsRequired = metadata.isRequired();
-        final boolean parameterIsList = metadata.isList();
         emitFlagParameterInstanceFieldInitClause(out, flagPositiveShortName, flagPositiveLongName,
-            flagNegativeShortName, flagNegativeLongName, parameterIsRequired, parameterIsList);
+            flagNegativeShortName, flagNegativeLongName, parameterIsRequired);
       }
 
       if (commandMetadata.isProvideStandardHelp()) {
@@ -1247,12 +1234,11 @@ public class CliProcessor extends RapierProcessorBase {
             optionMetadataService.getOptionParameterMetadata(optionShortName, optionLongName);
         final Collection<OptionRepresentationKey> representations = e.getValue();
         final boolean parameterIsRequired = metadata.isRequired();
-        final boolean parameterIsList = metadata.isList();
         for (OptionRepresentationKey representation : representations) {
           final TypeMirror representationType = representation.getType();
           final String representationDefaultValue = representation.getDefaultValue().orElse(null);
           emitOptionParameterRepresentationBindingMethods(out, optionShortName, optionLongName,
-              parameterIsRequired, parameterIsList, representationType, representationDefaultValue);
+              parameterIsRequired, representationType, representationDefaultValue);
         }
       }
 
@@ -1269,13 +1255,12 @@ public class CliProcessor extends RapierProcessorBase {
                 flagPositiveLongName, flagNegativeShortName, flagNegativeLongName);
         final Collection<FlagRepresentationKey> representations = e.getValue();
         final boolean parameterIsRequired = metadata.isRequired();
-        final boolean parameterIsList = metadata.isList();
         for (FlagRepresentationKey representation : representations) {
           final TypeMirror representationType = representation.getType();
           final Boolean representationDefaultValue = representation.getDefaultValue().orElse(null);
           emitFlagParameterRepresentationBindingMethods(out, flagPositiveShortName,
               flagPositiveLongName, flagNegativeShortName, flagNegativeLongName,
-              parameterIsRequired, parameterIsList, representationType, representationDefaultValue);
+              parameterIsRequired, representationType, representationDefaultValue);
         }
       }
 
@@ -1343,9 +1328,7 @@ public class CliProcessor extends RapierProcessorBase {
 
     final String defaultValueExpr = "null";
 
-    out.println("            if(parsed.getArgs().size() > " + position + ") {");
-    out.println("                this." + fieldName + " = " + extractValueExpr + ";");
-    out.println("            } else {");
+    out.println("            if(parsed.getArgs().size() <= " + position + ") {");
     if (parameterIsRequired) {
       out.println("                throw new CliSyntaxException(");
       out.println(
@@ -1353,6 +1336,8 @@ public class CliProcessor extends RapierProcessorBase {
     } else {
       out.println("                this." + fieldName + " = " + defaultValueExpr + ";");
     }
+    out.println("            } else {");
+    out.println("                this." + fieldName + " = " + extractValueExpr + ";");
     out.println("            }");
     out.println();
   }
@@ -1590,7 +1575,7 @@ public class CliProcessor extends RapierProcessorBase {
    * @param positionalMetadataService the positional metadata service
    */
   private void emitOptionParameterInstanceFieldDeclaration(PrintWriter out, Character shortName,
-      String longName, boolean parameterIsRequired, boolean parameterIsList) {
+      String longName, boolean parameterIsRequired) {
     final String fieldName = optionParameterInstanceFieldName(shortName, longName);
     out.println("    /**");
     out.println("     * Option parameter");
@@ -1601,11 +1586,7 @@ public class CliProcessor extends RapierProcessorBase {
       out.println("     * longName " + longName);
     }
     out.println("     */");
-    if (parameterIsList) {
-      out.println("    private final List<String> " + fieldName + ";");
-    } else {
-      out.println("    private final String " + fieldName + ";");
-    }
+    out.println("    private final List<String> " + fieldName + ";");
     out.println();
   }
 
@@ -1651,22 +1632,13 @@ public class CliProcessor extends RapierProcessorBase {
    * @param parameterIsList whether the parameter is a list
    */
   private void emitOptionParameterInstanceFieldInitClause(PrintWriter out, Character shortName,
-      String longName, boolean parameterIsRequired, boolean parameterIsList) {
+      String longName, boolean parameterIsRequired) {
     final String fieldName = optionParameterInstanceFieldName(shortName, longName);
     final String signature = optionParameterSignature(shortName, longName);
     final String userFacingString = optionParameterUserFacingString(shortName, longName);
 
-    out.println(
-        "            if(parsed.getOptions().containsKey(\"rapier.option." + signature + "\")) {");
-    out.println("                List<String> " + fieldName
-        + " = parsed.getOptions().get(\"rapier.option." + signature + "\");");
-    if (parameterIsList) {
-      out.println("                this." + fieldName + " = unmodifiableList(" + fieldName + "));");
-    } else {
-      out.println("                this." + fieldName + " = " + fieldName + ".get(" + fieldName
-          + ".size()-1);");
-    }
-    out.println("            } else {");
+    out.println("            if(parsed.getOptions().getOrDefault(\"rapier.option." + signature
+        + "\", emptyList()).isEmpty()) {");
     if (parameterIsRequired) {
       out.println("                throw new CliSyntaxException(");
       out.println(
@@ -1674,6 +1646,9 @@ public class CliProcessor extends RapierProcessorBase {
     } else {
       out.println("                this." + fieldName + " = null;");
     }
+    out.println("            } else {");
+    out.println("                this." + fieldName
+        + " = unmodifiableList(parsed.getOptions().get(\"rapier.option." + signature + "\"));");
     out.println("            }");
     out.println();
   }
@@ -1689,14 +1664,36 @@ public class CliProcessor extends RapierProcessorBase {
    * @param representationDefaultValue the default value of the representation, if any
    */
   private void emitOptionParameterRepresentationBindingMethods(PrintWriter out, Character shortName,
-      String longName, boolean parameterIsRequired, boolean parameterIsList,
-      TypeMirror representationType, String representationDefaultValue) {
+      String longName, boolean parameterIsRequired, TypeMirror representationType,
+      String representationDefaultValue) {
     final String fieldName = optionParameterInstanceFieldName(shortName, longName);
     final String signature = optionParameterSignature(shortName, longName);
+    final String userFacingName = optionParameterUserFacingString(shortName, longName);
     final String shortNameClause = shortName != null ? "shortName='" + shortName + "'" : null;
     final String longNameClause = longName != null ? "longName=\"" + longName + "\"" : null;
     final String nameClauses = Stream.of(shortNameClause, longNameClause).filter(Objects::nonNull)
         .collect(Collectors.joining(", "));
+
+    final String listOfStringConversionExpr =
+        getListOfStringConverter().generateConversionExpr(representationType, "value").orElse(null);
+    final String stringConversionExpr =
+        getStringConverter().generateConversionExpr(representationType, "value").orElse(null);
+    if (listOfStringConversionExpr == null && stringConversionExpr == null) {
+      // The user should provide their own conversion
+      getMessager().printMessage(Diagnostic.Kind.ERROR,
+          "No conversion available for " + userFacingName + " to " + representationType);
+      // TODO Print site
+      return;
+    }
+    if (listOfStringConversionExpr != null && stringConversionExpr != null) {
+      // The user should provide their own conversion
+      getMessager().printMessage(Diagnostic.Kind.ERROR,
+          "Multiple conversions available for " + userFacingName + " to " + representationType);
+      // TODO Print site
+      return;
+    }
+
+    final boolean representationIsList = listOfStringConversionExpr != null;
 
     final StringBuilder baseMethodName =
         new StringBuilder().append("provideOption").append(signature);
@@ -1704,7 +1701,7 @@ public class CliProcessor extends RapierProcessorBase {
       baseMethodName.append("WithDefaultValue").append(stringSignature(representationDefaultValue));
     }
 
-    if (parameterIsList == true
+    if (representationIsList == true
         && getTypes().isSameType(representationType, getListOfStringType())) {
       // This is a varargs parameter, and we're generating the "default" binding.
       if (representationDefaultValue != null) {
@@ -1744,33 +1741,39 @@ public class CliProcessor extends RapierProcessorBase {
         out.println("    }");
         out.println();
       }
-    } else if (parameterIsList == false
+    } else if (representationIsList == false
         && getTypes().isSameType(representationType, getStringType())) {
       // This is a single positional parameter, and we are generating the "default" binding
       if (representationDefaultValue != null) {
+        // We can safely access the first value because the default value guarantees it exists
         final String defaultValueExpr = "\"" + Java.escapeString(representationDefaultValue) + "\"";
         out.println("    @Provides");
         out.println(
             "    @CliOptionParameter(" + nameClauses + ", defaultValue=" + defaultValueExpr + ")");
-        out.println("    public String " + baseMethodName + "AsString() {");
-        out.println("        if(" + fieldName + " == null)");
-        out.println("            return " + defaultValueExpr + ";");
-        out.println("        return " + fieldName + ";");
+        out.println("    public String " + baseMethodName + "AsString(");
+        out.println("            @CliOptionParameter(" + nameClauses + ", defaultValue="
+            + defaultValueExpr + ") List<String> values) {");
+        out.println("        return values.get(values.size()-1);");
         out.println("    }");
         out.println();
       } else if (parameterIsRequired) {
+        // We don't need to check for null here because we already did in the constructor
         out.println("    @Provides");
         out.println("    @CliOptionParameter(" + nameClauses + ")");
-        out.println("    public String " + baseMethodName + "AsString() {");
-        out.println("        return " + fieldName + ";");
+        out.println("    public String " + baseMethodName + "AsString(");
+        out.println("            @CliOptionParameter(" + nameClauses + ") List<String> values) {");
+        out.println("        return values.get(values.size()-1);");
         out.println("    }");
         out.println();
       } else {
         out.println("    @Provides");
         out.println("    @Nullable");
         out.println("    @CliOptionParameter(" + nameClauses + ")");
-        out.println("    public String " + baseMethodName + "AsString() {");
-        out.println("        return " + fieldName + ";");
+        out.println("    public String " + baseMethodName + "AsString(");
+        out.println("            @CliOptionParameter(" + nameClauses + ") List<String> values) {");
+        out.println("        if(values.isEmpty())");
+        out.println("            return null;");
+        out.println("        return values.get(values.size()-1);");
         out.println("    }");
         out.println();
         out.println("    @Provides");
@@ -1784,7 +1787,7 @@ public class CliProcessor extends RapierProcessorBase {
       }
     } else {
       final String typeSimpleName = getSimpleTypeName(representationType);
-      if (parameterIsList) {
+      if (representationIsList) {
         final String conversionExpr = getListOfStringConverter()
             .generateConversionExpr(representationType, "value").orElse(null);
         if (conversionExpr == null) {
@@ -1813,7 +1816,7 @@ public class CliProcessor extends RapierProcessorBase {
           out.println("    @Provides");
           out.println("    @CliOptionParameter(" + nameClauses + ")");
           out.println("    public " + representationType + " " + baseMethodName + "As"
-              + typeSimpleName + "( List<String> value) {");
+              + typeSimpleName + "(List<String> value) {");
           out.println("        return " + conversionExpr + ";");
           out.println("    }");
           out.println();
@@ -1922,6 +1925,11 @@ public class CliProcessor extends RapierProcessorBase {
         key.getLongName().orElse(null), key.getDefaultValue().orElse(null));
   }
 
+  private OptionRepresentationKey toListOfStringRepresentation(OptionRepresentationKey key) {
+    return new OptionRepresentationKey(getListOfStringType(), key.getShortName().orElse(null),
+        key.getLongName().orElse(null), key.getDefaultValue().orElse(null));
+  }
+
   //////////////////////////////////////////////////////////////////////////////////////////////////
   // FLAG PARAMETER CODE GENERATION ////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1938,7 +1946,7 @@ public class CliProcessor extends RapierProcessorBase {
    */
   private void emitFlagParameterInstanceFieldDeclaration(PrintWriter out,
       Character positiveShortName, String positiveLongName, Character negativeShortName,
-      String negativeLongName, boolean parameterIsRequired, boolean parameterIsList) {
+      String negativeLongName, boolean parameterIsRequired) {
     final String fieldName = flagParameterInstanceFieldName(positiveShortName, positiveLongName,
         negativeShortName, negativeLongName);
     out.println("    /**");
@@ -1956,11 +1964,7 @@ public class CliProcessor extends RapierProcessorBase {
       out.println("     * negativeLongName " + negativeLongName);
     }
     out.println("     */");
-    if (parameterIsList) {
-      out.println("    private final List<Boolean> " + fieldName + ";");
-    } else {
-      out.println("    private final Boolean " + fieldName + ";");
-    }
+    out.println("    private final List<Boolean> " + fieldName + ";");
     out.println();
   }
 
@@ -2035,7 +2039,7 @@ public class CliProcessor extends RapierProcessorBase {
    */
   private void emitFlagParameterInstanceFieldInitClause(PrintWriter out,
       Character positiveShortName, String positiveLongName, Character negativeShortName,
-      String negativeLongName, boolean parameterIsRequired, boolean parameterIsList) {
+      String negativeLongName, boolean parameterIsRequired) {
     final String fieldName = flagParameterInstanceFieldName(positiveShortName, positiveLongName,
         negativeShortName, negativeLongName);
     final String signature = flagParameterSignature(positiveShortName, positiveLongName,
@@ -2043,17 +2047,8 @@ public class CliProcessor extends RapierProcessorBase {
     final String userFacingString = flagParameterUserFacingString(positiveShortName,
         positiveLongName, negativeShortName, negativeLongName);
 
-    out.println(
-        "            if(parsed.getFlags().containsKey(\"rapier.flag." + signature + "\")) {");
-    out.println("                List<Boolean> " + fieldName
-        + " = parsed.getFlags().get(\"rapier.flag." + signature + "\");");
-    if (parameterIsList) {
-      out.println("                this." + fieldName + " = unmodifiableList(" + fieldName + "));");
-    } else {
-      out.println("                this." + fieldName + " = " + fieldName + ".get(" + fieldName
-          + ".size()-1);");
-    }
-    out.println("            } else {");
+    out.println("            if(parsed.getFlags().getOrDefault(\"rapier.flag." + signature
+        + "\", emptyList()).isEmpty()) {");
     if (parameterIsRequired) {
       out.println("                throw new CliSyntaxException(");
       out.println(
@@ -2061,6 +2056,9 @@ public class CliProcessor extends RapierProcessorBase {
     } else {
       out.println("                this." + fieldName + " = null;");
     }
+    out.println("            } else {");
+    out.println("                this." + fieldName
+        + " = unmodifiableList(parsed.getFlags().get(\"rapier.flag." + signature + "\"));");
     out.println("            }");
     out.println();
   }
@@ -2080,11 +2078,13 @@ public class CliProcessor extends RapierProcessorBase {
    */
   private void emitFlagParameterRepresentationBindingMethods(PrintWriter out,
       Character positiveShortName, String positiveLongName, Character negativeShortName,
-      String negativeLongName, boolean parameterIsRequired, boolean parameterIsList,
-      TypeMirror representationType, Boolean representationDefaultValue) {
+      String negativeLongName, boolean parameterIsRequired, TypeMirror representationType,
+      Boolean representationDefaultValue) {
     final String fieldName = flagParameterInstanceFieldName(positiveShortName, positiveLongName,
         negativeShortName, negativeLongName);
     final String signature = flagParameterSignature(positiveShortName, positiveLongName,
+        negativeShortName, negativeLongName);
+    final String userFacingName = flagParameterUserFacingString(positiveShortName, positiveLongName,
         negativeShortName, negativeLongName);
     final String positiveShortNameClause =
         positiveShortName != null ? "positiveShortName='" + positiveShortName + "'" : null;
@@ -2098,6 +2098,28 @@ public class CliProcessor extends RapierProcessorBase {
         Stream.of(positiveShortNameClause, positiveLongNameClause, negativeShortNameClause,
             negativeLongNameClause).filter(Objects::nonNull).collect(Collectors.joining(", "));
 
+    final String listOfBooleanConversionExpr = getListOfBooleanConverter()
+        .generateConversionExpr(representationType, "value").orElse(null);
+    final String booleanConversionExpr =
+        getBooleanConverter().generateConversionExpr(representationType, "value").orElse(null);
+    if (listOfBooleanConversionExpr == null && booleanConversionExpr == null) {
+      // The user should provide their own conversion
+      getMessager().printMessage(Diagnostic.Kind.ERROR,
+          "No conversion available for " + userFacingName + " to " + representationType);
+      // TODO Print site
+      return;
+    }
+    if (listOfBooleanConversionExpr != null && booleanConversionExpr != null) {
+      // The user should provide their own conversion
+      getMessager().printMessage(Diagnostic.Kind.ERROR,
+          "Multiple conversions available for " + userFacingName + " to " + representationType);
+      // TODO Print site
+      return;
+    }
+
+    final boolean representationIsList = listOfBooleanConversionExpr != null;
+
+
     final StringBuilder baseMethodName =
         new StringBuilder().append("provideFlag").append(signature);
     if (representationDefaultValue != null) {
@@ -2105,9 +2127,8 @@ public class CliProcessor extends RapierProcessorBase {
           .append(representationDefaultValue.booleanValue() ? "True" : "False");
     }
 
-    if (parameterIsList == true
+    if (representationIsList == true
         && getTypes().isSameType(representationType, getListOfBooleanType())) {
-      // This is a varargs parameter, and we're generating the "default" binding.
       if (representationDefaultValue != null) {
         final String annotationDefaultValueExpr =
             "CliFlagParameterValue." + representationDefaultValue;
@@ -2142,40 +2163,45 @@ public class CliProcessor extends RapierProcessorBase {
         out.println("    @Provides");
         out.println("    @CliFlagParameter(" + nameClauses + ")");
         out.println("    public Optional<List<Boolean>> " + baseMethodName
-            + "AsOptionalOfBoolean(@CliFlagParameter(" + nameClauses + ") List<Boolean> value) {");
-        out.println("        return Optional.of(value);");
+            + "AsOptionalOfBoolean(@CliFlagParameter(" + nameClauses + ") List<Boolean> values) {");
+        out.println("        return Optional.of(values);");
         out.println("    }");
         out.println();
       }
-    } else if (parameterIsList == false
+    } else if (representationIsList == false
         && getTypes().isSameType(representationType, getBooleanType())) {
       // This is a single positional parameter, and we are generating the "default" binding
       if (representationDefaultValue != null) {
+        // We can just grab the first element. The default value guarantees it's there.
         final String annotationDefaultValueExpr =
             "CliFlagParameterValue." + representationDefaultValue;
-        final String javaDefaultValueExpr = "Boolean." + representationDefaultValue;
         out.println("    @Provides");
         out.println("    @CliFlagParameter(" + nameClauses + ", defaultValue="
             + annotationDefaultValueExpr + ")");
-        out.println("    public Boolean " + baseMethodName + "AsBoolean() {");
-        out.println("        if(" + fieldName + " == null)");
-        out.println("            return " + javaDefaultValueExpr + ";");
-        out.println("        return " + fieldName + ";");
+        out.println("    public Boolean " + baseMethodName + "AsBoolean(");
+        out.println("            @CliFlagParameter(" + nameClauses + ", defaultValue="
+            + annotationDefaultValueExpr + ") List<Boolean> values) {");
+        out.println("        return values.get(values.size()-1);");
         out.println("    }");
         out.println();
       } else if (parameterIsRequired) {
+        // We can just grab the first element. It has to be there. We confirmed above.
         out.println("    @Provides");
         out.println("    @CliFlagParameter(" + nameClauses + ")");
-        out.println("    public Boolean " + baseMethodName + "AsBoolean() {");
-        out.println("        return " + fieldName + ";");
+        out.println("    public Boolean " + baseMethodName + "AsBoolean(");
+        out.println("            @CliFlagParameter(" + nameClauses + ") List<Boolean> values) {");
+        out.println("        return values.get(values.size()-1);");
         out.println("    }");
         out.println();
       } else {
         out.println("    @Provides");
         out.println("    @Nullable");
         out.println("    @CliFlagParameter(" + nameClauses + ")");
-        out.println("    public Boolean " + baseMethodName + "AsBoolean() {");
-        out.println("        return " + fieldName + ";");
+        out.println("    public Boolean " + baseMethodName + "AsBoolean(");
+        out.println("            @CliFlagParameter(" + nameClauses + ") List<Boolean> values) {");
+        out.println("        if(values.isEmpty())");
+        out.println("            return null;");
+        out.println("        return values.get(values.size()-1);");
         out.println("    }");
         out.println();
         out.println("    @Provides");
@@ -2189,7 +2215,7 @@ public class CliProcessor extends RapierProcessorBase {
       }
     } else {
       final String typeSimpleName = getSimpleTypeName(representationType);
-      if (parameterIsList) {
+      if (representationIsList) {
         final String conversionExpr = getListOfBooleanConverter()
             .generateConversionExpr(representationType, "value").orElse(null);
         if (conversionExpr == null) {
@@ -2339,6 +2365,14 @@ public class CliProcessor extends RapierProcessorBase {
         key.getNegativeLongName().orElse(null), key.getDefaultValue().orElse(null));
   }
 
+  private FlagRepresentationKey toListOfBooleanRepresentation(FlagRepresentationKey key) {
+    return new FlagRepresentationKey(getListOfBooleanType(),
+        key.getPositiveShortName().orElse(null), key.getPositiveLongName().orElse(null),
+        key.getNegativeShortName().orElse(null), key.getNegativeLongName().orElse(null),
+        key.getDefaultValue().orElse(null));
+  }
+
+
   //////////////////////////////////////////////////////////////////////////////////////////////////
   // HELP MESSAGE //////////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -2381,7 +2415,7 @@ public class CliProcessor extends RapierProcessorBase {
           final FlagParameterKey key = new FlagParameterKey(shortPositiveName, positiveLongName,
               negativeShortName, negativeLongName);
           if (key.equals(standardHelpFlagParameterKey))
-            return new FlagParameterMetadata(false, false, "Print this help message and exit");
+            return new FlagParameterMetadata(false, "Print this help message and exit");
           return flagMetadataService0.getFlagParameterMetadata(shortPositiveName, positiveLongName,
               negativeShortName, negativeLongName);
         }
@@ -2399,7 +2433,7 @@ public class CliProcessor extends RapierProcessorBase {
           final FlagParameterKey key = new FlagParameterKey(shortPositiveName, positiveLongName,
               negativeShortName, negativeLongName);
           if (key.equals(standardHelpFlagParameterKey))
-            return new FlagParameterMetadata(false, false, "Print a version message and exit");
+            return new FlagParameterMetadata(false, "Print a version message and exit");
           return flagMetadataService0.getFlagParameterMetadata(shortPositiveName, positiveLongName,
               negativeShortName, negativeLongName);
         }

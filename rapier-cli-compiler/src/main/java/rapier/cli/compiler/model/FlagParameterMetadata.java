@@ -26,28 +26,17 @@ public class FlagParameterMetadata {
   private final boolean required;
 
   /**
-   * For positional bindings, this indicates whether the binding is a varargs "bucket." For named
-   * and flag bindings, this indicates whether the binding is a list of values.
-   */
-  private final boolean list;
-
-  /**
    * The description of the parameter for use in the help message
    */
   private final String helpDescription;
 
-  public FlagParameterMetadata(boolean required, boolean list, String helpDescription) {
+  public FlagParameterMetadata(boolean required, String helpDescription) {
     this.required = required;
-    this.list = list;
     this.helpDescription = helpDescription;
   }
 
   public boolean isRequired() {
     return required;
-  }
-
-  public boolean isList() {
-    return list;
   }
 
   public Optional<String> getHelpDescription() {
@@ -56,7 +45,7 @@ public class FlagParameterMetadata {
 
   @Override
   public int hashCode() {
-    return Objects.hash(helpDescription, list, required);
+    return Objects.hash(helpDescription, required);
   }
 
   @Override
@@ -68,13 +57,12 @@ public class FlagParameterMetadata {
     if (getClass() != obj.getClass())
       return false;
     FlagParameterMetadata other = (FlagParameterMetadata) obj;
-    return Objects.equals(helpDescription, other.helpDescription) && list == other.list
-        && required == other.required;
+    return Objects.equals(helpDescription, other.helpDescription) && required == other.required;
   }
 
   @Override
   public String toString() {
-    return "BindingMetadata [required=" + required + ", list=" + list + ", helpDescription="
-        + helpDescription + "]";
+    return "FlagParameterMetadata [required=" + required + ", helpDescription=" + helpDescription
+        + "]";
   }
 }

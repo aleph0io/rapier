@@ -27,12 +27,6 @@ public class OptionParameterMetadata {
   private final boolean required;
 
   /**
-   * For positional bindings, this indicates whether the binding is a varargs "bucket." For named
-   * and flag bindings, this indicates whether the binding is a list of values.
-   */
-  private final boolean list;
-
-  /**
    * The name of the parameter for use in the help message
    */
   private final String helpValueName;
@@ -42,20 +36,14 @@ public class OptionParameterMetadata {
    */
   private final String helpDescription;
 
-  public OptionParameterMetadata(boolean required, boolean list, String helpValueName,
-      String helpDescription) {
+  public OptionParameterMetadata(boolean required, String helpValueName, String helpDescription) {
     this.required = required;
-    this.list = list;
     this.helpValueName = requireNonNull(helpValueName);
     this.helpDescription = helpDescription;
   }
 
   public boolean isRequired() {
     return required;
-  }
-
-  public boolean isList() {
-    return list;
   }
 
   public String getHelpValueName() {
@@ -68,7 +56,7 @@ public class OptionParameterMetadata {
 
   @Override
   public int hashCode() {
-    return Objects.hash(helpDescription, helpValueName, list, required);
+    return Objects.hash(helpDescription, helpValueName, required);
   }
 
   @Override
@@ -81,13 +69,12 @@ public class OptionParameterMetadata {
       return false;
     OptionParameterMetadata other = (OptionParameterMetadata) obj;
     return Objects.equals(helpDescription, other.helpDescription)
-        && Objects.equals(helpValueName, other.helpValueName) && list == other.list
-        && required == other.required;
+        && Objects.equals(helpValueName, other.helpValueName) && required == other.required;
   }
 
   @Override
   public String toString() {
-    return "BindingMetadata [required=" + required + ", list=" + list + ", helpValueName="
-        + helpValueName + ", helpDescription=" + helpDescription + "]";
+    return "OptionParameterMetadata [required=" + required + ", helpValueName=" + helpValueName
+        + ", helpDescription=" + helpDescription + "]";
   }
 }
