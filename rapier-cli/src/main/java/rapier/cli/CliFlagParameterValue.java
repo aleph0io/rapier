@@ -20,18 +20,29 @@
 package rapier.cli;
 
 public enum CliFlagParameterValue {
+  /**
+   * No value, equivalent to {@code null}
+   */
   NONE {
     @Override
     public Boolean toBoolean() {
       return null;
     }
   },
+
+  /**
+   * The value {@code true}, equivalent to {@code Boolean.TRUE}
+   */
   TRUE {
     @Override
     public Boolean toBoolean() {
       return Boolean.TRUE;
     }
   },
+
+  /**
+   * The value {@code false}, equivalent to {@code Boolean.FALSE}
+   */
   FALSE {
     @Override
     public Boolean toBoolean() {
