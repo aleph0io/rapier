@@ -55,13 +55,10 @@ import dagger.Component;
 import rapier.core.ConversionExprFactory;
 import rapier.core.DaggerComponentAnalyzer;
 import rapier.core.RapierProcessorBase;
-import rapier.core.conversion.expr.ConversionExprFactoryChain;
-import rapier.core.conversion.expr.FromStringConversionExprFactory;
-import rapier.core.conversion.expr.SingleArgumentConstructorConversionExprFactory;
-import rapier.core.conversion.expr.ValueOfConversionExprFactory;
 import rapier.core.model.DaggerInjectionSite;
 import rapier.core.util.AnnotationProcessing;
 import rapier.core.util.CaseFormat;
+import rapier.core.util.ConversionExprFactories;
 import rapier.core.util.Java;
 import rapier.sysprop.SystemProperty;
 import rapier.sysprop.compiler.model.ParameterKey;
@@ -78,10 +75,8 @@ public class SystemPropertyProcessor extends RapierProcessorBase {
   public synchronized void init(ProcessingEnvironment processingEnv) {
     super.init(processingEnv);
 
-    converter = new ConversionExprFactoryChain(
-        new ValueOfConversionExprFactory(getTypes(), getStringType()),
-        new FromStringConversionExprFactory(getTypes()),
-        new SingleArgumentConstructorConversionExprFactory(getTypes(), getStringType()));
+    converter = ConversionExprFactories.standardAmbiguousFromStringFactory(getProcessingEnv());
+
   }
 
   @Override

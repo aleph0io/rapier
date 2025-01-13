@@ -60,13 +60,10 @@ import rapier.aws.ssm.compiler.util.SystemProperties;
 import rapier.core.ConversionExprFactory;
 import rapier.core.DaggerComponentAnalyzer;
 import rapier.core.RapierProcessorBase;
-import rapier.core.conversion.expr.ConversionExprFactoryChain;
-import rapier.core.conversion.expr.FromStringConversionExprFactory;
-import rapier.core.conversion.expr.SingleArgumentConstructorConversionExprFactory;
-import rapier.core.conversion.expr.ValueOfConversionExprFactory;
 import rapier.core.model.DaggerInjectionSite;
 import rapier.core.util.AnnotationProcessing;
 import rapier.core.util.CaseFormat;
+import rapier.core.util.ConversionExprFactories;
 import rapier.core.util.Java;
 
 @SupportedAnnotationTypes("dagger.Component")
@@ -78,10 +75,8 @@ public class AwsSsmProcessor extends RapierProcessorBase {
   public synchronized void init(ProcessingEnvironment processingEnv) {
     super.init(processingEnv);
 
-    converter = new ConversionExprFactoryChain(
-        new ValueOfConversionExprFactory(getTypes(), getStringType()),
-        new FromStringConversionExprFactory(getTypes()),
-        new SingleArgumentConstructorConversionExprFactory(getTypes(), getStringType()));
+    converter = ConversionExprFactories.standardAmbiguousFromStringFactory(getProcessingEnv());
+
   }
 
   @Override
@@ -319,8 +314,8 @@ public class AwsSsmProcessor extends RapierProcessorBase {
       writer.println("import javax.annotation.Nullable;");
       writer.println("import javax.inject.Inject;");
       writer.println("import software.amazon.awssdk.services.ssm.SsmClient;");
-      writer.println(
-          "import software.amazon.awssdk.services.ssm.model.ParameterNotFoundException;");
+      writer
+          .println("import software.amazon.awssdk.services.ssm.model.ParameterNotFoundException;");
       writer.println("import software.amazon.awssdk.services.ssm.model.GetParameterRequest;");
       writer.println();
       writer.println("@Module");
@@ -365,7 +360,8 @@ public class AwsSsmProcessor extends RapierProcessorBase {
             writer.println("                .parameter()");
             writer.println("                .value();");
             writer.println("        } catch(ParameterNotFoundException e) {");
-            writer.println("            return \"" + Java.escapeString(representationDefaultValue) + "\";");
+            writer.println(
+                "            return \"" + Java.escapeString(representationDefaultValue) + "\";");
             writer.println("        }");
             writer.println("    }");
             writer.println();
@@ -379,8 +375,8 @@ public class AwsSsmProcessor extends RapierProcessorBase {
             writer.println("                .parameter()");
             writer.println("                .value();");
             writer.println("        } catch(ParameterNotFoundException e) {");
-            writer.println("            throw new IllegalStateException(\"AWS SSM Parameter "
-                + name + " not set\");");
+            writer.println("            throw new IllegalStateException(\"AWS SSM Parameter " + name
+                + " not set\");");
             writer.println("        }");
             writer.println("    }");
             writer.println();
@@ -438,8 +434,8 @@ public class AwsSsmProcessor extends RapierProcessorBase {
                 + "(@AwsSsmStringParameter(\"" + name + "\") String value) {");
             writer.println("        " + type + " result = " + conversionExpr + ";");
             writer.println("        if (result == null)");
-            writer.println("            throw new IllegalStateException(\"AWS SSM string parameter " + name
-                + " representation " + type + " not set\");");
+            writer.println("            throw new IllegalStateException(\"AWS SSM string parameter "
+                + name + " representation " + type + " not set\");");
             writer.println("        return result;");
             writer.println("    }");
             writer.println();

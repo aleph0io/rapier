@@ -85,15 +85,15 @@ import rapier.cli.compiler.util.CliProcessing;
 import rapier.core.ConversionExprFactory;
 import rapier.core.DaggerComponentAnalyzer;
 import rapier.core.RapierProcessorBase;
+import rapier.core.conversion.expr.BooleanToPrimitiveConversionExprFactory;
+import rapier.core.conversion.expr.BooleanToStringConversionExprFactory;
 import rapier.core.conversion.expr.ConversionExprFactoryChain;
 import rapier.core.conversion.expr.ElementwiseListConversionExprFactory;
-import rapier.core.conversion.expr.FromStringConversionExprFactory;
 import rapier.core.conversion.expr.IdentityConversionExprFactory;
 import rapier.core.conversion.expr.SingleArgumentConstructorConversionExprFactory;
-import rapier.core.conversion.expr.StringToCharacterConversionExprFactory;
-import rapier.core.conversion.expr.StringToPrimitiveConversionExprFactory;
 import rapier.core.conversion.expr.ValueOfConversionExprFactory;
 import rapier.core.model.DaggerInjectionSite;
+import rapier.core.util.ConversionExprFactories;
 import rapier.core.util.Java;
 
 @SupportedAnnotationTypes("dagger.Component")
@@ -108,22 +108,16 @@ public class CliProcessor extends RapierProcessorBase {
   public synchronized void init(ProcessingEnvironment processingEnv) {
     super.init(processingEnv);
 
-    stringConverter = new ConversionExprFactoryChain(
-        new IdentityConversionExprFactory(getTypes(), getStringType()),
-        new StringToPrimitiveConversionExprFactory(getTypes()),
-        new StringToCharacterConversionExprFactory(getTypes()),
-        new ValueOfConversionExprFactory(getTypes(), getStringType()),
-        new FromStringConversionExprFactory(getTypes()),
-        new SingleArgumentConstructorConversionExprFactory(getTypes(), getStringType()));
+    stringConverter =
+        ConversionExprFactories.standardAmbiguousFromStringFactory(getProcessingEnv());
 
-    listOfStringConverter = new ConversionExprFactoryChain(
-        new IdentityConversionExprFactory(getTypes(), getListOfStringType()),
-        new ValueOfConversionExprFactory(getTypes(), getListOfStringType()),
-        new SingleArgumentConstructorConversionExprFactory(getTypes(), getListOfStringType()),
-        new ElementwiseListConversionExprFactory(getTypes(), stringConverter));
+    listOfStringConverter =
+        ConversionExprFactories.standardAmbiguousFromListOfStringFactory(getProcessingEnv());
 
     booleanConverter = new ConversionExprFactoryChain(
         new IdentityConversionExprFactory(getTypes(), getBooleanType()),
+        new BooleanToPrimitiveConversionExprFactory(getTypes()),
+        new BooleanToStringConversionExprFactory(getTypes()),
         new ValueOfConversionExprFactory(getTypes(), getBooleanType()),
         new SingleArgumentConstructorConversionExprFactory(getTypes(), getBooleanType()));
 
