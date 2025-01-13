@@ -17,9 +17,9 @@
  * limitations under the License.
  * ==================================LICENSE_END===================================
  */
-package rapier.core.assumptions.dagger;
+package rapier.assumptions.dagger;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import javax.inject.Provider;
@@ -29,57 +29,22 @@ import rapier.core.DaggerTestBase;
 /**
  * Test assumptions about how {@link Provider} bindings work in Dagger.
  */
-public class OptionalDaggerTest extends DaggerTestBase {
+public class BoxingDaggerTest extends DaggerTestBase {
   /**
-   * Verify that Dagger does not provide Optional<String> bindings when a module provides only a
-   * String binding.
+   * Verify that Dagger allows @Nullable int injection sites. Weird.
    */
   @Test
-  public void givenOptionalOfStringDependencyAndStringBinding_whenCompile_thenMissingBindingError()
+  public void givenNullableIntDependencyAndNullableIntegerBinding_whenCompile_thenNoError()
       throws IOException {
     final String componentSourceCode = """
         import dagger.Component;
-        import java.util.Optional;
+        import javax.annotation.Nullable;
+        import javax.inject.Provider;
 
         @Component(modules = {ExampleModule.class})
         public interface ExampleComponent {
-            public Optional<String> example();
-        }
-        """;
-
-    final String moduleSourceCode = """
-        import dagger.Module;
-        import dagger.Provides;
-
-        @Module
-        public class ExampleModule {
-            @Provides
-            public String example() {
-                return "example";
-            }
-        }
-        """;
-
-    final String errors = compileSourceCode(componentSourceCode, moduleSourceCode);
-
-    assertTrue(errors.contains("[Dagger/MissingBinding]"),
-        "Expected a missing binding error, but no missing binding error was found.");
-  }
-
-  /**
-   * Verify that Dagger does not provide Optional<String> bindings when a module provides only a
-   * String binding.
-   */
-  @Test
-  public void givenOptionalOfStringDependencyAndNullableStringBinding_whenCompile_thenMissingBindingError()
-      throws IOException {
-    final String componentSourceCode = """
-        import dagger.Component;
-        import java.util.Optional;
-
-        @Component(modules = {ExampleModule.class})
-        public interface ExampleComponent {
-            public Optional<String> example();
+            @Nullable
+            public int provisionInt();
         }
         """;
 
@@ -92,47 +57,121 @@ public class OptionalDaggerTest extends DaggerTestBase {
         public class ExampleModule {
             @Provides
             @Nullable
-            public String example() {
-                return "example";
+            public Integer provideInteger() {
+                return Integer.valueOf(42);
             }
         }
         """;
 
     final String errors = compileSourceCode(componentSourceCode, moduleSourceCode);
 
-    assertTrue(errors.contains("[Dagger/MissingBinding]"),
-        "Expected a missing binding error, but no missing binding error was found.");
+    assertTrue(errors.isBlank(), "Expected no errors, but errors were found.");
   }
 
   /**
-   * Verify that Dagger provides a @Nullable Provider<String> binding when a module provides a
-   * 
-   * @Nullable String binding.
+   * Verify that Dagger allows @Nullable int injection sites. Weird.
    */
   @Test
-  public void givenOptionalOfStringDependencyAndOptionalOfStringBinding_whenCompileAndRun_thenNoError()
+  public void givenNullableIntDependencyAndNonNullableIntegerBinding_whenCompile_thenNoError()
       throws IOException {
     final String componentSourceCode = """
         import dagger.Component;
-        import java.util.Optional;
+        import javax.annotation.Nullable;
+        import javax.inject.Provider;
 
-        @Component(modules={ExampleModule.class})
+        @Component(modules = {ExampleModule.class})
         public interface ExampleComponent {
-            public Optional<String> string();
+            @Nullable
+            public int provisionInt();
         }
         """;
 
     final String moduleSourceCode = """
         import dagger.Module;
         import dagger.Provides;
-        import java.util.Optional;
+
+        @Module
+        public class ExampleModule {
+            @Provides
+            public Integer provideInteger() {
+                return Integer.valueOf(42);
+            }
+        }
+        """;
+
+    final String errors = compileSourceCode(componentSourceCode, moduleSourceCode);
+
+    assertTrue(errors.isBlank(), "Expected no errors, but errors were found.");
+  }
+
+  /**
+   * Verify that Dagger does not allow non-@Nullable int injection sites and @Nullable Integer
+   * bindings.
+   */
+  @Test
+  public void givenNonNullableIntDependencyAndNullableIntegerBinding_whenCompile_thenNullableError()
+      throws IOException {
+    final String componentSourceCode = """
+        import dagger.Component;
+        import javax.inject.Provider;
+
+        @Component(modules = {ExampleModule.class})
+        public interface ExampleComponent {
+            public int provisionInt();
+        }
+        """;
+
+    final String moduleSourceCode = """
+        import dagger.Module;
+        import dagger.Provides;
         import javax.annotation.Nullable;
 
         @Module
         public class ExampleModule {
             @Provides
-            public Optional<String> provideString() {
-                return Optional.of("example");
+            @Nullable
+            public Integer provideInteger() {
+                return Integer.valueOf(42);
+            }
+        }
+        """;
+
+    final String errors = compileSourceCode(componentSourceCode, moduleSourceCode);
+
+    assertTrue(errors.contains("[Dagger/Nullable]"),
+        "Expected a nullable error, but no nullable error was found.");
+  }
+
+  /**
+   * Verify that Dagger fails with NPE for @Nullable int injection sites and @Nullable Integer when
+   * null is returned, even thought Dagger allows this to compile.
+   */
+  @Test
+  public void givenNullableIntDependencyAndNullableIntegerBinding_whenCompileAndRun_thenNullError()
+      throws IOException {
+    final String componentSourceCode = """
+        import dagger.Component;
+        import javax.inject.Provider;
+        import javax.annotation.Nullable;
+
+        @Component(modules={ExampleModule.class})
+        public interface ExampleComponent {
+            @Nullable
+            public int provisionInt();
+        }
+        """;
+
+    final String moduleSourceCode = """
+        import dagger.Module;
+        import dagger.Provides;
+        import javax.annotation.Nullable;
+
+        @Module
+        public class ExampleModule {
+            @Provides
+            @Nullable
+            public Integer provideInteger() {
+                return null;
             }
         }
         """;
@@ -141,14 +180,12 @@ public class OptionalDaggerTest extends DaggerTestBase {
         public class ExampleApp {
             public static void main(String[] args) {
                 ExampleComponent c = DaggerExampleComponent.builder().build();
-                System.out.println(c.string().get());
+                System.out.println(c.provisionInt());
             }
         }
         """;
 
-    final String output =
-        compileAndRunSourceCode(componentSourceCode, moduleSourceCode, appSourceCode).trim();
-
-    assertEquals("example", output);
+    assertThrowsExactly(NullPointerException.class,
+        () -> compileAndRunSourceCode(componentSourceCode, moduleSourceCode, appSourceCode));
   }
 }

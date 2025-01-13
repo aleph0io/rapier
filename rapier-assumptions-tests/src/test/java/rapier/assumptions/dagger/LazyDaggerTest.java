@@ -17,32 +17,32 @@
  * limitations under the License.
  * ==================================LICENSE_END===================================
  */
-package rapier.core.assumptions.dagger;
+package rapier.assumptions.dagger;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
-import javax.inject.Provider;
 import org.junit.jupiter.api.Test;
+import dagger.Lazy;
 import rapier.core.DaggerTestBase;
 
 /**
- * Test assumptions about how {@link Provider} bindings work in Dagger.
+ * Test assumptions about how {@link Lazy} bindings work in Dagger.
  */
-public class ProviderDaggerTest extends DaggerTestBase {
+public class LazyDaggerTest extends DaggerTestBase {
   /**
-   * Verify that Dagger provides a Provider<String> binding when a module provides a String binding.
+   * Verify that Dagger provides a Lazy<String> binding when a module provides a String binding.
    */
   @Test
-  public void givenProviderOfStringDependencyAndStringBinding_whenCompile_thenNoError()
+  public void givenLazyOfStringDependencyAndStringBinding_whenCompile_thenNoError()
       throws IOException {
     final String componentSourceCode = """
         import dagger.Component;
-        import javax.inject.Provider;
+        import dagger.Lazy;
 
         @Component(modules = {ExampleModule.class})
         public interface ExampleComponent {
-            public Provider<String> example();
+            public Lazy<String> example();
         }
         """;
 
@@ -65,21 +65,21 @@ public class ProviderDaggerTest extends DaggerTestBase {
   }
 
   /**
-   * Verify that Dagger provides a @Named("example") Provider<String> binding when a module provides
+   * Verify that Dagger provides a @Named("example") Lazy<String> binding when a module provides
    * a @Named("example") String binding.
    */
   @Test
-  public void givenQualifiedProviderOfStringDependencyAndQualifiedStringBinding_whenCompile_thenNoError()
+  public void givenQualifiedLazyOfStringDependencyAndQualifiedStringBinding_whenCompile_thenNoError()
       throws IOException {
     final String componentSourceCode = """
         import dagger.Component;
-        import javax.inject.Provider;
+        import dagger.Lazy;
         import javax.inject.Named;
 
         @Component(modules = {ExampleModule.class})
         public interface ExampleComponent {
             @Named("example")
-            public Provider<String> example();
+            public Lazy<String> example();
         }
         """;
 
@@ -104,19 +104,19 @@ public class ProviderDaggerTest extends DaggerTestBase {
   }
 
   /**
-   * Verify that Dagger does not allow qualifier annotations on Provider type parameters.
+   * Verify that Dagger does not allow qualifier annotations on Lazy type parameters.
    */
   @Test
-  public void givenProviderOfQualifiedStringDependency_whenCompile_thenCompileError()
+  public void givenLazyOfQualifiedStringDependency_whenCompile_thenCompileError()
       throws IOException {
     final String componentSourceCode = """
         import dagger.Component;
-        import javax.inject.Provider;
+        import dagger.Lazy;
         import javax.inject.Named;
 
         @Component
         public interface ExampleComponent {
-            public Provider<@Named("example") String> example();
+            public Lazy<@Named("example") String> example();
         }
         """;
 
@@ -126,21 +126,21 @@ public class ProviderDaggerTest extends DaggerTestBase {
   }
 
   /**
-   * Verify that Dagger does not provide a @Named("example") Provider<String> binding when a module
+   * Verify that Dagger does not provide a @Named("example") Lazy<String> binding when a module
    * provides only an unqualified String.
    */
   @Test
-  public void givenQualifiedProviderOfStringDependencyAndUnqualifiedStringBinding_whenCompile_thenMissingBindingError()
+  public void givenQualifiedLazyOfStringDependencyAndUnqualifiedStringBinding_whenCompile_thenMissingBindingError()
       throws IOException {
     final String componentSourceCode = """
         import dagger.Component;
-        import javax.inject.Provider;
+        import dagger.Lazy;
         import javax.inject.Named;
 
         @Component(modules = {ExampleModule.class})
         public interface ExampleComponent {
             @Named("example")
-            public Provider<String> example();
+            public Lazy<String> example();
         }
         """;
 
@@ -160,29 +160,29 @@ public class ProviderDaggerTest extends DaggerTestBase {
 
     final String errors = compileSourceCode(componentSourceCode, moduleSourceCode);
 
-    // This produces an error because the Provider is for a qualified type, but the module provides
+    // This produces an error because the Lazy is for a qualified type, but the module provides
     // only an unqualified type.
     assertTrue(errors.contains("[Dagger/MissingBinding]"),
         "Expected a missing binding error, but no missing binding error was found.");
   }
 
   /**
-   * Verify that Dagger provides a @Nullable Provider<String> binding when a module provides a
+   * Verify that Dagger provides a @Nullable Lazy<String> binding when a module provides a
    * 
    * @Nullable String binding.
    */
   @Test
-  public void givenNullableProviderOfStringDependencyAndNullableStringBinding_whenCompileAndRun_thenNoError()
+  public void givenNullableLazyOfStringDependencyAndNullableStringBinding_whenCompileAndRun_thenNoError()
       throws IOException {
     final String componentSourceCode = """
         import dagger.Component;
-        import javax.inject.Provider;
+        import dagger.Lazy;
         import javax.annotation.Nullable;
 
         @Component(modules={ExampleModule.class})
         public interface ExampleComponent {
             @Nullable
-            public Provider<String> string();
+            public Lazy<String> string();
         }
         """;
 
@@ -217,21 +217,21 @@ public class ProviderDaggerTest extends DaggerTestBase {
   }
 
   /**
-   * Verify that Dagger provides a @Nullable Provider<String> binding when a module provides a
+   * Verify that Dagger provides a @Nullable Lazy<String> binding when a module provides a
    * non-@Nullable String binding.
    */
   @Test
-  public void givenNullableProviderOfStringDependencyAndNonNullableStringBinding_whenCompileAndRun_thenNoError()
+  public void givenNullableLazyOfStringDependencyAndNonNullableStringBinding_whenCompileAndRun_thenNoError()
       throws IOException {
     final String componentSourceCode = """
         import dagger.Component;
-        import javax.inject.Provider;
+        import dagger.Lazy;
         import javax.annotation.Nullable;
 
         @Component(modules={ExampleModule.class})
         public interface ExampleComponent {
             @Nullable
-            public Provider<String> string();
+            public Lazy<String> string();
         }
         """;
 
@@ -265,20 +265,20 @@ public class ProviderDaggerTest extends DaggerTestBase {
   }
 
   /**
-   * Verify that Dagger provides a non-@Nullable Provider<String> binding when a module provides
+   * Verify that Dagger provides a non-@Nullable Lazy<String> binding when a module provides
    * a @Nullable String binding.
    */
   @Test
-  public void givenNonNullableProviderOfStringDependencyAndNullableStringBinding_whenCompile_thenNoError()
+  public void givenNonNullableLazyOfStringDependencyAndNullableStringBinding_whenCompile_thenNoError()
       throws IOException {
     final String componentSourceCode = """
         import dagger.Component;
-        import javax.inject.Provider;
+        import dagger.Lazy;
         import javax.annotation.Nullable;
 
         @Component(modules={ExampleModule.class})
         public interface ExampleComponent {
-            public Provider<String> string();
+            public Lazy<String> string();
         }
         """;
 
@@ -313,96 +313,25 @@ public class ProviderDaggerTest extends DaggerTestBase {
   }
 
   /**
-   * Verify that Dagger does not support @Nullable annotations on Provider type parameters.
+   * Verify that Dagger does not support @Nullable annotations on Lazy type parameters.
    */
   @Test
-  public void givenProviderOfNullableStringDependencyAndNullableStringBinding_whenCompileAndRun_thenCompileError()
+  public void givenLazyOfNullableStringDependencyAndNullableStringBinding_whenCompileAndRun_thenCompileError()
       throws IOException {
     final String componentSourceCode = """
         import dagger.Component;
-        import javax.inject.Provider;
+        import dagger.Lazy;
         import javax.annotation.Nullable;
 
         @Component
         public interface ExampleComponent {
-            public Provider<@Nullable String> string();
+            public Lazy<@Nullable String> string();
         }
         """;
 
     final String errors = compileSourceCode(componentSourceCode).trim();
 
     assertEquals("annotation @javax.annotation.Nullable not applicable in this type context",
-        errors);
-  }
-
-  /**
-   * Verify that Dagger provides a Provider<? extends String> binding when a module provides a
-   * String binding.
-   */
-  @Test
-  public void givenProviderOfWildcardDependency_whenCompile_thenCompileError() throws IOException {
-    final String componentSourceCode = """
-        import dagger.Component;
-        import javax.inject.Provider;
-
-        @Component
-        public interface ExampleComponent {
-            public Provider<?> example();
-        }
-        """;
-
-    final String errors = compileSourceCode(componentSourceCode).trim();
-
-    assertEquals(
-        "Dagger does not support injecting Provider<T>, Lazy<T>, Producer<T>, or Produced<T> when T is a wildcard type such as ?",
-        errors);
-  }
-
-  /**
-   * Verify that Dagger provides a Provider<? extends String> binding when a module provides a
-   * String binding.
-   */
-  @Test
-  public void givenProviderOfStringUpperBoundDependency_whenCompile_thenCompileError()
-      throws IOException {
-    final String componentSourceCode = """
-        import dagger.Component;
-        import javax.inject.Provider;
-
-        @Component
-        public interface ExampleComponent {
-            public Provider<? extends String> example();
-        }
-        """;
-
-    final String errors = compileSourceCode(componentSourceCode).trim();
-
-    assertEquals(
-        "Dagger does not support injecting Provider<T>, Lazy<T>, Producer<T>, or Produced<T> when T is a wildcard type such as ? extends java.lang.String",
-        errors);
-  }
-
-  /**
-   * Verify that Dagger provides a Provider<? super String> binding when a module provides a String
-   * binding.
-   */
-  @Test
-  public void givenProviderOfStringLowerBoundDependency_whenCompile_thenCompileError()
-      throws IOException {
-    final String componentSourceCode = """
-        import dagger.Component;
-        import javax.inject.Provider;
-
-        @Component
-        public interface ExampleComponent {
-            public Provider<? super String> example();
-        }
-        """;
-
-    final String errors = compileSourceCode(componentSourceCode).trim();
-
-    assertEquals(
-        "Dagger does not support injecting Provider<T>, Lazy<T>, Producer<T>, or Produced<T> when T is a wildcard type such as ? super java.lang.String",
         errors);
   }
 }

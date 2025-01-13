@@ -70,8 +70,12 @@
                     <version>3.5.2</version>
                     <configuration>
                         <!--
+                            -XX:+EnableDynamicAgentLoading is to suppress a
+                            Mockito self-attach warning when running tests
+                        -->
+                        <!--
                             -Xshare:off is to suppress some warnings from
-                            Mockito when mocking Object methods
+                            Mockito when mocking Object methods during tests
                         -->
                         <!--
                             The "add exports" flags below below are required for
@@ -80,6 +84,7 @@
                             Java 9+.
                         -->
                         <argLine>
+                            -XX:+EnableDynamicAgentLoading
                             -Xshare:off
                             --add-exports
                             jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED
@@ -277,6 +282,7 @@
 
     <modules>
         <module>rapier-core</module>
+        <module>rapier-assumptions-tests</module>
         <module>rapier-environment-variable</module>
         <module>rapier-environment-variable-compiler</module>
         <module>rapier-system-property</module>
