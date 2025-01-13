@@ -39,12 +39,18 @@ import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import javax.tools.JavaFileObject;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import com.google.testing.compile.Compilation;
 import rapier.core.RapierTestBase;
 
 class ValueOfConversionExprFactoryTest extends RapierTestBase {
   private String conversionExpr;
+
+  @BeforeEach
+  public void setupValueOfConversionExprFactoryTest() {
+    conversionExpr = null;
+  }
 
   @Test
   void givenClassWithMatchingValueOfMethod_whenCompile_thenGenerateExpectedConversionExpr()
