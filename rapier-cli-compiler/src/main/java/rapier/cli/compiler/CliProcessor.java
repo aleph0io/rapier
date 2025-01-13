@@ -154,6 +154,7 @@ public class CliProcessor extends RapierProcessorBase {
     getMessager().printMessage(Diagnostic.Kind.NOTE,
         "Found @Component: " + component.getQualifiedName());
 
+    final String componentQualifiedName = component.getQualifiedName().toString();
     final String componentPackageName =
         getElements().getPackageOf(component).getQualifiedName().toString();
     final String componentClassName = component.getSimpleName().toString();
@@ -192,6 +193,8 @@ public class CliProcessor extends RapierProcessorBase {
 
     if (positionalMetadataService == null || optionMetadataService == null
         || flagMetadataService == null) {
+      getMessager().printMessage(Diagnostic.Kind.NOTE, "Analysis of component "
+          + componentQualifiedName + " failed, will not generate " + moduleClassName);
       return;
     }
 
@@ -207,6 +210,8 @@ public class CliProcessor extends RapierProcessorBase {
 
     if (injectionSitesAreValid == false || standardHelpIsValid == false
         || standardVersionIsValid == false) {
+      getMessager().printMessage(Diagnostic.Kind.NOTE, "Component " + componentQualifiedName
+          + " has semantic errors, will not generate " + moduleClassName);
       return;
     }
 
@@ -219,9 +224,8 @@ public class CliProcessor extends RapierProcessorBase {
     try {
       // TODO Is this the right set of elements?
       final Element[] dependentElements = new Element[] {component};
-      final JavaFileObject moduleSourceFile =
-          getFiler().createSourceFile(componentPackageName.equals("") ? moduleClassName
-              : componentPackageName + "." + moduleClassName, dependentElements);
+      final JavaFileObject moduleSourceFile = getFiler().createSourceFile(
+          Java.qualifiedClassName(componentPackageName, moduleClassName), dependentElements);
       try (final Writer writer = moduleSourceFile.openWriter()) {
         writer.write(moduleSource);
       }

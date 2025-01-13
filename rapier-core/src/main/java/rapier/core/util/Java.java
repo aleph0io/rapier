@@ -38,4 +38,16 @@ public final class Java {
       throw new NullPointerException();
     return s.replace("\\", "\\\\").replace("\"", "\\\"");
   }
+
+  /**
+   * Returns the qualified class name for a class with the given package and simple class name.
+   * Intended for top-level classes only.
+   * 
+   * @param packageName the package name, or the empty string for the default package
+   * @param simpleClassName the simple class name
+   * @return the qualified class name
+   */
+  public static String qualifiedClassName(String packageName, String simpleClassName) {
+    return packageName.isEmpty() ? simpleClassName : packageName + "." + simpleClassName;
+  }
 }
