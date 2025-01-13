@@ -25,7 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import org.junit.jupiter.api.Test;
 import dagger.Component;
-import rapier.core.DaggerTestBase;
 
 /**
  * Test assumptions about how {@link Component @Component}-annotated classes work

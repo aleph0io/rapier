@@ -17,7 +17,7 @@
  * limitations under the License.
  * ==================================LICENSE_END===================================
  */
-package rapier.core;
+package rapier.assumptions.dagger;
 
 import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;

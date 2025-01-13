@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import javax.annotation.Nullable;
 import org.junit.jupiter.api.Test;
-import rapier.core.DaggerTestBase;
 
 /**
  * Test assumptions about how {@link Nullable} works in Dagger

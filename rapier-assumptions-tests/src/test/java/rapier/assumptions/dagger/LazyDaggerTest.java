@@ -24,7 +24,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import org.junit.jupiter.api.Test;
 import dagger.Lazy;
-import rapier.core.DaggerTestBase;
 
 /**
  * Test assumptions about how {@link Lazy} bindings work in Dagger.

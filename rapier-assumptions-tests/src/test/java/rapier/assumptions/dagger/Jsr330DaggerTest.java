@@ -23,7 +23,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import org.junit.jupiter.api.Test;
-import rapier.core.DaggerTestBase;
 
 /**
  * Test assumptions about how Dagger uses JSR-330 annotations
