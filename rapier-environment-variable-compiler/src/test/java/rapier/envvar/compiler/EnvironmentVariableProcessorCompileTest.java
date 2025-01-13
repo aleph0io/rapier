@@ -17,7 +17,7 @@
  * limitations under the License.
  * ==================================LICENSE_END===================================
  */
-package rapier.sysprop.compiler;
+package rapier.envvar.compiler;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static java.util.Collections.unmodifiableList;
@@ -34,7 +34,7 @@ import org.junit.jupiter.api.Test;
 import com.google.testing.compile.Compilation;
 import rapier.core.RapierTestBase;
 
-public class SystemPropertyProcessorTest extends RapierTestBase {
+public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
   @Test
   public void givenSimpleComponentWithEnvironmentVariableWithoutDefaultValue_whenCompile_thenExpectedtModuleIsGenerated()
       throws IOException {
@@ -42,9 +42,9 @@ public class SystemPropertyProcessorTest extends RapierTestBase {
     final JavaFileObject source = prepareSourceFile("""
         package com.example;
 
-        @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
+        @dagger.Component(modules = {RapierExampleComponentEnvironmentVariableModule.class})
         public interface ExampleComponent {
-            @rapier.sysprop.SystemProperty("foo.bar")
+            @rapier.envvar.EnvironmentVariable("FOO_BAR")
             public Integer provisionFooBarAsInt();
         }
         """);
@@ -56,133 +56,116 @@ public class SystemPropertyProcessorTest extends RapierTestBase {
     assertThat(compilation).succeeded();
 
     assertThat(compilation)
-        .generatedSourceFile("com.example.RapierExampleComponentSystemPropertyModule")
-        .hasSourceEquivalentTo(prepareSourceFile(
-            """
-                                package com.example;
-
-                import static java.util.Collections.unmodifiableMap;
-                import static java.util.stream.Collectors.toMap;
-
-                import rapier.sysprop.SystemProperty;
-                import dagger.Module;
-                import dagger.Provides;
-                import java.util.Map;
-                import java.util.Optional;
-                import java.util.Properties;
-                import javax.annotation.Nullable;
-                import javax.inject.Inject;
-
-                @Module
-                public class RapierExampleComponentSystemPropertyModule {
-                    private final Map<String, String> sysprop;
-
-                    @Inject
-                    public RapierExampleComponentSystemPropertyModule() {
-                        this(System.getProperties());
-                    }
-
-                    public RapierExampleComponentSystemPropertyModule(Properties properties) {
-                        this(properties.entrySet().stream()
-                            .collect(toMap(
-                                e -> e.getKey().toString(),
-                                e -> e.getValue().toString())));
-                    }
-
-                    public RapierExampleComponentSystemPropertyModule(Map<String, String> sysprop) {
-                        this.sysprop = unmodifiableMap(sysprop);
-                    }
-
-                    @Provides
-                    @SystemProperty("foo.bar")
-                    public java.lang.Integer provideSystemPropertyFooBarAsInteger(@SystemProperty("foo.bar") String value) {
-                        java.lang.Integer result = java.lang.Integer.valueOf(value);
-                        if (result == null)
-                            throw new IllegalStateException("System property foo.bar representation java.lang.Integer not set");
-                        return result;
-                    }
-
-                    @Provides
-                    @SystemProperty("foo.bar")
-                    public String provideSystemPropertyFooBarAsString() {
-                        String result=sysprop.get("foo.bar");
-                        if (result == null)
-                            throw new IllegalStateException("System property foo.bar not set");
-                        return result;
-                    }
-
-                }
-                """));
-  }
-
-  @Test
-  public void givenSimpleComponentWithEnvironmentVariableWithDefaultValue_whenCompile_thenExpectedModuleIsGenerated()
-      throws IOException {
-    // Define the source file to test
-    final JavaFileObject source = prepareSourceFile("""
-        package com.example;
-
-        @dagger.Component(modules={RapierExampleComponentSystemPropertyModule.class})
-        public interface ExampleComponent {
-            @rapier.sysprop.SystemProperty(value="foo.bar", defaultValue="42")
-            public Integer provisionFooBarAsInt();
-        }
-        """);
-
-    // Run the annotation processor
-    final Compilation compilation = doCompile(source);
-
-    // Assert the compilation succeeded
-    assertThat(compilation).succeeded();
-
-    assertThat(compilation)
-        .generatedSourceFile("com.example.RapierExampleComponentSystemPropertyModule")
+        .generatedSourceFile("com.example.RapierExampleComponentEnvironmentVariableModule")
         .hasSourceEquivalentTo(prepareSourceFile(
             """
                 package com.example;
 
                 import static java.util.Collections.unmodifiableMap;
-                import static java.util.stream.Collectors.toMap;
 
-                import rapier.sysprop.SystemProperty;
+                import rapier.envvar.EnvironmentVariable;
                 import dagger.Module;
                 import dagger.Provides;
                 import java.util.Map;
                 import java.util.Optional;
-                import java.util.Properties;
                 import javax.annotation.Nullable;
                 import javax.inject.Inject;
 
                 @Module
-                public class RapierExampleComponentSystemPropertyModule {
-                    private final Map<String, String> sysprop;
+                public class RapierExampleComponentEnvironmentVariableModule {
+                    private final Map<String, String> env;
 
                     @Inject
-                    public RapierExampleComponentSystemPropertyModule() {
-                        this(System.getProperties());
+                    public RapierExampleComponentEnvironmentVariableModule() {
+                        this(System.getenv());
                     }
 
-                    public RapierExampleComponentSystemPropertyModule(Properties properties) {
-                        this(properties.entrySet().stream()
-                            .collect(toMap(
-                                e -> e.getKey().toString(),
-                                e -> e.getValue().toString())));
-                    }
-
-                    public RapierExampleComponentSystemPropertyModule(Map<String, String> sysprop) {
-                        this.sysprop = unmodifiableMap(sysprop);
+                    public RapierExampleComponentEnvironmentVariableModule(Map<String, String> env) {
+                        this.env = unmodifiableMap(env);
                     }
 
                     @Provides
-                    @SystemProperty(value="foo.bar", defaultValue="42")
-                    public java.lang.Integer provideSystemPropertyFooBarWithDefaultValue92cfcebAsInteger(@SystemProperty(value="foo.bar", defaultValue="42") String value) {
+                    @EnvironmentVariable("FOO_BAR")
+                    public java.lang.Integer provideEnvironmentVariableFooBarAsInteger(@EnvironmentVariable("FOO_BAR") String value) {
+                        java.lang.Integer result = java.lang.Integer.valueOf(value);
+                        if (result == null)
+                            throw new IllegalStateException("Environment variable FOO_BAR representation java.lang.Integer not set");
+                        return result;
+                    }
+
+                    @Provides
+                    @EnvironmentVariable("FOO_BAR")
+                    public String provideEnvironmentVariableFooBarAsString() {
+                        String result=env.get("FOO_BAR");
+                        if (result == null)
+                            throw new IllegalStateException("Environment variable FOO_BAR not set");
+                        return result;
+                    }
+
+                }
+
+                """));
+  }
+
+  @Test
+  public void givenSimpleComponentWithEnvironmentVariableWithDefaultValue_whenCompile_thenExpectedtModuleIsGenerated()
+      throws IOException {
+    // Define the source file to test
+    final JavaFileObject source = prepareSourceFile("""
+        package com.example;
+
+        @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
+        public interface ExampleComponent {
+            @rapier.envvar.EnvironmentVariable(value="FOO_BAR", defaultValue="42")
+            public Integer provisionFooBarAsInt();
+        }
+        """);
+
+    // Run the annotation processor
+    final Compilation compilation = doCompile(source);
+
+    // Assert the compilation succeeded
+    assertThat(compilation).succeeded();
+
+    assertThat(compilation)
+        .generatedSourceFile("com.example.RapierExampleComponentEnvironmentVariableModule")
+        .hasSourceEquivalentTo(prepareSourceFile(
+            """
+                package com.example;
+
+                import static java.util.Collections.unmodifiableMap;
+
+                import rapier.envvar.EnvironmentVariable;
+                import dagger.Module;
+                import dagger.Provides;
+                import java.util.Map;
+                import java.util.Optional;
+                import javax.annotation.Nullable;
+                import javax.inject.Inject;
+
+                @Module
+                public class RapierExampleComponentEnvironmentVariableModule {
+                    private final Map<String, String> env;
+
+                    @Inject
+                    public RapierExampleComponentEnvironmentVariableModule() {
+                        this(System.getenv());
+                    }
+
+                    public RapierExampleComponentEnvironmentVariableModule(Map<String, String> env) {
+                        this.env = unmodifiableMap(env);
+                    }
+
+                    @Provides
+                    @EnvironmentVariable(value="FOO_BAR", defaultValue="42")
+                    public java.lang.Integer provideEnvironmentVariableFooBarWithDefaultValue92cfcebAsInteger(@EnvironmentVariable(value="FOO_BAR", defaultValue="42") String value) {
                         return java.lang.Integer.valueOf(value);
                     }
 
                     @Provides
-                    @SystemProperty(value="foo.bar", defaultValue="42")
-                    public String provideSystemPropertyFooBarWithDefaultValue92cfcebAsString() {
-                        return Optional.ofNullable(sysprop.get("foo.bar")).orElse("42");
+                    @EnvironmentVariable(value="FOO_BAR", defaultValue="42")
+                    public String provideEnvironmentVariableFooBarWithDefaultValue92cfcebAsString() {
+                        return Optional.ofNullable(env.get("FOO_BAR")).orElse("42");
                     }
 
                 }
@@ -194,10 +177,10 @@ public class SystemPropertyProcessorTest extends RapierTestBase {
       throws IOException {
     // Define the source file to test
     final JavaFileObject componentSource = prepareSourceFile("""
-        @dagger.Component(modules={RapierExampleComponentSystemPropertyModule.class})
+        @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
         public interface ExampleComponent {
             @javax.annotation.Nullable
-            @rapier.sysprop.SystemProperty("foo.bar")
+            @rapier.envvar.EnvironmentVariable("FOO_BAR")
             public Integer provisionFooBarAsInt();
         }
         """);
@@ -208,8 +191,8 @@ public class SystemPropertyProcessorTest extends RapierTestBase {
         public class App {
             public static void main(String[] args) {
                 ExampleComponent component = DaggerExampleComponent.builder()
-                    .rapierExampleComponentSystemPropertyModule(
-                        new RapierExampleComponentSystemPropertyModule(Map.of("foo.bar", "42")))
+                    .rapierExampleComponentEnvironmentVariableModule(
+                    new RapierExampleComponentEnvironmentVariableModule(Map.of("FOO_BAR", "42")))
                     .build();
                 System.out.println(component.provisionFooBarAsInt());
             }
@@ -229,9 +212,9 @@ public class SystemPropertyProcessorTest extends RapierTestBase {
   public void givenSimpleComponentWithEnvironmentVariableWithDefaultValue_whenCompileAndRun_thenExpectedtOutput()
       throws IOException {
     final JavaFileObject componentSource = prepareSourceFile("""
-        @dagger.Component(modules={RapierExampleComponentSystemPropertyModule.class})
+        @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
         public interface ExampleComponent {
-            @rapier.sysprop.SystemProperty(value="foo.bar", defaultValue="43")
+            @rapier.envvar.EnvironmentVariable(value="FOO_BAR", defaultValue="43")
             public Integer provisionFooBarAsInt();
         }
         """);
@@ -242,8 +225,8 @@ public class SystemPropertyProcessorTest extends RapierTestBase {
         public class App {
             public static void main(String[] args) {
                 ExampleComponent component = DaggerExampleComponent.builder()
-                    .rapierExampleComponentSystemPropertyModule(
-                        new RapierExampleComponentSystemPropertyModule(Map.of()))
+                    .rapierExampleComponentEnvironmentVariableModule(
+                        new RapierExampleComponentEnvironmentVariableModule(Map.of()))
                     .build();
                 System.out.println(component.provisionFooBarAsInt());
             }
@@ -266,13 +249,13 @@ public class SystemPropertyProcessorTest extends RapierTestBase {
     final JavaFileObject source = prepareSourceFile("""
         package com.example;
 
-        @dagger.Component(modules={RapierExampleComponentSystemPropertyModule.class})
+        @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
         public interface ExampleComponent {
             @javax.annotation.Nullable
-            @rapier.sysprop.SystemProperty(value="foo.bar")
+            @rapier.envvar.EnvironmentVariable(value="FOO_BAR")
             public Integer provisionFooBarAsInt();
 
-            @rapier.sysprop.SystemProperty(value="foo.bar")
+            @rapier.envvar.EnvironmentVariable(value="FOO_BAR")
             public String provisionFooBarAsString();
         }
         """);
@@ -283,9 +266,9 @@ public class SystemPropertyProcessorTest extends RapierTestBase {
 
     assertTrue(
         compilation.warnings().stream().anyMatch(e -> e.getMessage(Locale.getDefault()).equals(
-            "Conflicting requiredness for system property foo.bar, will be treated as required")));
+            "Conflicting requiredness for environment variable FOO_BAR, will be treated as required")));
     assertTrue(compilation.warnings().stream().anyMatch(e -> e.getMessage(Locale.getDefault())
-        .equals("Effectively required system property foo.bar is treated as nullable")));
+        .equals("Effectively required environment variable FOO_BAR is treated as nullable")));
   }
 
   @Test
@@ -295,12 +278,12 @@ public class SystemPropertyProcessorTest extends RapierTestBase {
     final JavaFileObject source = prepareSourceFile("""
         package com.example;
 
-        @dagger.Component(modules={RapierExampleComponentSystemPropertyModule.class})
+        @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
         public interface ExampleComponent {
-            @rapier.sysprop.SystemProperty(value="foo.bar")
+            @rapier.envvar.EnvironmentVariable(value="FOO_BAR")
             public Integer provisionFooBarAsInt();
 
-            @rapier.sysprop.SystemProperty(value="foo.bar", defaultValue="42")
+            @rapier.envvar.EnvironmentVariable(value="FOO_BAR", defaultValue="42")
             public String provisionFooBarAsString();
         }
         """);
@@ -313,9 +296,9 @@ public class SystemPropertyProcessorTest extends RapierTestBase {
 
     assertTrue(
         compilation.warnings().stream().anyMatch(e -> e.getMessage(Locale.getDefault()).equals(
-            "Conflicting requiredness for system property foo.bar, will be treated as required")));
+            "Conflicting requiredness for environment variable FOO_BAR, will be treated as required")));
     assertTrue(compilation.warnings().stream().anyMatch(e -> e.getMessage(Locale.getDefault())
-        .equals("Effectively required system property foo.bar has default value")));
+        .equals("Effectively required environment variable FOO_BAR has default value")));
   }
 
   /**
@@ -326,7 +309,7 @@ public class SystemPropertyProcessorTest extends RapierTestBase {
   protected List<File> getCompileClasspath() throws FileNotFoundException {
     List<File> result = new ArrayList<>();
     result.addAll(super.getCompileClasspath());
-    result.add(resolveProjectFile("../rapier-system-property/target/classes"));
+    result.add(resolveProjectFile("../rapier-environment-variable/target/classes"));
     return unmodifiableList(result);
   }
 }

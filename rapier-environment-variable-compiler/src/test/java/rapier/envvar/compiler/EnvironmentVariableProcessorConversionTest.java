@@ -17,7 +17,7 @@
  * limitations under the License.
  * ==================================LICENSE_END===================================
  */
-package rapier.cli.compiler;
+package rapier.envvar.compiler;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static java.util.Collections.unmodifiableList;
@@ -33,77 +33,76 @@ import com.google.testing.compile.Compilation;
 import rapier.core.RapierTestBase;
 
 /**
- * Validate that CLI processor supports expected type conversion rules
+ * Validate that environment variable processor supports expected type conversion rules
  */
-public class CliProcessorConversionTest extends RapierTestBase {
+public class EnvironmentVariableProcessorConversionTest extends RapierTestBase {
   @Test
-  public void givenComponentWithPositionalOptionFlagParametersAndStandardHelpAndStandardVersion_whenRunWithStandardHelpAndOtherArgs_thenPrintHelpAndExit()
-      throws IOException {
+  public void test() throws IOException {
     final JavaFileObject componentSource = prepareSourceFile("""
         package com.example;
 
-        @dagger.Component(modules = {RapierExampleComponentCliModule.class})
+        @dagger.Component(modules = {RapierExampleComponentEnvironmentVariableModule.class})
         public interface ExampleComponent {
-            @rapier.cli.CliOptionParameter(shortName='d')
-            public Byte provisionOptionDAsBoxedByte();
+            @rapier.envvar.EnvironmentVariable("INT")
+            public Byte provisionIntAsBoxedByte();
 
-            @rapier.cli.CliOptionParameter(shortName='d')
-            public byte provisionOptionDAsByte();
+            @rapier.envvar.EnvironmentVariable("INT")
+            public byte provisionIntAsByte();
 
-            @rapier.cli.CliOptionParameter(shortName='d')
-            public Short provisionOptionDAsBoxedShort();
+            @rapier.envvar.EnvironmentVariable("INT")
+            public Short provisionIntAsBoxedShort();
 
-            @rapier.cli.CliOptionParameter(shortName='d')
-            public short provisionOptionDAsShort();
+            @rapier.envvar.EnvironmentVariable("INT")
+            public short provisionIntAsShort();
 
-            @rapier.cli.CliOptionParameter(shortName='d')
-            public Integer provisionOptionDAsBoxedInt();
+            @rapier.envvar.EnvironmentVariable("INT")
+            public Integer provisionIntAsBoxedInt();
 
-            @rapier.cli.CliOptionParameter(shortName='d')
-            public int provisionOptionDAsInt();
+            @rapier.envvar.EnvironmentVariable("INT")
+            public int provisionIntAsInt();
 
-            @rapier.cli.CliOptionParameter(shortName='d')
-            public Long provisionOptionDAsBoxedLong();
+            @rapier.envvar.EnvironmentVariable("INT")
+            public Long provisionIntAsBoxedLong();
 
-            @rapier.cli.CliOptionParameter(shortName='d')
-            public long provisionOptionDAsLong();
+            @rapier.envvar.EnvironmentVariable("INT")
+            public long provisionIntAsLong();
 
-            @rapier.cli.CliOptionParameter(shortName='f')
-            public Float provisionOptionFAsBoxedFloat();
+            @rapier.envvar.EnvironmentVariable("FLOAT")
+            public Float provisionFloatAsBoxedFloat();
 
-            @rapier.cli.CliOptionParameter(shortName='f')
-            public float provisionOptionFAsFloat();
+            @rapier.envvar.EnvironmentVariable("FLOAT")
+            public float provisionFloatAsFloat();
 
-            @rapier.cli.CliOptionParameter(shortName='f')
-            public Double provisionOptionFAsBoxedDouble();
+            @rapier.envvar.EnvironmentVariable("FLOAT")
+            public Double provisionFloatAsBoxedDouble();
 
-            @rapier.cli.CliOptionParameter(shortName='f')
-            public double provisionOptionFAsDouble();
+            @rapier.envvar.EnvironmentVariable("FLOAT")
+            public double provisionFloatAsDouble();
 
-            @rapier.cli.CliOptionParameter(shortName='s')
-            public String provisionOptionSAsString();
-            
-            @rapier.cli.CliOptionParameter(shortName='s')
-            public Character provisionOptionSAsBoxedChar();
+            @rapier.envvar.EnvironmentVariable("STRING")
+            public String provisionStringAsString();
 
-            @rapier.cli.CliOptionParameter(shortName='s')
-            public char provisionOptionSAsChar();
+            @rapier.envvar.EnvironmentVariable("STRING")
+            public Character provisionStringAsBoxedChar();
 
-            @rapier.cli.CliOptionParameter(shortName='s')
-            public FromStringExample provisionOptionSFromStringExample();
+            @rapier.envvar.EnvironmentVariable("STRING")
+            public char provisionStringAsChar();
 
-            @rapier.cli.CliOptionParameter(shortName='s')
-            public ValueOfExample provisionOptionSValueOfExample();
+            @rapier.envvar.EnvironmentVariable("STRING")
+            public FromStringExample provisionStringAsFromStringExample();
 
-            @rapier.cli.CliOptionParameter(shortName='s')
+            @rapier.envvar.EnvironmentVariable("STRING")
+            public ValueOfExample provisionStringAsValueOfExample();
+
+            @rapier.envvar.EnvironmentVariable("STRING")
             public SingleArgumentConstructorExample
-              provisionOptionSSingleArgumentConstructorExample();
+              provisionStringAsSingleArgumentConstructorExample();
 
-            @rapier.cli.CliOptionParameter(shortName='b')
-            public Boolean provisionOptionBAsBoxedBoolean();
+            @rapier.envvar.EnvironmentVariable("BOOLEAN")
+            public Boolean provisionBooleanAsBoxedBoolean();
 
-            @rapier.cli.CliOptionParameter(shortName='b')
-            public boolean provisionOptionBAsBoolean();
+            @rapier.envvar.EnvironmentVariable("BOOLEAN")
+            public boolean provisionBooleanAsBoolean();
         }
         """);
 
@@ -172,28 +171,33 @@ public class CliProcessorConversionTest extends RapierTestBase {
         public class App {
             public static void main(String[] args) {
                 ExampleComponent component=DaggerExampleComponent.builder()
-                    .rapierExampleComponentCliModule(new RapierExampleComponentCliModule(args))
+                    .rapierExampleComponentEnvironmentVariableModule(
+                        new RapierExampleComponentEnvironmentVariableModule(java.util.Map.of(
+                            "INT", "123",
+                            "FLOAT", "1.23",
+                            "STRING", "xyz",
+                            "BOOLEAN", "true")))
                     .build();
-                System.out.println(component.provisionOptionDAsBoxedByte());
-                System.out.println(component.provisionOptionDAsByte());
-                System.out.println(component.provisionOptionDAsBoxedShort());
-                System.out.println(component.provisionOptionDAsShort());
-                System.out.println(component.provisionOptionDAsBoxedInt());
-                System.out.println(component.provisionOptionDAsInt());
-                System.out.println(component.provisionOptionDAsBoxedLong());
-                System.out.println(component.provisionOptionDAsLong());
-                System.out.println(component.provisionOptionFAsBoxedFloat());
-                System.out.println(component.provisionOptionFAsFloat());
-                System.out.println(component.provisionOptionFAsBoxedDouble());
-                System.out.println(component.provisionOptionFAsDouble());
-                System.out.println(component.provisionOptionSAsString());
-                System.out.println(component.provisionOptionSAsBoxedChar());
-                System.out.println(component.provisionOptionSAsChar());
-                System.out.println(component.provisionOptionSFromStringExample());
-                System.out.println(component.provisionOptionSValueOfExample());
-                System.out.println(component.provisionOptionSSingleArgumentConstructorExample());
-                System.out.println(component.provisionOptionBAsBoxedBoolean());
-                System.out.println(component.provisionOptionBAsBoolean());
+                System.out.println(component.provisionIntAsBoxedByte());
+                System.out.println(component.provisionIntAsByte());
+                System.out.println(component.provisionIntAsBoxedShort());
+                System.out.println(component.provisionIntAsShort());
+                System.out.println(component.provisionIntAsBoxedInt());
+                System.out.println(component.provisionIntAsInt());
+                System.out.println(component.provisionIntAsBoxedLong());
+                System.out.println(component.provisionIntAsLong());
+                System.out.println(component.provisionFloatAsBoxedFloat());
+                System.out.println(component.provisionFloatAsFloat());
+                System.out.println(component.provisionFloatAsBoxedDouble());
+                System.out.println(component.provisionFloatAsDouble());
+                System.out.println(component.provisionStringAsString());
+                System.out.println(component.provisionStringAsBoxedChar());
+                System.out.println(component.provisionStringAsChar());
+                System.out.println(component.provisionStringAsFromStringExample());
+                System.out.println(component.provisionStringAsValueOfExample());
+                System.out.println(component.provisionStringAsSingleArgumentConstructorExample());
+                System.out.println(component.provisionBooleanAsBoxedBoolean());
+                System.out.println(component.provisionBooleanAsBoolean());
             }
         }
         """);
@@ -205,8 +209,7 @@ public class CliProcessorConversionTest extends RapierTestBase {
     // Assert the compilation succeeded
     assertThat(compilation).succeeded();
 
-    final String output =
-        doRun(compilation, "-d", "123", "-f", "1.23", "-s", "xyz", "-b", "true").trim();
+    final String output = doRun(compilation).trim();
 
     assertEquals("""
         123
@@ -239,7 +242,7 @@ public class CliProcessorConversionTest extends RapierTestBase {
   protected List<File> getCompileClasspath() throws FileNotFoundException {
     List<File> result = new ArrayList<>();
     result.addAll(super.getCompileClasspath());
-    result.add(resolveProjectFile("../rapier-cli/target/classes"));
+    result.add(resolveProjectFile("../rapier-environment-variable/target/classes"));
     return unmodifiableList(result);
   }
 }
