@@ -21,9 +21,6 @@ package rapier.core.conversion.expr;
 
 import static java.util.Objects.requireNonNull;
 import java.util.Optional;
-import javax.lang.model.element.TypeElement;
-import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Types;
 import rapier.core.ConversionExprFactory;
@@ -38,16 +35,9 @@ public class IdentityConversionExprFactory implements ConversionExprFactory {
   }
 
   @Override
-  @SuppressWarnings("unused")
   public Optional<String> generateConversionExpr(TypeMirror targetType, String sourceValue) {
-    if (targetType.getKind() != TypeKind.DECLARED)
-      return Optional.empty();
-    final TypeElement targetElement = (TypeElement) getTypes().asElement(targetType);
-    final DeclaredType targetDeclaredType = (DeclaredType) targetType;
-
     if (getTypes().isSameType(targetType, getSourceType()))
       return Optional.of(sourceValue);
-
     return Optional.empty();
   }
 

@@ -69,10 +69,18 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>3.5.2</version>
                     <configuration>
-                        <!-- The below is required for testing annotation
-                        processors -->
-                        <!-- using com.google.testing.compile:compile-testing.       -->
+                        <!--
+                            -Xshare:off is to suppress some warnings from
+                            Mockito when mocking Object methods
+                        -->
+                        <!--
+                            The "add exports" flags below below are required for
+                            testing annotation processors using
+                            com.google.testing.compile:compile-testing in
+                            Java 9+.
+                        -->
                         <argLine>
+                            -Xshare:off
                             --add-exports
                             jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED
                             --add-opens
@@ -223,6 +231,13 @@
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-bom</artifactId>
                 <version>2.0.16</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-bom</artifactId>
+                <version>5.15.2</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

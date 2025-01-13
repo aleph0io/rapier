@@ -22,7 +22,6 @@ package rapier.core.conversion.expr;
 import static java.util.Objects.requireNonNull;
 import java.util.List;
 import java.util.Optional;
-import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
@@ -40,29 +39,29 @@ public class ElementwiseListConversionExprFactory implements ConversionExprFacto
   }
 
   @Override
-  @SuppressWarnings("unused")
   public Optional<String> generateConversionExpr(TypeMirror targetType, String sourceValue) {
     if (targetType.getKind() != TypeKind.DECLARED)
       return Optional.empty();
-    final TypeElement targetElement = (TypeElement) getTypes().asElement(targetType);
     final DeclaredType targetDeclaredType = (DeclaredType) targetType;
 
-    // Get type arguments
+    final TypeMirror targetErasedType = getTypes().erasure(targetType);
+    if (!targetErasedType.toString().equals("java.util.List"))
+      return Optional.empty();
+    
+    // Get the type arguments of the target type. If there are no type arguments, then this is a
+    // raw List type, and we can't see the element type, so just return.
     List<? extends TypeMirror> typeArguments = targetDeclaredType.getTypeArguments();
-
-    // Ensure there's exactly one type argument. There might be zero, but there really, really
-    // shouldn't be more than 1.
-    if (typeArguments.size() != 1)
+    if (typeArguments.size() == 0)
       return Optional.empty();
 
-    // Get the first type argument
-    final TypeMirror targetTypeArgument = typeArguments.get(0);
-    if (targetTypeArgument.getKind() != TypeKind.DECLARED)
+    // Get the type argument. If it's not an exact declared type, then we're done.
+    final TypeMirror targeElementType = typeArguments.get(0);
+    if (targeElementType.getKind() != TypeKind.DECLARED)
       return Optional.empty();
 
     // Generate conversion expression for each element
     final Optional<String> maybeElementConversionExpr =
-        getElementConversionExprFactory().generateConversionExpr(targetTypeArgument, "element");
+        getElementConversionExprFactory().generateConversionExpr(targeElementType, "element");
     if (maybeElementConversionExpr.isEmpty())
       return Optional.empty();
     final String elementConversionExpr = maybeElementConversionExpr.orElseThrow();

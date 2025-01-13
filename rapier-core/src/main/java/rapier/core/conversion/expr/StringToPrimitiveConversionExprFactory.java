@@ -34,6 +34,8 @@ public class StringToPrimitiveConversionExprFactory implements ConversionExprFac
 
   @Override
   public Optional<String> generateConversionExpr(TypeMirror targetType, String sourceValue) {
+    if (!targetType.getKind().isPrimitive())
+      return Optional.empty();
     switch (targetType.getKind()) {
       case BOOLEAN:
         return Optional.of("Boolean.parseBoolean(" + sourceValue + ")");
@@ -46,13 +48,14 @@ public class StringToPrimitiveConversionExprFactory implements ConversionExprFac
       case LONG:
         return Optional.of("Long.parseLong(" + sourceValue + ")");
       case CHAR:
-        return Optional.of(sourceValue + ".charAt(0)");
+        return Optional.of("Optional.of(" + sourceValue
+            + ").map(s -> s.isEmpty() ? null : s.charAt(0)).orElseThrow(() -> new IllegalStateException(\"Cannot convert empty string to char\"))");
       case FLOAT:
         return Optional.of("Float.parseFloat(" + sourceValue + ")");
       case DOUBLE:
         return Optional.of("Double.parseDouble(" + sourceValue + ")");
       default:
-        return Optional.empty();
+        throw new AssertionError("Unexpected primitive type: " + targetType);
     }
   }
 
