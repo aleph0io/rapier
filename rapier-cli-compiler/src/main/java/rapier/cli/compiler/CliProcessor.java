@@ -34,6 +34,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -95,6 +96,7 @@ import rapier.compiler.core.conversion.expr.ValueOfConversionExprFactory;
 import rapier.compiler.core.model.DaggerInjectionSite;
 import rapier.compiler.core.util.ConversionExprFactories;
 import rapier.compiler.core.util.Java;
+import rapier.compiler.core.util.RapierInfo;
 
 @SupportedAnnotationTypes("dagger.Component")
 @SupportedSourceVersion(SourceVersion.RELEASE_11)
@@ -103,6 +105,30 @@ public class CliProcessor extends RapierProcessorBase {
   private ConversionExprFactory listOfStringConverter;
   private ConversionExprFactory booleanConverter;
   private ConversionExprFactory listOfBooleanConverter;
+
+  private String version = RapierInfo.VERSION;
+
+  /* default */ void setVersion(String version) {
+    if (version == null)
+      throw new NullPointerException();
+    this.version = version;
+  }
+
+  private OffsetDateTime date = OffsetDateTime.now();
+
+  /* default */ void setDate(OffsetDateTime date) {
+    if (date == null)
+      throw new NullPointerException();
+    this.date = date;
+  }
+
+  private String url = RapierInfo.URL;
+
+  /* default */ void setUrl(String url) {
+    if (url == null)
+      throw new NullPointerException();
+    this.url = url;
+  }
 
   @Override
   public synchronized void init(ProcessingEnvironment processingEnv) {
@@ -966,6 +992,8 @@ public class CliProcessor extends RapierProcessorBase {
       out.println("import java.util.Map;");
       out.println("import java.util.Optional;");
       out.println("import javax.annotation.Nullable;");
+      out.println("import javax.annotation.processing.Generated;");
+      out.println("import rapier.internal.RapierGenerated;");
       out.println("import rapier.cli.CliSyntaxException;");
       out.println("import rapier.cli.CliFlagParameter;");
       out.println("import rapier.cli.CliOptionParameter;");
@@ -973,6 +1001,11 @@ public class CliProcessor extends RapierProcessorBase {
       out.println("import " + JustArgs.class.getName() + ";");
       out.println();
       out.println("@Module");
+      out.println("@RapierGenerated");
+      out.println("@Generated(");
+      out.println("    value = \"" + CliProcessor.class.getName() + "@" + version + "\",");
+      out.println("    comments = \"" + Java.escapeString(url) + "\",");
+      out.println("    date = \"" + date.toInstant().toString() + "\")");
       out.println("public class " + moduleClassName + " {");
       out.println();
 

@@ -196,6 +196,7 @@ public class CliProcessorConversionFromListOfBooleanTest extends RapierTestBase 
     List<File> result = new ArrayList<>();
     result.addAll(super.getCompileClasspath());
     result.add(resolveProjectFile("../rapier-cli/target/classes"));
+    result.add(resolveProjectFile("../rapier-core/target/classes"));
     return unmodifiableList(result);
   }
 }

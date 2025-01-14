@@ -24,8 +24,11 @@ import static java.util.Collections.unmodifiableList;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import javax.annotation.processing.Processor;
 import javax.tools.JavaFileObject;
 import org.junit.jupiter.api.Test;
 import com.google.testing.compile.Compilation;
@@ -93,6 +96,8 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
             import java.util.Map;
             import java.util.Optional;
             import javax.annotation.Nullable;
+            import javax.annotation.processing.Generated;
+            import rapier.internal.RapierGenerated;
             import rapier.cli.CliSyntaxException;
             import rapier.cli.CliFlagParameter;
             import rapier.cli.CliOptionParameter;
@@ -100,6 +105,11 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
             import rapier.cli.compiler.thirdparty.com.sigpwned.just.args.JustArgs;
 
             @Module
+            @RapierGenerated
+            @Generated(
+                value = "rapier.cli.compiler.CliProcessor@1.2.3",
+                comments = "https://www.example.com",
+                date = "2024-01-01T12:34:56Z")
             public class RapierExampleComponentCliModule {
 
                 // Positional parameters
@@ -372,6 +382,8 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
             import java.util.Map;
             import java.util.Optional;
             import javax.annotation.Nullable;
+            import javax.annotation.processing.Generated;
+            import rapier.internal.RapierGenerated;
             import rapier.cli.CliSyntaxException;
             import rapier.cli.CliFlagParameter;
             import rapier.cli.CliOptionParameter;
@@ -379,6 +391,11 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
             import rapier.cli.compiler.thirdparty.com.sigpwned.just.args.JustArgs;
 
             @Module
+            @RapierGenerated
+            @Generated(
+                value = "rapier.cli.compiler.CliProcessor@1.2.3",
+                comments = "https://www.example.com",
+                date = "2024-01-01T12:34:56Z")
             public class RapierExampleComponentCliModule {
 
                 // Positional parameters
@@ -635,6 +652,8 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
             import java.util.Map;
             import java.util.Optional;
             import javax.annotation.Nullable;
+            import javax.annotation.processing.Generated;
+            import rapier.internal.RapierGenerated;
             import rapier.cli.CliSyntaxException;
             import rapier.cli.CliFlagParameter;
             import rapier.cli.CliOptionParameter;
@@ -642,6 +661,11 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
             import rapier.cli.compiler.thirdparty.com.sigpwned.just.args.JustArgs;
 
             @Module
+            @RapierGenerated
+            @Generated(
+                value = "rapier.cli.compiler.CliProcessor@1.2.3",
+                comments = "https://www.example.com",
+                date = "2024-01-01T12:34:56Z")
             public class RapierExampleComponentCliModule {
 
                 // Positional parameters
@@ -876,6 +900,8 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
             import java.util.Map;
             import java.util.Optional;
             import javax.annotation.Nullable;
+            import javax.annotation.processing.Generated;
+            import rapier.internal.RapierGenerated;
             import rapier.cli.CliSyntaxException;
             import rapier.cli.CliFlagParameter;
             import rapier.cli.CliOptionParameter;
@@ -883,6 +909,11 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
             import rapier.cli.compiler.thirdparty.com.sigpwned.just.args.JustArgs;
 
             @Module
+            @RapierGenerated
+            @Generated(
+                value = "rapier.cli.compiler.CliProcessor@1.2.3",
+                comments = "https://www.example.com",
+                date = "2024-01-01T12:34:56Z")
             public class RapierExampleComponentCliModule {
 
                 // Positional parameters
@@ -1038,6 +1069,30 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
         .hasSourceEquivalentTo(expectedOutput);
   }
 
+  public static final OffsetDateTime TEST_DATE =
+      OffsetDateTime.of(2024, 1, 1, 12, 34, 56, 0, ZoneOffset.UTC);
+
+  public static final String TEST_VERSION = "1.2.3";
+
+  public static final String TEST_URL = "https://www.example.com";
+
+  /**
+   * We need to set the date and version so our generated source code is deterministic.
+   */
+  @Override
+  protected List<Processor> getAnnotationProcessors() {
+    List<Processor> result = super.getAnnotationProcessors();
+    for (Processor processor : result) {
+      if (processor instanceof CliProcessor) {
+        CliProcessor cp = (CliProcessor) processor;
+        cp.setDate(TEST_DATE);
+        cp.setVersion(TEST_VERSION);
+        cp.setUrl(TEST_URL);
+      }
+    }
+    return unmodifiableList(result);
+  }
+
   /**
    * We need to include the generated classes from the rapier-cli module in the classpath for our
    * tests.
@@ -1047,6 +1102,7 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
     List<File> result = new ArrayList<>();
     result.addAll(super.getCompileClasspath());
     result.add(resolveProjectFile("../rapier-cli/target/classes"));
+    result.add(resolveProjectFile("../rapier-core/target/classes"));
     return unmodifiableList(result);
   }
 }
