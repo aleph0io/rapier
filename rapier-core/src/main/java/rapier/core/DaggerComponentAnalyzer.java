@@ -31,7 +31,9 @@ import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.DeclaredType;
@@ -176,7 +178,10 @@ public class DaggerComponentAnalyzer {
       if (added == false)
         continue;
 
+      // We are only interested in walking concrete types
       final TypeElement dependencyElement = (TypeElement) getTypes().asElement(dependency);
+      if(dependencyElement.getModifiers().contains(Modifier.ABSTRACT))
+        continue;
 
       new DaggerJsr330Walker(getProcessingEnv()).walk(dependencyElement,
           new DaggerJsr330Walker.Visitor() {
@@ -351,7 +356,7 @@ public class DaggerComponentAnalyzer {
           provisionedType, optionalType.getTypeArguments().get(0), qualifier, annotations, true));
     } else {
       return Optional.of(new DaggerInjectionSite(element, siteType, DaggerProvisionStyle.VERBATIM,
-          provisionedType, provisionedErasure, qualifier, annotations, hasNullableAnnotation));
+          provisionedType, provisionedType, qualifier, annotations, hasNullableAnnotation));
     }
   }
 

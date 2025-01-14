@@ -123,7 +123,7 @@ public class DaggerJsr330Walker {
 
     // Ensure the type is a concrete class-like element
     if (type.getKind() != ElementKind.CLASS && type.getKind() != ElementKind.ENUM) {
-      throw new IllegalArgumentException("type must be a class, enum, or record");
+      throw new IllegalArgumentException("type must be a class or enum");
     }
     if (type.getModifiers().contains(Modifier.ABSTRACT))
       throw new IllegalArgumentException("type must not be abstract");

@@ -599,11 +599,52 @@ public class CliProcessor extends RapierProcessorBase {
           .stream().map(dis -> Map.entry(PositionalRepresentationKey.fromInjectionSite(dis), dis))
           .collect(toList());
 
-      final Map<Boolean, List<DaggerInjectionSite>> injectionSitesByRequired = rkes.stream()
-          .collect(Collectors.groupingBy(
-              prke -> CliProcessing.isRequired(prke.getValue().isNullable(),
-                  prke.getKey().getDefaultValue().orElse(null)),
-              mapping(Map.Entry::getValue, toList())));
+      final List<Boolean> stringiness = rkes.stream()
+          .map(prke -> getStringConverter()
+              .generateConversionExpr(prke.getValue().getProvisionedType(), "_").isPresent())
+          .collect(toList());
+      final boolean allStringy = stringiness.stream().allMatch(b -> b);
+      final boolean anyStringy = stringiness.stream().anyMatch(b -> b);
+      final List<Boolean> listiness = rkes.stream()
+          .map(prke -> getListOfStringConverter()
+              .generateConversionExpr(prke.getValue().getProvisionedType(), "_").isPresent())
+          .collect(toList());
+      final boolean allListy = listiness.stream().allMatch(b -> b);
+      final boolean anyListy = listiness.stream().anyMatch(b -> b);
+      if (allStringy && allListy) {
+        getMessager().printMessage(Diagnostic.Kind.ERROR, "Positional parameter " + pk.getPosition()
+            + " is ambiguously convertible to String and List<String>");
+        // TODO Print example ambiguous
+        valid = false;
+        continue;
+      }
+      if (!allStringy && !allListy) {
+        if (anyStringy && anyListy) {
+          getMessager().printMessage(Diagnostic.Kind.ERROR, "Positional parameter "
+              + pk.getPosition()
+              + " can partially be converted to String and List<String>, but cannot completely be converted to either");
+          // TODO Print example no conversion
+          valid = false;
+          continue;
+        } else {
+          getMessager().printMessage(Diagnostic.Kind.ERROR, "Positional parameter "
+              + pk.getPosition() + " cannot completely be converted to String or List<String>");
+          // TODO Print example no conversion
+          valid = false;
+          continue;
+        }
+      }
+
+      // We consider lists to be varargs
+      final boolean varargs = allListy;
+
+      final Map<Boolean, List<DaggerInjectionSite>> injectionSitesByRequired =
+          rkes.stream().collect(Collectors.groupingBy(prke -> {
+            // A varargs is always optional
+            final boolean isConventionallyRequired = CliProcessing.isRequired(
+                prke.getValue().isNullable(), prke.getKey().getDefaultValue().orElse(null));
+            return isConventionallyRequired && !varargs;
+          }, mapping(Map.Entry::getValue, toList())));
 
       if (injectionSitesByRequired.size() > 1) {
         getMessager().printMessage(Diagnostic.Kind.ERROR,
@@ -614,25 +655,6 @@ public class CliProcessor extends RapierProcessorBase {
       }
 
       final boolean required = injectionSitesByRequired.keySet().stream().anyMatch(b -> b == true);
-
-      final boolean stringy = rkes.stream().allMatch(prke -> getStringConverter()
-          .generateConversionExpr(prke.getValue().getProvisionedType(), "_").isPresent());
-      final boolean listy = rkes.stream().allMatch(prke -> getListOfStringConverter()
-          .generateConversionExpr(prke.getValue().getProvisionedType(), "_").isPresent());
-      if (stringy && listy) {
-        getMessager().printMessage(Diagnostic.Kind.ERROR,
-            "Ambiguous positional parameter " + pk.getPosition());
-        // TODO Print example ambiguous
-        valid = false;
-        continue;
-      }
-      if (!stringy && !listy) {
-        getMessager().printMessage(Diagnostic.Kind.ERROR,
-            "No conversion for positional parameter " + pk.getPosition());
-        // TODO Print example no conversion
-        valid = false;
-        continue;
-      }
 
       final List<PositionalParameterHelp> helps = injectionSites.stream()
           .flatMap(dis -> PositionalParameterHelp.fromInjectionSite(dis).stream()).distinct()
@@ -651,7 +673,7 @@ public class CliProcessor extends RapierProcessorBase {
           helps.isEmpty() ? Optional.empty() : Optional.of(helps.get(0));
 
       metadataByPositionalParameter.put(pk,
-          new PositionalParameterMetadata(required, listy,
+          new PositionalParameterMetadata(required, allListy,
               maybeHelp.map(PositionalParameterHelp::getName).orElse("value"),
               maybeHelp.flatMap(PositionalParameterHelp::getDescription).orElse(null)));
     }
@@ -715,27 +737,6 @@ public class CliProcessor extends RapierProcessorBase {
       }
 
       final boolean required = injectionSitesByRequired.keySet().stream().anyMatch(b -> b == true);
-
-      final boolean stringy = rkes.stream().allMatch(prke -> getStringConverter()
-          .generateConversionExpr(prke.getValue().getProvisionedType(), "_").isPresent());
-      final boolean listy = rkes.stream().allMatch(prke -> getListOfStringConverter()
-          .generateConversionExpr(prke.getValue().getProvisionedType(), "_").isPresent());
-      if (stringy && listy) {
-        getMessager().printMessage(Diagnostic.Kind.ERROR,
-            "Ambiguous option parameter " + optionParameterUserFacingString(
-                pk.getShortName().orElse(null), pk.getLongName().orElse(null)));
-        // TODO Print example ambiguous
-        valid = false;
-        continue;
-      }
-      if (!stringy && !listy) {
-        getMessager().printMessage(Diagnostic.Kind.ERROR,
-            "No conversion for option parameter " + optionParameterUserFacingString(
-                pk.getShortName().orElse(null), pk.getLongName().orElse(null)));
-        // TODO Print example no conversion
-        valid = false;
-        continue;
-      }
 
       final List<OptionParameterHelp> helps = injectionSites.stream()
           .flatMap(dis -> OptionParameterHelp.fromInjectionSite(dis).stream()).distinct()
@@ -905,9 +906,16 @@ public class CliProcessor extends RapierProcessorBase {
                     toCollection(() -> new TreeSet<>(POSITIONAL_REPRESENTATION_KEY_COMPARATOR)))));
     for (Map.Entry<PositionalParameterKey, Collection<PositionalRepresentationKey>> entry : positionalRepresentationsByParameter
         .entrySet()) {
+      final PositionalParameterKey parameter = entry.getKey();
+      final PositionalParameterMetadata metadata =
+          positionalMetadataService.getPositionalParameterMetadata(parameter.getPosition());
       final Collection<PositionalRepresentationKey> representations = entry.getValue();
       for (PositionalRepresentationKey representation : List.copyOf(representations)) {
-        representations.add(toStringRepresentation(representation));
+        if (metadata.isList()) {
+          representations.add(toListOfStringRepresentation(representation));
+        } else {
+          representations.add(toStringRepresentation(representation));
+        }
       }
     }
 
@@ -1088,6 +1096,8 @@ public class CliProcessor extends RapierProcessorBase {
         emitPositionalParameterInstanceFieldInitClause(out, position, parameterIsRequired,
             parameterIsList);
       }
+      emitPositionalParameterValidationClause(out, positionalRepresentationsByParameter.keySet(),
+          positionalMetadataService);
       out.println();
 
       out.println("            // Initialize option parameters");
@@ -1290,6 +1300,26 @@ public class CliProcessor extends RapierProcessorBase {
   // POSITIONAL PARAMETER CODE GENERATION //////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////////////////////////
 
+  private void emitPositionalParameterValidationClause(PrintWriter out,
+      Set<PositionalParameterKey> parameters,
+      PositionalParameterMetadataService parameterMetadataService) {
+    // We only really need to check to see if there are more parameters than we know about.
+    final boolean hasVarargs = parameters.stream().mapToInt(x -> x.getPosition())
+        .mapToObj(parameterMetadataService::getPositionalParameterMetadata)
+        .filter(PositionalParameterMetadata::isList).findFirst().isPresent();
+    if (hasVarargs) {
+      // If we have varargs, then there can't be too many positional parameters. Any "extras" just
+      // get put into varargs.
+      return;
+    }
+
+    final int maxPosition = parameters.stream().mapToInt(x -> x.getPosition()).max().orElse(-1);
+    out.println("            if(parsed.getArgs().size() > " + (maxPosition + 1) + ") {");
+    out.println("                throw new CliSyntaxException(");
+    out.println("                    \"Too many positional parameters\");");
+    out.println("            }");
+  }
+
   /**
    * Emits the instance field declaration for a positional parameter representation.
    * 
@@ -1452,7 +1482,7 @@ public class CliProcessor extends RapierProcessorBase {
         if (conversionExpr == null) {
           // This should never happen, we've already checked that the conversion is possible.
           getMessager().printMessage(Diagnostic.Kind.ERROR,
-              "Cannot convert " + representationType + " from " + getStringType());
+              "Cannot convert " + representationType + " from " + getListOfStringType());
           return;
         }
 
@@ -1563,6 +1593,12 @@ public class CliProcessor extends RapierProcessorBase {
 
   private PositionalRepresentationKey toStringRepresentation(PositionalRepresentationKey key) {
     return new PositionalRepresentationKey(getStringType(), key.getPosition(),
+        key.getDefaultValue().orElse(null));
+  }
+
+  private PositionalRepresentationKey toListOfStringRepresentation(
+      PositionalRepresentationKey key) {
+    return new PositionalRepresentationKey(getListOfStringType(), key.getPosition(),
         key.getDefaultValue().orElse(null));
   }
 
