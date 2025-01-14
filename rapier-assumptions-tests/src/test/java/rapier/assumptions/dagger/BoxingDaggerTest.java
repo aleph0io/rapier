@@ -65,6 +65,8 @@ public class BoxingDaggerTest extends DaggerTestBase {
     final String errors = compileSourceCode(componentSourceCode, moduleSourceCode);
 
     assertTrue(errors.isBlank(), "Expected no errors, but errors were found.");
+    
+    // TODO After we refactor DaggerTestBase, verify no warnings here
   }
 
   /**
