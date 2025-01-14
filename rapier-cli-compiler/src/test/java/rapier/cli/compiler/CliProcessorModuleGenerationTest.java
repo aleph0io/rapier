@@ -29,7 +29,6 @@ import java.util.List;
 import javax.tools.JavaFileObject;
 import org.junit.jupiter.api.Test;
 import com.google.testing.compile.Compilation;
-import com.google.testing.compile.JavaFileObjects;
 import rapier.core.RapierTestBase;
 
 /**
@@ -85,6 +84,7 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
 
             import static java.util.Arrays.asList;
             import static java.util.Collections.emptyList;
+            import static java.util.Collections.unmodifiableList;
 
             import dagger.Module;
             import dagger.Provides;
@@ -115,7 +115,7 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
                  * shortName a
                  * longName alpha
                  */
-                private final String optionda97be1;
+                private final List<String> optionda97be1;
 
 
                 // Flag parameters
@@ -126,7 +126,7 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
                  * negativeShortName B
                  * negativeLongName no-bravo
                  */
-                private final Boolean flag59dcb7a;
+                private final List<Boolean> flag59dcb7a;
 
 
                 public RapierExampleComponentCliModule(String[] args) {
@@ -172,31 +172,33 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
                             flagNegativeLongNames);
 
                         // Initialize positional parameters
-                        if(parsed.getArgs().size() > 0) {
-                            this.positional0 = parsed.getArgs().get(0);
-                        } else {
+                        if(parsed.getArgs().size() <= 0) {
                             throw new CliSyntaxException(
                                 "Missing required positional parameter 0");
+                        } else {
+                            this.positional0 = parsed.getArgs().get(0);
                         }
 
+                        if(parsed.getArgs().size() > 1) {
+                            throw new CliSyntaxException(
+                                "Too many positional parameters");
+                        }
 
                         // Initialize option parameters
-                        if(parsed.getOptions().containsKey("rapier.option.da97be1")) {
-                            List<String> optionda97be1 = parsed.getOptions().get("rapier.option.da97be1");
-                            this.optionda97be1 = optionda97be1.get(optionda97be1.size()-1);
-                        } else {
+                        if(parsed.getOptions().getOrDefault("rapier.option.da97be1", emptyList()).isEmpty()) {
                             throw new CliSyntaxException(
                                 "Missing required option parameter -a / --alpha");
+                        } else {
+                            this.optionda97be1 = unmodifiableList(parsed.getOptions().get("rapier.option.da97be1"));
                         }
 
 
                         // Initialize flag parameters
-                        if(parsed.getFlags().containsKey("rapier.flag.59dcb7a")) {
-                            List<Boolean> flag59dcb7a = parsed.getFlags().get("rapier.flag.59dcb7a");
-                            this.flag59dcb7a = flag59dcb7a.get(flag59dcb7a.size()-1);
-                        } else {
+                        if(parsed.getFlags().getOrDefault("rapier.flag.59dcb7a", emptyList()).isEmpty()) {
                             throw new CliSyntaxException(
                                 "Missing required flag parameter -b / --bravo / -B / --no-bravo");
+                        } else {
+                            this.flag59dcb7a = unmodifiableList(parsed.getFlags().get("rapier.flag.59dcb7a"));
                         }
 
                         // Check for standard help
@@ -254,13 +256,27 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
 
                 @Provides
                 @CliOptionParameter(shortName='a', longName="alpha")
-                public String provideOptionda97be1AsString() {
+                public String provideOptionda97be1AsString(
+                        @CliOptionParameter(shortName='a', longName="alpha") List<String> values) {
+                    return values.get(values.size()-1);
+                }
+
+                @Provides
+                @CliOptionParameter(shortName='a', longName="alpha")
+                public List<String> provideOptionda97be1AsListOfString() {
                     return optionda97be1;
                 }
 
                 @Provides
                 @CliFlagParameter(positiveShortName='b', positiveLongName="bravo", negativeShortName='B', negativeLongName="no-bravo")
-                public Boolean provideFlag59dcb7aAsBoolean() {
+                public Boolean provideFlag59dcb7aAsBoolean(
+                        @CliFlagParameter(positiveShortName='b', positiveLongName="bravo", negativeShortName='B', negativeLongName="no-bravo") List<Boolean> values) {
+                    return values.get(values.size()-1);
+                }
+
+                @Provides
+                @CliFlagParameter(positiveShortName='b', positiveLongName="bravo", negativeShortName='B', negativeLongName="no-bravo")
+                public List<Boolean> provideFlag59dcb7aAsListOfBoolean() {
                     return flag59dcb7a;
                 }
 
@@ -341,13 +357,13 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
     // NOTE: If you get a parse error, it could be from the helpMessage() method below. It's easy
     // to forget that we're still quoted because triple quotes are so easy to use, but we are, so
     // we have to double-escape the newline.
-    final JavaFileObject expectedOutput = JavaFileObjects.forSourceString(
-        "com.example.RapierExampleComponentCliModule",
+    final JavaFileObject expectedOutput = prepareSourceFile(
         """
             package com.example;
 
             import static java.util.Arrays.asList;
             import static java.util.Collections.emptyList;
+            import static java.util.Collections.unmodifiableList;
 
             import dagger.Module;
             import dagger.Provides;
@@ -378,7 +394,7 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
                  * shortName a
                  * longName alpha
                  */
-                private final String optionda97be1;
+                private final List<String> optionda97be1;
 
 
                 // Flag parameters
@@ -389,7 +405,7 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
                  * negativeShortName B
                  * negativeLongName no-bravo
                  */
-                private final Boolean flag59dcb7a;
+                private final List<Boolean> flag59dcb7a;
 
 
                 public RapierExampleComponentCliModule(String[] args) {
@@ -431,31 +447,33 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
                             flagNegativeLongNames);
 
                         // Initialize positional parameters
-                        if(parsed.getArgs().size() > 0) {
-                            this.positional0 = parsed.getArgs().get(0);
-                        } else {
+                        if(parsed.getArgs().size() <= 0) {
                             throw new CliSyntaxException(
                                 "Missing required positional parameter 0");
+                        } else {
+                            this.positional0 = parsed.getArgs().get(0);
                         }
 
+                        if(parsed.getArgs().size() > 1) {
+                            throw new CliSyntaxException(
+                                "Too many positional parameters");
+                        }
 
                         // Initialize option parameters
-                        if(parsed.getOptions().containsKey("rapier.option.da97be1")) {
-                            List<String> optionda97be1 = parsed.getOptions().get("rapier.option.da97be1");
-                            this.optionda97be1 = optionda97be1.get(optionda97be1.size()-1);
-                        } else {
+                        if(parsed.getOptions().getOrDefault("rapier.option.da97be1", emptyList()).isEmpty()) {
                             throw new CliSyntaxException(
                                 "Missing required option parameter -a / --alpha");
+                        } else {
+                            this.optionda97be1 = unmodifiableList(parsed.getOptions().get("rapier.option.da97be1"));
                         }
 
 
                         // Initialize flag parameters
-                        if(parsed.getFlags().containsKey("rapier.flag.59dcb7a")) {
-                            List<Boolean> flag59dcb7a = parsed.getFlags().get("rapier.flag.59dcb7a");
-                            this.flag59dcb7a = flag59dcb7a.get(flag59dcb7a.size()-1);
-                        } else {
+                        if(parsed.getFlags().getOrDefault("rapier.flag.59dcb7a", emptyList()).isEmpty()) {
                             throw new CliSyntaxException(
                                 "Missing required flag parameter -b / --bravo / -B / --no-bravo");
+                        } else {
+                            this.flag59dcb7a = unmodifiableList(parsed.getFlags().get("rapier.flag.59dcb7a"));
                         }
 
                         // Check for standard help
@@ -506,13 +524,27 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
 
                 @Provides
                 @CliOptionParameter(shortName='a', longName="alpha")
-                public String provideOptionda97be1AsString() {
+                public String provideOptionda97be1AsString(
+                        @CliOptionParameter(shortName='a', longName="alpha") List<String> values) {
+                    return values.get(values.size()-1);
+                }
+
+                @Provides
+                @CliOptionParameter(shortName='a', longName="alpha")
+                public List<String> provideOptionda97be1AsListOfString() {
                     return optionda97be1;
                 }
 
                 @Provides
                 @CliFlagParameter(positiveShortName='b', positiveLongName="bravo", negativeShortName='B', negativeLongName="no-bravo")
-                public Boolean provideFlag59dcb7aAsBoolean() {
+                public Boolean provideFlag59dcb7aAsBoolean(
+                        @CliFlagParameter(positiveShortName='b', positiveLongName="bravo", negativeShortName='B', negativeLongName="no-bravo") List<Boolean> values) {
+                    return values.get(values.size()-1);
+                }
+
+                @Provides
+                @CliFlagParameter(positiveShortName='b', positiveLongName="bravo", negativeShortName='B', negativeLongName="no-bravo")
+                public List<Boolean> provideFlag59dcb7aAsListOfBoolean() {
                     return flag59dcb7a;
                 }
 
@@ -588,13 +620,13 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
     // NOTE: If you get a parse error, it could be from the helpMessage() method below. It's easy
     // to forget that we're still quoted because triple quotes are so easy to use, but we are, so
     // we have to double-escape the newline.
-    final JavaFileObject expectedOutput = JavaFileObjects.forSourceString(
-        "com.example.RapierExampleComponentCliModule",
+    final JavaFileObject expectedOutput = prepareSourceFile(
         """
             package com.example;
 
             import static java.util.Arrays.asList;
             import static java.util.Collections.emptyList;
+            import static java.util.Collections.unmodifiableList;
 
             import dagger.Module;
             import dagger.Provides;
@@ -625,7 +657,7 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
                  * shortName a
                  * longName alpha
                  */
-                private final String optionda97be1;
+                private final List<String> optionda97be1;
 
 
                 // Flag parameters
@@ -636,7 +668,7 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
                  * negativeShortName B
                  * negativeLongName no-bravo
                  */
-                private final Boolean flag59dcb7a;
+                private final List<Boolean> flag59dcb7a;
 
 
                 public RapierExampleComponentCliModule(String[] args) {
@@ -678,31 +710,33 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
                             flagNegativeLongNames);
 
                         // Initialize positional parameters
-                        if(parsed.getArgs().size() > 0) {
-                            this.positional0 = parsed.getArgs().get(0);
-                        } else {
+                        if(parsed.getArgs().size() <= 0) {
                             throw new CliSyntaxException(
                                 "Missing required positional parameter 0");
+                        } else {
+                            this.positional0 = parsed.getArgs().get(0);
                         }
 
+                        if(parsed.getArgs().size() > 1) {
+                            throw new CliSyntaxException(
+                                "Too many positional parameters");
+                        }
 
                         // Initialize option parameters
-                        if(parsed.getOptions().containsKey("rapier.option.da97be1")) {
-                            List<String> optionda97be1 = parsed.getOptions().get("rapier.option.da97be1");
-                            this.optionda97be1 = optionda97be1.get(optionda97be1.size()-1);
-                        } else {
+                        if(parsed.getOptions().getOrDefault("rapier.option.da97be1", emptyList()).isEmpty()) {
                             throw new CliSyntaxException(
                                 "Missing required option parameter -a / --alpha");
+                        } else {
+                            this.optionda97be1 = unmodifiableList(parsed.getOptions().get("rapier.option.da97be1"));
                         }
 
 
                         // Initialize flag parameters
-                        if(parsed.getFlags().containsKey("rapier.flag.59dcb7a")) {
-                            List<Boolean> flag59dcb7a = parsed.getFlags().get("rapier.flag.59dcb7a");
-                            this.flag59dcb7a = flag59dcb7a.get(flag59dcb7a.size()-1);
-                        } else {
+                        if(parsed.getFlags().getOrDefault("rapier.flag.59dcb7a", emptyList()).isEmpty()) {
                             throw new CliSyntaxException(
                                 "Missing required flag parameter -b / --bravo / -B / --no-bravo");
+                        } else {
+                            this.flag59dcb7a = unmodifiableList(parsed.getFlags().get("rapier.flag.59dcb7a"));
                         }
 
                         // Check for standard version
@@ -747,13 +781,27 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
 
                 @Provides
                 @CliOptionParameter(shortName='a', longName="alpha")
-                public String provideOptionda97be1AsString() {
+                public String provideOptionda97be1AsString(
+                        @CliOptionParameter(shortName='a', longName="alpha") List<String> values) {
+                    return values.get(values.size()-1);
+                }
+
+                @Provides
+                @CliOptionParameter(shortName='a', longName="alpha")
+                public List<String> provideOptionda97be1AsListOfString() {
                     return optionda97be1;
                 }
 
                 @Provides
                 @CliFlagParameter(positiveShortName='b', positiveLongName="bravo", negativeShortName='B', negativeLongName="no-bravo")
-                public Boolean provideFlag59dcb7aAsBoolean() {
+                public Boolean provideFlag59dcb7aAsBoolean(
+                        @CliFlagParameter(positiveShortName='b', positiveLongName="bravo", negativeShortName='B', negativeLongName="no-bravo") List<Boolean> values) {
+                    return values.get(values.size()-1);
+                }
+
+                @Provides
+                @CliFlagParameter(positiveShortName='b', positiveLongName="bravo", negativeShortName='B', negativeLongName="no-bravo")
+                public List<Boolean> provideFlag59dcb7aAsListOfBoolean() {
                     return flag59dcb7a;
                 }
 
@@ -813,13 +861,13 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
     // NOTE: If you get a parse error, it could be from the helpMessage() method below. It's easy
     // to forget that we're still quoted because triple quotes are so easy to use, but we are, so
     // we have to double-escape the newline.
-    final JavaFileObject expectedOutput = JavaFileObjects.forSourceString(
-        "com.example.RapierExampleComponentCliModule",
+    final JavaFileObject expectedOutput = prepareSourceFile(
         """
             package com.example;
 
             import static java.util.Arrays.asList;
             import static java.util.Collections.emptyList;
+            import static java.util.Collections.unmodifiableList;
 
             import dagger.Module;
             import dagger.Provides;
@@ -850,7 +898,7 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
                  * shortName a
                  * longName alpha
                  */
-                private final String optionda97be1;
+                private final List<String> optionda97be1;
 
 
                 // Flag parameters
@@ -861,7 +909,7 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
                  * negativeShortName B
                  * negativeLongName no-bravo
                  */
-                private final Boolean flag59dcb7a;
+                private final List<Boolean> flag59dcb7a;
 
 
                 public RapierExampleComponentCliModule(String[] args) {
@@ -899,32 +947,35 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
                             flagNegativeLongNames);
 
                         // Initialize positional parameters
-                        if(parsed.getArgs().size() > 0) {
-                            this.positional0 = parsed.getArgs().get(0);
-                        } else {
+                        if(parsed.getArgs().size() <= 0) {
                             throw new CliSyntaxException(
                                 "Missing required positional parameter 0");
+                        } else {
+                            this.positional0 = parsed.getArgs().get(0);
                         }
 
+                        if(parsed.getArgs().size() > 1) {
+                            throw new CliSyntaxException(
+                                "Too many positional parameters");
+                        }
 
                         // Initialize option parameters
-                        if(parsed.getOptions().containsKey("rapier.option.da97be1")) {
-                            List<String> optionda97be1 = parsed.getOptions().get("rapier.option.da97be1");
-                            this.optionda97be1 = optionda97be1.get(optionda97be1.size()-1);
-                        } else {
+                        if(parsed.getOptions().getOrDefault("rapier.option.da97be1", emptyList()).isEmpty()) {
                             throw new CliSyntaxException(
                                 "Missing required option parameter -a / --alpha");
+                        } else {
+                            this.optionda97be1 = unmodifiableList(parsed.getOptions().get("rapier.option.da97be1"));
                         }
 
 
                         // Initialize flag parameters
-                        if(parsed.getFlags().containsKey("rapier.flag.59dcb7a")) {
-                            List<Boolean> flag59dcb7a = parsed.getFlags().get("rapier.flag.59dcb7a");
-                            this.flag59dcb7a = flag59dcb7a.get(flag59dcb7a.size()-1);
-                        } else {
+                        if(parsed.getFlags().getOrDefault("rapier.flag.59dcb7a", emptyList()).isEmpty()) {
                             throw new CliSyntaxException(
                                 "Missing required flag parameter -b / --bravo / -B / --no-bravo");
+                        } else {
+                            this.flag59dcb7a = unmodifiableList(parsed.getFlags().get("rapier.flag.59dcb7a"));
                         }
+
                     }
                     catch (JustArgs.IllegalSyntaxException e) {
                         // Standard help is not active. Map and propagate the exception.
@@ -956,13 +1007,27 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
 
                 @Provides
                 @CliOptionParameter(shortName='a', longName="alpha")
-                public String provideOptionda97be1AsString() {
+                public String provideOptionda97be1AsString(
+                        @CliOptionParameter(shortName='a', longName="alpha") List<String> values) {
+                    return values.get(values.size()-1);
+                }
+
+                @Provides
+                @CliOptionParameter(shortName='a', longName="alpha")
+                public List<String> provideOptionda97be1AsListOfString() {
                     return optionda97be1;
                 }
 
                 @Provides
                 @CliFlagParameter(positiveShortName='b', positiveLongName="bravo", negativeShortName='B', negativeLongName="no-bravo")
-                public Boolean provideFlag59dcb7aAsBoolean() {
+                public Boolean provideFlag59dcb7aAsBoolean(
+                        @CliFlagParameter(positiveShortName='b', positiveLongName="bravo", negativeShortName='B', negativeLongName="no-bravo") List<Boolean> values) {
+                    return values.get(values.size()-1);
+                }
+
+                @Provides
+                @CliFlagParameter(positiveShortName='b', positiveLongName="bravo", negativeShortName='B', negativeLongName="no-bravo")
+                public List<Boolean> provideFlag59dcb7aAsListOfBoolean() {
                     return flag59dcb7a;
                 }
 
