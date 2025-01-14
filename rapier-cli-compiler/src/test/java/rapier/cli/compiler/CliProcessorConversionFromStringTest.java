@@ -35,7 +35,7 @@ import rapier.core.RapierTestBase;
 /**
  * Validate that CLI processor supports expected type conversion rules
  */
-public class CliProcessorStringConversionTest extends RapierTestBase {
+public class CliProcessorConversionFromStringTest extends RapierTestBase {
   @Test
   public void givenComponentWithPositionalOptionFlagParametersAndStandardHelpAndStandardVersion_whenRunWithStandardHelpAndOtherArgs_thenPrintHelpAndExit()
       throws IOException {

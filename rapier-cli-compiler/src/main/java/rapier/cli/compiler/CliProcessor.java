@@ -2285,7 +2285,7 @@ public class CliProcessor extends RapierProcessorBase {
           out.println("    @Provides");
           out.println("    @CliFlagParameter(" + nameClauses + ")");
           out.println("    public " + representationType + " " + baseMethodName + "As"
-              + typeSimpleName + "(List<Boolean> value) {");
+              + typeSimpleName + "(@CliFlagParameter(" + nameClauses + ") List<Boolean> value) {");
           out.println("        return " + conversionExpr + ";");
           out.println("    }");
           out.println();
