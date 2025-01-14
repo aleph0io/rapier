@@ -26,9 +26,12 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import javax.annotation.processing.Processor;
 import javax.tools.JavaFileObject;
 import org.junit.jupiter.api.Test;
 import com.google.testing.compile.Compilation;
@@ -71,9 +74,16 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
                 import java.util.Optional;
                 import java.util.Properties;
                 import javax.annotation.Nullable;
+                import javax.annotation.processing.Generated;
                 import javax.inject.Inject;
+                import rapier.internal.RapierGenerated;
 
                 @Module
+                @RapierGenerated
+                @Generated(
+                    value = "rapier.envvar.compiler.EnvironmentVariableProcessor@1.2.3",
+                    comments = "https://github.com/sigpwned/rapier",
+                    date = "2024-01-01T12:34:56Z")
                 public class RapierExampleComponentEnvironmentVariableModule {
                     private final Map<String, String> env;
                     private final Map<String, String> sys;
@@ -159,9 +169,16 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
                 import java.util.Optional;
                 import java.util.Properties;
                 import javax.annotation.Nullable;
+                import javax.annotation.processing.Generated;
                 import javax.inject.Inject;
+                import rapier.internal.RapierGenerated;
 
                 @Module
+                @RapierGenerated
+                @Generated(
+                    value = "rapier.envvar.compiler.EnvironmentVariableProcessor@1.2.3",
+                    comments = "https://github.com/sigpwned/rapier",
+                    date = "2024-01-01T12:34:56Z")
                 public class RapierExampleComponentEnvironmentVariableModule {
                     private final Map<String, String> env;
                     private final Map<String, String> sys;
@@ -334,6 +351,27 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
         .equals("Effectively required environment variable FOO_BAR has default value")));
   }
 
+  public static final OffsetDateTime TEST_DATE =
+      OffsetDateTime.of(2024, 1, 1, 12, 34, 56, 0, ZoneOffset.UTC);
+
+  public static final String TEST_VERSION = "1.2.3";
+
+  /**
+   * We need to set the date and version so our generated source code is deterministic.
+   */
+  @Override
+  protected List<Processor> getAnnotationProcessors() {
+    List<Processor> result = super.getAnnotationProcessors();
+    for (Processor processor : result) {
+      if (processor instanceof EnvironmentVariableProcessor) {
+        EnvironmentVariableProcessor evp = (EnvironmentVariableProcessor) processor;
+        evp.setDate(TEST_DATE);
+        evp.setVersion(TEST_VERSION);
+      }
+    }
+    return unmodifiableList(result);
+  }
+
   /**
    * We need to include the generated classes from the rapier-environment-variable module in the
    * classpath for our tests.
@@ -343,6 +381,7 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
     List<File> result = new ArrayList<>();
     result.addAll(super.getCompileClasspath());
     result.add(resolveProjectFile("../rapier-environment-variable/target/classes"));
+    result.add(resolveProjectFile("../rapier-core/target/classes"));
     return unmodifiableList(result);
   }
 }

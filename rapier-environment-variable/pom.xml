@@ -10,7 +10,7 @@
     <artifactId>rapier-environment-variable</artifactId>
     <name>rapier-environment-variable</name>
     <packaging>jar</packaging>
-
+    
     <dependencies>
         <dependency>
             <groupId>com.sigpwned</groupId>

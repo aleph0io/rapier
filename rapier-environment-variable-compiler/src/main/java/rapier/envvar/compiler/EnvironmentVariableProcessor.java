@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -60,6 +61,7 @@ import rapier.compiler.core.util.AnnotationProcessing;
 import rapier.compiler.core.util.CaseFormat;
 import rapier.compiler.core.util.ConversionExprFactories;
 import rapier.compiler.core.util.Java;
+import rapier.compiler.core.util.RapierInfo;
 import rapier.envvar.EnvironmentVariable;
 import rapier.envvar.compiler.model.ParameterKey;
 import rapier.envvar.compiler.model.ParameterMetadata;
@@ -70,6 +72,22 @@ import rapier.envvar.compiler.util.EnvironmentVariables;
 @SupportedSourceVersion(SourceVersion.RELEASE_11)
 public class EnvironmentVariableProcessor extends RapierProcessorBase {
   private ConversionExprFactory converter;
+
+  private String version = RapierInfo.VERSION;
+
+  /* default */ void setVersion(String version) {
+    if (version == null)
+      throw new NullPointerException();
+    this.version = version;
+  }
+
+  private OffsetDateTime date = OffsetDateTime.now();
+
+  /* default */ void setDate(OffsetDateTime date) {
+    if (date == null)
+      throw new NullPointerException();
+    this.date = date;
+  }
 
   @Override
   public synchronized void init(ProcessingEnvironment processingEnv) {
@@ -310,9 +328,17 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
       writer.println("import java.util.Optional;");
       writer.println("import java.util.Properties;");
       writer.println("import javax.annotation.Nullable;");
+      writer.println("import javax.annotation.processing.Generated;");
       writer.println("import javax.inject.Inject;");
+      writer.println("import rapier.internal.RapierGenerated;");
       writer.println();
       writer.println("@Module");
+      writer.println("@RapierGenerated");
+      writer.println("@Generated(");
+      writer.println("    value = \"" + EnvironmentVariableProcessor.class.getCanonicalName() + "@"
+          + version + "\",");
+      writer.println("    comments = \"" + Java.escapeString(RapierInfo.URL) + "\",");
+      writer.println("    date = \"" + Java.escapeString(date.toInstant().toString()) + "\")");
       writer.println("public class " + moduleClassName + " {");
       writer.println("    private final Map<String, String> env;");
       writer.println("    private final Map<String, String> sys;");
