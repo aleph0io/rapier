@@ -31,7 +31,6 @@ import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
-import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.TypeElement;
@@ -180,7 +179,7 @@ public class DaggerComponentAnalyzer {
 
       // We are only interested in walking concrete types
       final TypeElement dependencyElement = (TypeElement) getTypes().asElement(dependency);
-      if(dependencyElement.getModifiers().contains(Modifier.ABSTRACT))
+      if (dependencyElement.getModifiers().contains(Modifier.ABSTRACT))
         continue;
 
       new DaggerJsr330Walker(getProcessingEnv()).walk(dependencyElement,
