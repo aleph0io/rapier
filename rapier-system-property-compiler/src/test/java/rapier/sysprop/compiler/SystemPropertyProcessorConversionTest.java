@@ -40,7 +40,7 @@ public class SystemPropertyProcessorConversionTest extends RapierTestBase {
   public void test() throws IOException {
     final JavaFileObject componentSource = prepareSourceFile("""
         package com.example;
-
+        
         @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
         public interface ExampleComponent {
             @rapier.sysprop.SystemProperty("INT")
@@ -103,6 +103,12 @@ public class SystemPropertyProcessorConversionTest extends RapierTestBase {
 
             @rapier.sysprop.SystemProperty("BOOLEAN")
             public boolean provisionBooleanAsBoolean();
+            
+            @rapier.sysprop.SystemProperty("STRING")
+            public dagger.Lazy<String> provisionLazyOfString();
+            
+            @rapier.sysprop.SystemProperty("STRING")
+            public javax.inject.Provider<String> provisionProviderOfString();
         }
         """);
 
@@ -198,6 +204,8 @@ public class SystemPropertyProcessorConversionTest extends RapierTestBase {
                 System.out.println(component.provisionStringAsSingleArgumentConstructorExample());
                 System.out.println(component.provisionBooleanAsBoxedBoolean());
                 System.out.println(component.provisionBooleanAsBoolean());
+                System.out.println(component.provisionLazyOfString().get());
+                System.out.println(component.provisionProviderOfString().get());
             }
         }
         """);
@@ -231,7 +239,9 @@ public class SystemPropertyProcessorConversionTest extends RapierTestBase {
         ValueOfExample [s=xyz]
         SingleArgumentConstructorExample [s=xyz]
         true
-        true""", output);
+        true
+        xyz
+        xyz""", output);
   }
 
   /**

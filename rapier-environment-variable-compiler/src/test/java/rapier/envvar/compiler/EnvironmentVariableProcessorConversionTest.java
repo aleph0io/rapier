@@ -103,6 +103,12 @@ public class EnvironmentVariableProcessorConversionTest extends RapierTestBase {
 
             @rapier.envvar.EnvironmentVariable("BOOLEAN")
             public boolean provisionBooleanAsBoolean();
+            
+            @rapier.envvar.EnvironmentVariable("STRING")
+            public dagger.Lazy<String> provisionLazyOfString();
+            
+            @rapier.envvar.EnvironmentVariable("STRING")
+            public javax.inject.Provider<String> provisionProviderOfString();
         }
         """);
 
@@ -198,6 +204,8 @@ public class EnvironmentVariableProcessorConversionTest extends RapierTestBase {
                 System.out.println(component.provisionStringAsSingleArgumentConstructorExample());
                 System.out.println(component.provisionBooleanAsBoxedBoolean());
                 System.out.println(component.provisionBooleanAsBoolean());
+                System.out.println(component.provisionLazyOfString().get());
+                System.out.println(component.provisionProviderOfString().get());
             }
         }
         """);
@@ -231,7 +239,9 @@ public class EnvironmentVariableProcessorConversionTest extends RapierTestBase {
         ValueOfExample [s=xyz]
         SingleArgumentConstructorExample [s=xyz]
         true
-        true""", output);
+        true
+        xyz
+        xyz""", output);
   }
 
   /**

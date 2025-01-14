@@ -294,10 +294,11 @@ public class DaggerComponentAnalyzer {
 
     final TypeMirror provisionedErasure = getTypes().erasure(provisionedType);
     final TypeMirror literalJavaxInjectProviderType =
-        getElements().getTypeElement("javax.inject.Provider").asType();
+        getTypes().erasure(getElements().getTypeElement("javax.inject.Provider").asType());
     final TypeMirror literalJakaInjectProviderType =
-        getElements().getTypeElement("jakarta.inject.Provider").asType();
-    final TypeMirror literalDaggerLazyType = getElements().getTypeElement("dagger.Lazy").asType();
+        getTypes().erasure(getElements().getTypeElement("jakarta.inject.Provider").asType());
+    final TypeMirror literalDaggerLazyType =
+        getTypes().erasure(getElements().getTypeElement("dagger.Lazy").asType());
     final TypeMirror literalJavaUtilOptionalType =
         getElements().getTypeElement("java.util.Optional").asType();
 

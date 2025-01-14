@@ -19,6 +19,7 @@
  */
 package rapier.assumptions.dagger;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
@@ -65,7 +66,7 @@ public class BoxingDaggerTest extends DaggerTestBase {
     final String errors = compileSourceCode(componentSourceCode, moduleSourceCode);
 
     assertTrue(errors.isBlank(), "Expected no errors, but errors were found.");
-    
+
     // TODO After we refactor DaggerTestBase, verify no warnings here
   }
 
@@ -188,5 +189,52 @@ public class BoxingDaggerTest extends DaggerTestBase {
 
     assertThrowsExactly(NullPointerException.class,
         () -> compileAndRunSourceCode(componentSourceCode, moduleSourceCode, appSourceCode));
+  }
+
+
+  /**
+   * Verify that Dagger will satisfy a primitve dependency with a binding of its boxed equivalent
+   */
+  @Test
+  public void givenIntDependencyAndIntegerBinding_whenCompileAndRun_thenNullError()
+      throws IOException {
+    final String componentSourceCode = """
+        import dagger.Component;
+        import javax.inject.Provider;
+        import javax.annotation.Nullable;
+
+        @Component(modules={ExampleModule.class})
+        public interface ExampleComponent {
+            public int provisionInt();
+        }
+        """;
+
+    final String moduleSourceCode = """
+        import dagger.Module;
+        import dagger.Provides;
+        import javax.annotation.Nullable;
+
+        @Module
+        public class ExampleModule {
+            @Provides
+            public Integer provideInteger() {
+                return 123;
+            }
+        }
+        """;
+
+    final String appSourceCode = """
+        public class ExampleApp {
+            public static void main(String[] args) {
+                ExampleComponent c = DaggerExampleComponent.builder().build();
+                System.out.println(c.provisionInt());
+            }
+        }
+        """;
+
+    final String output =
+        compileAndRunSourceCode(componentSourceCode, moduleSourceCode, appSourceCode).trim();
+
+    assertEquals(output, "123");
   }
 }
