@@ -25,6 +25,7 @@ import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.Elements;
@@ -80,7 +81,22 @@ public abstract class RapierProcessorBase extends AbstractProcessor {
   }
 
   protected String getSimpleTypeName(TypeMirror type) {
-    return getTypes().asElement(type).getSimpleName().toString();
+    if (type.getKind() != TypeKind.DECLARED) {
+      return getTypes().asElement(type).getSimpleName().toString();
+    }
+
+    DeclaredType declaredType = (DeclaredType) type;
+    StringBuilder result = new StringBuilder();
+    result.append(getTypes().asElement(declaredType).getSimpleName());
+
+    if (!declaredType.getTypeArguments().isEmpty()) {
+      result.append("Of");
+      for (TypeMirror arg : declaredType.getTypeArguments()) {
+        result.append(getSimpleTypeName(arg));
+      }
+    }
+
+    return result.toString();
   }
 
   private transient TypeMirror stringType;
