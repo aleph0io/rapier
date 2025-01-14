@@ -59,7 +59,7 @@ public class SystemPropertyProcessorCompileTest extends RapierTestBase {
         .generatedSourceFile("com.example.RapierExampleComponentSystemPropertyModule")
         .hasSourceEquivalentTo(prepareSourceFile(
             """
-                                package com.example;
+                package com.example;
 
                 import static java.util.Collections.unmodifiableMap;
                 import static java.util.stream.Collectors.toMap;
@@ -75,40 +75,53 @@ public class SystemPropertyProcessorCompileTest extends RapierTestBase {
 
                 @Module
                 public class RapierExampleComponentSystemPropertyModule {
-                    private final Map<String, String> sysprop;
+                    private final Map<String, String> env;
+                    private final Map<String, String> sys;
 
                     @Inject
                     public RapierExampleComponentSystemPropertyModule() {
                         this(System.getProperties());
                     }
 
-                    public RapierExampleComponentSystemPropertyModule(Properties properties) {
-                        this(properties.entrySet().stream()
+                    public RapierExampleComponentSystemPropertyModule(Properties sys) {
+                        this(System.getenv(), sys);
+                    }
+
+                    public RapierExampleComponentSystemPropertyModule(Map<String, String> sys) {
+                        this(System.getenv(), sys);
+                    }
+
+                    public RapierExampleComponentSystemPropertyModule(Map<String, String> env, Properties sys) {
+                        this(env, sys.entrySet().stream()
                             .collect(toMap(
                                 e -> e.getKey().toString(),
                                 e -> e.getValue().toString())));
                     }
 
-                    public RapierExampleComponentSystemPropertyModule(Map<String, String> sysprop) {
-                        this.sysprop = unmodifiableMap(sysprop);
+                    public RapierExampleComponentSystemPropertyModule(Map<String, String> env, Map<String, String> sys) {
+                        this.env = unmodifiableMap(env);
+                        this.sys = unmodifiableMap(sys);
                     }
 
                     @Provides
                     @SystemProperty("foo.bar")
                     public java.lang.Integer provideSystemPropertyFooBarAsInteger(@SystemProperty("foo.bar") String value) {
                         java.lang.Integer result = java.lang.Integer.valueOf(value);
-                        if (result == null)
-                            throw new IllegalStateException("System property foo.bar representation java.lang.Integer not set");
+                        if (result == null) {
+                            final String name="foo.bar";
+                            throw new IllegalStateException("System property " + name + " representation java.lang.Integer not set");
+                        }
                         return result;
                     }
 
                     @Provides
                     @SystemProperty("foo.bar")
                     public String provideSystemPropertyFooBarAsString() {
-                        String result=sysprop.get("foo.bar");
-                        if (result == null)
-                            throw new IllegalStateException("System property foo.bar not set");
-                        return result;
+                        final String name="foo.bar";
+                        final String value=sys.get(name);
+                        if (value == null)
+                            throw new IllegalStateException("System property " + name + " not set");
+                        return value;
                     }
 
                 }
@@ -155,22 +168,32 @@ public class SystemPropertyProcessorCompileTest extends RapierTestBase {
 
                 @Module
                 public class RapierExampleComponentSystemPropertyModule {
-                    private final Map<String, String> sysprop;
+                    private final Map<String, String> env;
+                    private final Map<String, String> sys;
 
                     @Inject
                     public RapierExampleComponentSystemPropertyModule() {
                         this(System.getProperties());
                     }
 
-                    public RapierExampleComponentSystemPropertyModule(Properties properties) {
-                        this(properties.entrySet().stream()
+                    public RapierExampleComponentSystemPropertyModule(Properties sys) {
+                        this(System.getenv(), sys);
+                    }
+
+                    public RapierExampleComponentSystemPropertyModule(Map<String, String> sys) {
+                        this(System.getenv(), sys);
+                    }
+
+                    public RapierExampleComponentSystemPropertyModule(Map<String, String> env, Properties sys) {
+                        this(env, sys.entrySet().stream()
                             .collect(toMap(
                                 e -> e.getKey().toString(),
                                 e -> e.getValue().toString())));
                     }
 
-                    public RapierExampleComponentSystemPropertyModule(Map<String, String> sysprop) {
-                        this.sysprop = unmodifiableMap(sysprop);
+                    public RapierExampleComponentSystemPropertyModule(Map<String, String> env, Map<String, String> sys) {
+                        this.env = unmodifiableMap(env);
+                        this.sys = unmodifiableMap(sys);
                     }
 
                     @Provides
@@ -182,7 +205,9 @@ public class SystemPropertyProcessorCompileTest extends RapierTestBase {
                     @Provides
                     @SystemProperty(value="foo.bar", defaultValue="42")
                     public String provideSystemPropertyFooBarWithDefaultValue92cfcebAsString() {
-                        return Optional.ofNullable(sysprop.get("foo.bar")).orElse("42");
+                        final String name="foo.bar";
+                        final String value=sys.get(name);
+                        return Optional.ofNullable(value).orElse("42");
                     }
 
                 }

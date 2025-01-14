@@ -315,27 +315,40 @@ public class SystemPropertyProcessor extends RapierProcessorBase {
       writer.println();
       writer.println("@Module");
       writer.println("public class " + moduleClassName + " {");
-      writer.println("    private final Map<String, String> sysprop;");
+      writer.println("    private final Map<String, String> env;");
+      writer.println("    private final Map<String, String> sys;");
       writer.println();
       writer.println("    @Inject");
       writer.println("    public " + moduleClassName + "() {");
       writer.println("        this(System.getProperties());");
       writer.println("    }");
       writer.println();
-      writer.println("    public " + moduleClassName + "(Properties properties) {");
-      writer.println("        this(properties.entrySet().stream()");
+      writer.println("    public " + moduleClassName + "(Properties sys) {");
+      writer.println("        this(System.getenv(), sys);");
+      writer.println("    }");
+      writer.println();
+      writer.println("    public " + moduleClassName + "(Map<String, String> sys) {");
+      writer.println("        this(System.getenv(), sys);");
+      writer.println("    }");
+      writer.println();
+      writer
+          .println("    public " + moduleClassName + "(Map<String, String> env, Properties sys) {");
+      writer.println("        this(env, sys.entrySet().stream()");
       writer.println("            .collect(toMap(");
       writer.println("                e -> e.getKey().toString(),");
       writer.println("                e -> e.getValue().toString())));");
       writer.println("    }");
       writer.println();
-      writer.println("    public " + moduleClassName + "(Map<String, String> sysprop) {");
-      writer.println("        this.sysprop = unmodifiableMap(sysprop);");
+      writer.println(
+          "    public " + moduleClassName + "(Map<String, String> env, Map<String, String> sys) {");
+      writer.println("        this.env = unmodifiableMap(env);");
+      writer.println("        this.sys = unmodifiableMap(sys);");
       writer.println("    }");
       writer.println();
       for (RepresentationKey representation : representationsInOrder) {
         final TypeMirror type = representation.getType();
         final String name = representation.getName();
+        final String nameExpr = compileTemplate(name, "env", "sys");
         final String representationDefaultValue = representation.getDefaultValue().orElse(null);
         final ParameterKey parameter = ParameterKey.fromRepresentationKey(representation);
         final ParameterMetadata parameterMetadata =
@@ -356,19 +369,22 @@ public class SystemPropertyProcessor extends RapierProcessorBase {
             writer.println("    @SystemProperty(value=\"" + name + "\", defaultValue=\""
                 + Java.escapeString(representationDefaultValue) + "\")");
             writer.println("    public String " + baseMethodName + "AsString() {");
-            writer.println("        return Optional.ofNullable(sysprop.get(\"" + name
-                + "\")).orElse(\"" + Java.escapeString(representationDefaultValue) + "\");");
+            writer.println("        final String name=" + nameExpr + ";");
+            writer.println("        final String value=sys.get(name);");
+            writer.println("        return Optional.ofNullable(value).orElse(\""
+                + Java.escapeString(representationDefaultValue) + "\");");
             writer.println("    }");
             writer.println();
           } else if (parameterIsRequired) {
             writer.println("    @Provides");
             writer.println("    @SystemProperty(\"" + name + "\")");
             writer.println("    public String " + baseMethodName + "AsString() {");
-            writer.println("        String result=sysprop.get(\"" + name + "\");");
-            writer.println("        if (result == null)");
-            writer.println("            throw new IllegalStateException(\"System property " + name
-                + " not set\");");
-            writer.println("        return result;");
+            writer.println("        final String name=" + nameExpr + ";");
+            writer.println("        final String value=sys.get(name);");
+            writer.println("        if (value == null)");
+            writer.println(
+                "            throw new IllegalStateException(\"System property \" + name + \" not set\");");
+            writer.println("        return value;");
             writer.println("    }");
             writer.println();
           } else {
@@ -376,7 +392,9 @@ public class SystemPropertyProcessor extends RapierProcessorBase {
             writer.println("    @Nullable");
             writer.println("    @SystemProperty(\"" + name + "\")");
             writer.println("    public String " + baseMethodName + "AsString() {");
-            writer.println("        return sysprop.get(\"" + name + "\");");
+            writer.println("        final String name=" + nameExpr + ";");
+            writer.println("        final String value=sys.get(name);");
+            writer.println("        return value;");
             writer.println("    }");
             writer.println();
             writer.println("    @Provides");
@@ -416,9 +434,12 @@ public class SystemPropertyProcessor extends RapierProcessorBase {
             writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
                 + "(@SystemProperty(\"" + name + "\") String value) {");
             writer.println("        " + type + " result = " + conversionExpr + ";");
-            writer.println("        if (result == null)");
-            writer.println("            throw new IllegalStateException(\"System property " + name
-                + " representation " + type + " not set\");");
+            writer.println("        if (result == null) {");
+            writer.println("            final String name=" + nameExpr + ";");
+            writer.println(
+                "            throw new IllegalStateException(\"System property \" + name + \" representation "
+                    + type + " not set\");");
+            writer.println("        }");
             writer.println("        return result;");
             writer.println("    }");
             writer.println();
@@ -483,21 +504,23 @@ public class SystemPropertyProcessor extends RapierProcessorBase {
     return converter;
   }
 
-  private static final Pattern NON_ALPHANUMERIC = Pattern.compile("[^a-zA-Z0-9]+");
+  private static final Pattern NONALPHANUMERIC = Pattern.compile("[^a-zA-Z0-9]+");
+  private static final Pattern UNDERSCORES = Pattern.compile("_+");
 
-  private static String standardizeSystemPropertyName(String name) {
-    name = NON_ALPHANUMERIC.matcher(name).replaceAll("_").toUpperCase();
+  private String standardizeSystemPropertyName(String name) {
+    final String original = name;
 
-    int start = 0;
-    while (start < name.length() && name.charAt(start) == '_') {
-      start = start + 1;
-    }
+    name = NONALPHANUMERIC.matcher(name).replaceAll("_").toUpperCase();
+    name = UNDERSCORES.matcher(name).replaceAll("_");
 
-    int end = name.length();
-    while (end > start && name.charAt(end - 1) == '_') {
-      end = end - 1;
-    }
+    if (name.startsWith("_"))
+      name = name.substring(1, name.length());
+    if (name.endsWith("_"))
+      name = name.substring(0, name.length() - 1);
 
-    return name.substring(start, end).toUpperCase();
+    if (name.isEmpty())
+      return stringSignature(original);
+
+    return name.toUpperCase();
   }
 }

@@ -308,6 +308,7 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
       writer.println("import dagger.Provides;");
       writer.println("import java.util.Map;");
       writer.println("import java.util.Optional;");
+      writer.println("import java.util.Properties;");
       writer.println("import javax.annotation.Nullable;");
       writer.println("import javax.inject.Inject;");
       writer.println();
@@ -322,7 +323,12 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
       writer.println("    }");
       writer.println();
       writer.println("    public " + moduleClassName + "(Map<String, String> env) {");
-      writer.println("        this(env, System.getProperties().entrySet().stream()");
+      writer.println("        this(env, System.getProperties());");
+      writer.println("    }");
+      writer.println();
+      writer
+          .println("    public " + moduleClassName + "(Map<String, String> env, Properties sys) {");
+      writer.println("        this(env, sys.entrySet().stream()");
       writer.println("            .collect(toMap(");
       writer.println("                e -> e.getKey().toString(),");
       writer.println("                e -> e.getValue().toString())));");
@@ -371,8 +377,8 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
             writer.println("        final String name=" + nameExpr + ";");
             writer.println("        final String value=env.get(name);");
             writer.println("        if (value == null)");
-            writer.println("            throw new IllegalStateException(\"Environment variable "
-                + name + " not set\");");
+            writer.println(
+                "            throw new IllegalStateException(\"Environment variable \" + name + \" not set\");");
             writer.println("        return value;");
             writer.println("    }");
             writer.println();
@@ -424,9 +430,12 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
             writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
                 + "(@EnvironmentVariable(\"" + name + "\") String value) {");
             writer.println("        final " + type + " result = " + conversionExpr + ";");
-            writer.println("        if (result == null)");
-            writer.println("            throw new IllegalStateException(\"Environment variable "
-                + name + " representation " + type + " not set\");");
+            writer.println("        if (result == null) {");
+            writer.println("            final String name=" + nameExpr + ";");
+            writer.println(
+                "            throw new IllegalStateException(\"Environment variable \" + name + \" representation "
+                    + type + " not set\");");
+            writer.println("        }");
             writer.println("        return result;");
             writer.println("    }");
             writer.println();

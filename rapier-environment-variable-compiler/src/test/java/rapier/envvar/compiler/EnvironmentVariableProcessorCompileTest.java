@@ -69,6 +69,7 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
                 import dagger.Provides;
                 import java.util.Map;
                 import java.util.Optional;
+                import java.util.Properties;
                 import javax.annotation.Nullable;
                 import javax.inject.Inject;
 
@@ -83,7 +84,11 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
                     }
 
                     public RapierExampleComponentEnvironmentVariableModule(Map<String, String> env) {
-                        this(env, System.getProperties().entrySet().stream()
+                        this(env, System.getProperties());
+                    }
+
+                    public RapierExampleComponentEnvironmentVariableModule(Map<String, String> env, Properties sys) {
+                        this(env, sys.entrySet().stream()
                             .collect(toMap(
                                 e -> e.getKey().toString(),
                                 e -> e.getValue().toString())));
@@ -98,8 +103,10 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
                     @EnvironmentVariable("FOO_BAR")
                     public java.lang.Integer provideEnvironmentVariableFooBarAsInteger(@EnvironmentVariable("FOO_BAR") String value) {
                         final java.lang.Integer result = java.lang.Integer.valueOf(value);
-                        if (result == null)
-                            throw new IllegalStateException("Environment variable FOO_BAR representation java.lang.Integer not set");
+                        if (result == null) {
+                            final String name="FOO_BAR";
+                            throw new IllegalStateException("Environment variable " + name + " representation java.lang.Integer not set");
+                        }
                         return result;
                     }
 
@@ -109,12 +116,11 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
                         final String name="FOO_BAR";
                         final String value=env.get(name);
                         if (value == null)
-                            throw new IllegalStateException("Environment variable FOO_BAR not set");
+                            throw new IllegalStateException("Environment variable " + name + " not set");
                         return value;
                     }
 
-                }
-                """));
+                }"""));
   }
 
   @Test
@@ -151,6 +157,7 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
                 import dagger.Provides;
                 import java.util.Map;
                 import java.util.Optional;
+                import java.util.Properties;
                 import javax.annotation.Nullable;
                 import javax.inject.Inject;
 
@@ -165,7 +172,11 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
                     }
 
                     public RapierExampleComponentEnvironmentVariableModule(Map<String, String> env) {
-                        this(env, System.getProperties().entrySet().stream()
+                        this(env, System.getProperties());
+                    }
+
+                    public RapierExampleComponentEnvironmentVariableModule(Map<String, String> env, Properties sys) {
+                        this(env, sys.entrySet().stream()
                             .collect(toMap(
                                 e -> e.getKey().toString(),
                                 e -> e.getValue().toString())));
