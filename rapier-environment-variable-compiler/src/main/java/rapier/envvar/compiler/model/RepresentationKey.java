@@ -27,7 +27,7 @@ import java.util.Optional;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleAnnotationValueVisitor8;
-import rapier.core.model.DaggerInjectionSite;
+import rapier.compiler.core.model.DaggerInjectionSite;
 import rapier.envvar.EnvironmentVariable;
 
 /**

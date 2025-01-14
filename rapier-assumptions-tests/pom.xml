@@ -31,13 +31,13 @@
     <dependencies>
         <dependency>
             <groupId>com.sigpwned</groupId>
-            <artifactId>rapier-core</artifactId>
+            <artifactId>rapier-compiler-core</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <dependency>
             <groupId>com.sigpwned</groupId>
-            <artifactId>rapier-core</artifactId>
+            <artifactId>rapier-compiler-core</artifactId>
             <version>${project.version}</version>
             <type>test-jar</type>
             <scope>test</scope>

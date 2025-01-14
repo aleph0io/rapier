@@ -13,6 +13,11 @@
 
     <dependencies>
         <dependency>
+            <groupId>com.sigpwned</groupId>
+            <artifactId>rapier-core</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
             <groupId>com.google.dagger</groupId>
             <artifactId>dagger</artifactId>
         </dependency>

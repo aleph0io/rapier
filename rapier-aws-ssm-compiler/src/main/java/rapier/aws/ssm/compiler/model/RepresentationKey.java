@@ -28,7 +28,7 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleAnnotationValueVisitor8;
 import rapier.aws.ssm.AwsSsmStringParameter;
-import rapier.core.model.DaggerInjectionSite;
+import rapier.compiler.core.model.DaggerInjectionSite;
 
 /**
  * A grouping key for the JSR 330 representation of a system property, namely type and qualifier,

@@ -57,14 +57,14 @@ import rapier.aws.ssm.compiler.model.ParameterKey;
 import rapier.aws.ssm.compiler.model.ParameterMetadata;
 import rapier.aws.ssm.compiler.model.RepresentationKey;
 import rapier.aws.ssm.compiler.util.SystemProperties;
-import rapier.core.ConversionExprFactory;
-import rapier.core.DaggerComponentAnalyzer;
-import rapier.core.RapierProcessorBase;
-import rapier.core.model.DaggerInjectionSite;
-import rapier.core.util.AnnotationProcessing;
-import rapier.core.util.CaseFormat;
-import rapier.core.util.ConversionExprFactories;
-import rapier.core.util.Java;
+import rapier.compiler.core.ConversionExprFactory;
+import rapier.compiler.core.DaggerComponentAnalyzer;
+import rapier.compiler.core.RapierProcessorBase;
+import rapier.compiler.core.model.DaggerInjectionSite;
+import rapier.compiler.core.util.AnnotationProcessing;
+import rapier.compiler.core.util.CaseFormat;
+import rapier.compiler.core.util.ConversionExprFactories;
+import rapier.compiler.core.util.Java;
 
 @SupportedAnnotationTypes("dagger.Component")
 @SupportedSourceVersion(SourceVersion.RELEASE_11)

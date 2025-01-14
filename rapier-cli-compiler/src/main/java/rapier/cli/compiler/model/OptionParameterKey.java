@@ -25,7 +25,7 @@ import java.util.Optional;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.util.SimpleAnnotationValueVisitor8;
 import rapier.cli.CliOptionParameter;
-import rapier.core.model.DaggerInjectionSite;
+import rapier.compiler.core.model.DaggerInjectionSite;
 
 public class OptionParameterKey {
   public static OptionParameterKey fromInjectionSite(DaggerInjectionSite dependency) {

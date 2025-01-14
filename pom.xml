@@ -282,6 +282,7 @@
 
     <modules>
         <module>rapier-core</module>
+        <module>rapier-compiler-core</module>
         <module>rapier-assumptions-tests</module>
         <module>rapier-environment-variable</module>
         <module>rapier-environment-variable-compiler</module>

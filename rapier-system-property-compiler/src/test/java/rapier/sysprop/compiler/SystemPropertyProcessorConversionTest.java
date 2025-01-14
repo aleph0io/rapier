@@ -30,7 +30,7 @@ import java.util.List;
 import javax.tools.JavaFileObject;
 import org.junit.jupiter.api.Test;
 import com.google.testing.compile.Compilation;
-import rapier.core.RapierTestBase;
+import rapier.compiler.core.RapierTestBase;
 
 /**
  * Validate that system property processor supports expected type conversion rules

@@ -55,7 +55,7 @@ import javax.tools.JavaFileObject;
 import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
 import com.google.testing.compile.Compilation;
-import rapier.core.util.Maven;
+import rapier.compiler.core.util.Maven;
 
 public abstract class DaggerTestBase {
   @SuppressWarnings("serial")

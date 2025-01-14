@@ -32,7 +32,7 @@ import java.util.Locale;
 import javax.tools.JavaFileObject;
 import org.junit.jupiter.api.Test;
 import com.google.testing.compile.Compilation;
-import rapier.core.RapierTestBase;
+import rapier.compiler.core.RapierTestBase;
 
 public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
   @Test

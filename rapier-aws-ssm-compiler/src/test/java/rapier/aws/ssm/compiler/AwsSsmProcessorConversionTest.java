@@ -32,8 +32,8 @@ import java.util.Optional;
 import javax.tools.JavaFileObject;
 import org.junit.jupiter.api.Test;
 import com.google.testing.compile.Compilation;
-import rapier.core.RapierTestBase;
-import rapier.core.util.Maven;
+import rapier.compiler.core.RapierTestBase;
+import rapier.compiler.core.util.Maven;
 
 /**
  * Validate that AWS SSM processor supports expected type conversion rules

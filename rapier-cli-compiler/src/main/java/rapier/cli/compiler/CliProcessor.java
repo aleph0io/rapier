@@ -82,19 +82,19 @@ import rapier.cli.compiler.model.PositionalParameterMetadata;
 import rapier.cli.compiler.model.PositionalRepresentationKey;
 import rapier.cli.compiler.thirdparty.com.sigpwned.just.args.JustArgs;
 import rapier.cli.compiler.util.CliProcessing;
-import rapier.core.ConversionExprFactory;
-import rapier.core.DaggerComponentAnalyzer;
-import rapier.core.RapierProcessorBase;
-import rapier.core.conversion.expr.BooleanToPrimitiveConversionExprFactory;
-import rapier.core.conversion.expr.BooleanToStringConversionExprFactory;
-import rapier.core.conversion.expr.ConversionExprFactoryChain;
-import rapier.core.conversion.expr.ElementwiseListConversionExprFactory;
-import rapier.core.conversion.expr.IdentityConversionExprFactory;
-import rapier.core.conversion.expr.SingleArgumentConstructorConversionExprFactory;
-import rapier.core.conversion.expr.ValueOfConversionExprFactory;
-import rapier.core.model.DaggerInjectionSite;
-import rapier.core.util.ConversionExprFactories;
-import rapier.core.util.Java;
+import rapier.compiler.core.ConversionExprFactory;
+import rapier.compiler.core.DaggerComponentAnalyzer;
+import rapier.compiler.core.RapierProcessorBase;
+import rapier.compiler.core.conversion.expr.BooleanToPrimitiveConversionExprFactory;
+import rapier.compiler.core.conversion.expr.BooleanToStringConversionExprFactory;
+import rapier.compiler.core.conversion.expr.ConversionExprFactoryChain;
+import rapier.compiler.core.conversion.expr.ElementwiseListConversionExprFactory;
+import rapier.compiler.core.conversion.expr.IdentityConversionExprFactory;
+import rapier.compiler.core.conversion.expr.SingleArgumentConstructorConversionExprFactory;
+import rapier.compiler.core.conversion.expr.ValueOfConversionExprFactory;
+import rapier.compiler.core.model.DaggerInjectionSite;
+import rapier.compiler.core.util.ConversionExprFactories;
+import rapier.compiler.core.util.Java;
 
 @SupportedAnnotationTypes("dagger.Component")
 @SupportedSourceVersion(SourceVersion.RELEASE_11)
