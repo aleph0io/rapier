@@ -32,6 +32,7 @@ import javax.lang.model.util.Elements;
 import javax.lang.model.util.Types;
 import rapier.compiler.core.util.Hashing;
 import rapier.compiler.core.util.Hex;
+import rapier.compiler.core.util.Java;
 
 public abstract class RapierProcessorBase extends AbstractProcessor {
   /**
@@ -126,4 +127,73 @@ public abstract class RapierProcessorBase extends AbstractProcessor {
     return hex.substring(0, 7);
   }
 
+  protected String compileTemplate(String template, String envVariableName,
+      String sysVariableName) {
+    final StringBuilder result = new StringBuilder();
+
+    new TemplateParser().parse(template, new TemplateParser.ParseHandler() {
+      private boolean first = true;
+
+      @Override
+      public void onVariableExpressionWithDefaultValue(int index, String variableName,
+          String defaultValue) {
+        if (first == false)
+          result.append("+");
+
+        if (variableName.startsWith("env.")) {
+          final String n = variableName.substring(4);
+          result.append("Optional.ofNullable(").append(envVariableName).append(".get(\"")
+              .append(Java.escapeString(n)).append("\")).orElse(\"")
+              .append(Java.escapeString(defaultValue)).append("\")");
+        } else if (variableName.startsWith("sys.")) {
+          final String n = variableName.substring(4);
+          result.append("Optional.ofNullable(").append(sysVariableName).append(".get(\"")
+              .append(Java.escapeString(n)).append("\")).orElse(\"")
+              .append(Java.escapeString(defaultValue)).append("\")");
+        } else {
+          throw new TemplateParser.TemplateSyntaxException(index,
+              "Variable name must start with 'env.' or 'sys.'");
+        }
+
+        first = false;
+      }
+
+      @Override
+      public void onVariableExpression(int index, String variableName) {
+        if (first == false)
+          result.append("+");
+
+        if (variableName.startsWith("env.")) {
+          final String n = variableName.substring(4);
+          result.append("Optional.ofNullable(").append(envVariableName).append(".get(\"")
+              .append(Java.escapeString(n))
+              .append("\")).orElseThrow(() -> new IllegalStateException(\"Environment variable ")
+              .append(Java.escapeString(n)).append(" not set\"))");
+        } else if (variableName.startsWith("sys.")) {
+          final String n = variableName.substring(4);
+          result.append("Optional.ofNullable(").append(sysVariableName).append(".get(\"")
+              .append(Java.escapeString(n))
+              .append("\")).orElseThrow(() -> new IllegalStateException(\"System property ")
+              .append(Java.escapeString(n)).append(" not set\"))");
+        } else {
+          throw new TemplateParser.TemplateSyntaxException(index,
+              "Variable name must start with 'env.' or 'sys.'");
+        }
+
+        first = false;
+      }
+
+      @Override
+      public void onText(int index, String text) {
+        if (first == false)
+          result.append("+");
+
+        result.append("\"").append(Java.escapeString(text)).append("\"");
+
+        first = false;
+      }
+    });
+
+    return result.toString();
+  }
 }

@@ -62,6 +62,7 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
                 package com.example;
 
                 import static java.util.Collections.unmodifiableMap;
+                import static java.util.stream.Collectors.toMap;
 
                 import rapier.envvar.EnvironmentVariable;
                 import dagger.Module;
@@ -74,6 +75,7 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
                 @Module
                 public class RapierExampleComponentEnvironmentVariableModule {
                     private final Map<String, String> env;
+                    private final Map<String, String> sys;
 
                     @Inject
                     public RapierExampleComponentEnvironmentVariableModule() {
@@ -81,13 +83,21 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
                     }
 
                     public RapierExampleComponentEnvironmentVariableModule(Map<String, String> env) {
+                        this(env, System.getProperties().entrySet().stream()
+                            .collect(toMap(
+                                e -> e.getKey().toString(),
+                                e -> e.getValue().toString())));
+                    }
+
+                    public RapierExampleComponentEnvironmentVariableModule(Map<String, String> env, Map<String, String> sys) {
                         this.env = unmodifiableMap(env);
+                        this.sys = unmodifiableMap(sys);
                     }
 
                     @Provides
                     @EnvironmentVariable("FOO_BAR")
                     public java.lang.Integer provideEnvironmentVariableFooBarAsInteger(@EnvironmentVariable("FOO_BAR") String value) {
-                        java.lang.Integer result = java.lang.Integer.valueOf(value);
+                        final java.lang.Integer result = java.lang.Integer.valueOf(value);
                         if (result == null)
                             throw new IllegalStateException("Environment variable FOO_BAR representation java.lang.Integer not set");
                         return result;
@@ -96,14 +106,14 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
                     @Provides
                     @EnvironmentVariable("FOO_BAR")
                     public String provideEnvironmentVariableFooBarAsString() {
-                        String result=env.get("FOO_BAR");
-                        if (result == null)
+                        final String name="FOO_BAR";
+                        final String value=env.get(name);
+                        if (value == null)
                             throw new IllegalStateException("Environment variable FOO_BAR not set");
-                        return result;
+                        return value;
                     }
 
                 }
-
                 """));
   }
 
@@ -134,6 +144,7 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
                 package com.example;
 
                 import static java.util.Collections.unmodifiableMap;
+                import static java.util.stream.Collectors.toMap;
 
                 import rapier.envvar.EnvironmentVariable;
                 import dagger.Module;
@@ -146,6 +157,7 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
                 @Module
                 public class RapierExampleComponentEnvironmentVariableModule {
                     private final Map<String, String> env;
+                    private final Map<String, String> sys;
 
                     @Inject
                     public RapierExampleComponentEnvironmentVariableModule() {
@@ -153,7 +165,15 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
                     }
 
                     public RapierExampleComponentEnvironmentVariableModule(Map<String, String> env) {
+                        this(env, System.getProperties().entrySet().stream()
+                            .collect(toMap(
+                                e -> e.getKey().toString(),
+                                e -> e.getValue().toString())));
+                    }
+
+                    public RapierExampleComponentEnvironmentVariableModule(Map<String, String> env, Map<String, String> sys) {
                         this.env = unmodifiableMap(env);
+                        this.sys = unmodifiableMap(sys);
                     }
 
                     @Provides
@@ -165,7 +185,9 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
                     @Provides
                     @EnvironmentVariable(value="FOO_BAR", defaultValue="42")
                     public String provideEnvironmentVariableFooBarWithDefaultValue92cfcebAsString() {
-                        return Optional.ofNullable(env.get("FOO_BAR")).orElse("42");
+                        final String name="FOO_BAR";
+                        final String value=env.get(name);
+                        return Optional.ofNullable(value).orElse("42");
                     }
 
                 }

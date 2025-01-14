@@ -39,6 +39,7 @@ import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.regex.Pattern;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
 import javax.annotation.processing.SupportedAnnotationTypes;
@@ -300,6 +301,7 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
         writer.println();
       }
       writer.println("import static java.util.Collections.unmodifiableMap;");
+      writer.println("import static java.util.stream.Collectors.toMap;");
       writer.println();
       writer.println("import " + EnvironmentVariable.class.getName() + ";");
       writer.println("import dagger.Module;");
@@ -312,6 +314,7 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
       writer.println("@Module");
       writer.println("public class " + moduleClassName + " {");
       writer.println("    private final Map<String, String> env;");
+      writer.println("    private final Map<String, String> sys;");
       writer.println();
       writer.println("    @Inject");
       writer.println("    public " + moduleClassName + "() {");
@@ -319,12 +322,22 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
       writer.println("    }");
       writer.println();
       writer.println("    public " + moduleClassName + "(Map<String, String> env) {");
+      writer.println("        this(env, System.getProperties().entrySet().stream()");
+      writer.println("            .collect(toMap(");
+      writer.println("                e -> e.getKey().toString(),");
+      writer.println("                e -> e.getValue().toString())));");
+      writer.println("    }");
+      writer.println();
+      writer.println(
+          "    public " + moduleClassName + "(Map<String, String> env, Map<String, String> sys) {");
       writer.println("        this.env = unmodifiableMap(env);");
+      writer.println("        this.sys = unmodifiableMap(sys);");
       writer.println("    }");
       writer.println();
       for (RepresentationKey representation : representationsInOrder) {
         final TypeMirror type = representation.getType();
         final String name = representation.getName();
+        final String nameExpr = compileTemplate(name, "env", "sys");
         final String representationDefaultValue = representation.getDefaultValue().orElse(null);
         final ParameterKey parameter = ParameterKey.fromRepresentationKey(representation);
         final ParameterMetadata parameterMetadata =
@@ -333,7 +346,7 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
 
         final StringBuilder baseMethodName =
             new StringBuilder().append("provideEnvironmentVariable")
-                .append(CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, name));
+                .append(CaseFormat.UPPER_UNDERSCORE.to(CaseFormat.UPPER_CAMEL, sanitizeName(name)));
         if (representationDefaultValue != null) {
           baseMethodName.append("WithDefaultValue")
               .append(stringSignature(representationDefaultValue));
@@ -345,7 +358,9 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
             writer.println("    @EnvironmentVariable(value=\"" + name + "\", defaultValue=\""
                 + Java.escapeString(representationDefaultValue) + "\")");
             writer.println("    public String " + baseMethodName + "AsString() {");
-            writer.println("        return Optional.ofNullable(env.get(\"" + name + "\")).orElse(\""
+            writer.println("        final String name=" + nameExpr + ";");
+            writer.println("        final String value=env.get(name);");
+            writer.println("        return Optional.ofNullable(value).orElse(\""
                 + Java.escapeString(representationDefaultValue) + "\");");
             writer.println("    }");
             writer.println();
@@ -353,11 +368,12 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
             writer.println("    @Provides");
             writer.println("    @EnvironmentVariable(\"" + name + "\")");
             writer.println("    public String " + baseMethodName + "AsString() {");
-            writer.println("        String result=env.get(\"" + name + "\");");
-            writer.println("        if (result == null)");
+            writer.println("        final String name=" + nameExpr + ";");
+            writer.println("        final String value=env.get(name);");
+            writer.println("        if (value == null)");
             writer.println("            throw new IllegalStateException(\"Environment variable "
                 + name + " not set\");");
-            writer.println("        return result;");
+            writer.println("        return value;");
             writer.println("    }");
             writer.println();
           } else {
@@ -365,7 +381,9 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
             writer.println("    @Nullable");
             writer.println("    @EnvironmentVariable(\"" + name + "\")");
             writer.println("    public String " + baseMethodName + "AsString() {");
-            writer.println("        return env.get(\"" + name + "\");");
+            writer.println("        final String name=" + nameExpr + ";");
+            writer.println("        final String value=env.get(name);");
+            writer.println("        return value;");
             writer.println("    }");
             writer.println();
             writer.println("    @Provides");
@@ -405,7 +423,7 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
             writer.println("    @EnvironmentVariable(\"" + name + "\")");
             writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
                 + "(@EnvironmentVariable(\"" + name + "\") String value) {");
-            writer.println("        " + type + " result = " + conversionExpr + ";");
+            writer.println("        final " + type + " result = " + conversionExpr + ";");
             writer.println("        if (result == null)");
             writer.println("            throw new IllegalStateException(\"Environment variable "
                 + name + " representation " + type + " not set\");");
@@ -471,5 +489,26 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
 
   private ConversionExprFactory getConverter() {
     return converter;
+  }
+
+  private static final Pattern NONALPHANUMERIC = Pattern.compile("[^a-zA-Z0-9]");
+
+  private static final Pattern UNDERSCORES = Pattern.compile("_+");
+
+  private String sanitizeName(String s) {
+    final String original = s;
+
+    s = NONALPHANUMERIC.matcher(s).replaceAll("_");
+    s = UNDERSCORES.matcher(s).replaceAll("_");
+
+    if (s.startsWith("_"))
+      s = s.substring(1, s.length());
+    if (s.endsWith("_"))
+      s = s.substring(0, s.length() - 1);
+
+    if (s.isEmpty())
+      s = stringSignature(original);
+
+    return s.toUpperCase();
   }
 }
