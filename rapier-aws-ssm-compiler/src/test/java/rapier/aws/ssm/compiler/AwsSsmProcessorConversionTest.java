@@ -294,6 +294,7 @@ public class AwsSsmProcessorConversionTest extends RapierTestBase {
 
     // We need our sister project classes to be available
     result.add(resolveProjectFile("../rapier-aws-ssm/target/classes"));
+    result.add(resolveProjectFile("../rapier-core/target/classes"));
 
     return result;
   }

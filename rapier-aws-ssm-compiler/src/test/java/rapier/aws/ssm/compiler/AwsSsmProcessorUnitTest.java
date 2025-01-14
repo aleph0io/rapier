@@ -20,15 +20,19 @@
 package rapier.aws.ssm.compiler;
 
 import static com.google.testing.compile.CompilationSubject.assertThat;
+import static java.util.Collections.unmodifiableList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import javax.annotation.processing.Processor;
 import javax.tools.JavaFileObject;
 import org.junit.jupiter.api.Test;
 import com.google.testing.compile.Compilation;
@@ -42,6 +46,104 @@ import rapier.compiler.core.util.Maven;
  * client against LocalStack for a more realistic test.
  */
 public class AwsSsmProcessorUnitTest extends RapierTestBase {
+  @Test
+  public void givenSimpleComponent_whenCompile_thenGenerateExpectedCode() throws IOException {
+    // Define the source file to test
+    final JavaFileObject componentSource = prepareSourceFile("""
+        @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
+        public interface ExampleComponent {
+            @rapier.aws.ssm.AwsSsmStringParameter(value="foo.bar")
+            public Integer provisionFooBarAsInt();
+        }
+        """);
+
+    final Compilation compilation = doCompile(componentSource);
+
+    assertThat(compilation).succeeded();
+
+    assertThat(compilation).generatedSourceFile("RapierExampleComponentAwsSsmModule")
+        .hasSourceEquivalentTo(prepareSourceFile(
+            """
+                import static java.util.Collections.unmodifiableMap;
+                import static java.util.stream.Collectors.toMap;
+                import static java.util.Objects.requireNonNull;
+
+                import rapier.aws.ssm.AwsSsmStringParameter;
+                import dagger.Module;
+                import dagger.Provides;
+                import java.util.Map;
+                import java.util.Optional;
+                import java.util.Properties;
+                import javax.annotation.Nullable;
+                import javax.annotation.processing.Generated;
+                import javax.inject.Inject;
+                import rapier.internal.RapierGenerated;
+                import software.amazon.awssdk.services.ssm.SsmClient;
+                import software.amazon.awssdk.services.ssm.model.ParameterNotFoundException;
+                import software.amazon.awssdk.services.ssm.model.GetParameterRequest;
+
+                @Module
+                @RapierGenerated
+                @Generated(
+                    value = "rapier.aws.ssm.compiler.AwsSsmProcessor@1.2.3",
+                    comments = "https://www.example.com",
+                    date = "2024-01-01T12:34:56Z")
+                public class RapierExampleComponentAwsSsmModule {
+                    private final SsmClient client;
+                    private final Map<String, String> env;
+                    private final Map<String, String> sys;
+
+                    @Inject
+                    public RapierExampleComponentAwsSsmModule() {
+                        this(SsmClient.create());
+                    }
+
+                    public RapierExampleComponentAwsSsmModule(SsmClient client) {
+                        this(client, System.getenv(), System.getProperties());
+                    }
+
+                    public RapierExampleComponentAwsSsmModule(SsmClient client, Map<String, String> env, Properties sys) {
+                        this(client, env, sys.entrySet().stream()
+                            .collect(toMap(
+                                e -> e.getKey().toString(),
+                                e -> e.getValue().toString())));
+                    }
+
+                    public RapierExampleComponentAwsSsmModule(SsmClient client, Map<String, String> env, Map<String, String> sys) {
+                        this.client = requireNonNull(client);
+                        this.env = unmodifiableMap(requireNonNull(env));
+                        this.sys = unmodifiableMap(requireNonNull(sys));
+                    }
+
+                    @Provides
+                    @AwsSsmStringParameter("foo.bar")
+                    public java.lang.Integer provideAwsSsmStringParameterFooBarAsInteger(@AwsSsmStringParameter("foo.bar") String value) {
+                        java.lang.Integer result = java.lang.Integer.valueOf(value);
+                        if (result == null) {
+                            final String name="foo.bar";
+                            throw new IllegalStateException("AWS SSM string parameter " + name + " representation java.lang.Integer not set");
+                        }
+                        return result;
+                    }
+
+                    @Provides
+                    @AwsSsmStringParameter("foo.bar")
+                    public String provideAwsSsmStringParameterFooBarAsString() {
+                        final String name="foo.bar";
+                        try {
+                            return client
+                                .getParameter(b -> b.name(name))
+                                .parameter()
+                                .value();
+                        } catch(ParameterNotFoundException e) {
+                            throw new IllegalStateException("AWS SSM Parameter " + name + " not set");
+                        }
+                    }
+
+                }
+                """));
+  }
+
   @Test
   public void givenComponentWithOneRequiredParameterThatExistsValue_whenCompileAndRun_thenExpectedtOutput()
       throws IOException {
@@ -112,7 +214,8 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
         prepareSourceFile(generateMockSsmClientSourceCode(new AwsSsmClientMethodStubGenerator() {
           @Override
           public void generateGetParameterOfGetParameterRequestMethodStub(PrintWriter out) {
-            out.println("        throw software.amazon.awssdk.services.ssm.model.ParameterNotFoundException.builder()");
+            out.println(
+                "        throw software.amazon.awssdk.services.ssm.model.ParameterNotFoundException.builder()");
             out.println("            .message(request.name())");
             out.println("            .build();");
           }
@@ -151,7 +254,7 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
 
     assertEquals("java.lang.IllegalStateException", output);
   }
-  
+
   @Test
   public void givenComponentWithOneNullableParameterThatExistsValue_whenCompileAndRun_thenExpectedtOutput()
       throws IOException {
@@ -207,7 +310,7 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
 
     assertEquals("42", output);
   }
-  
+
   @Test
   public void givenComponentWithOneNullableParameterThatDoesNotExistValue_whenCompileAndRun_thenExpectedtOutput()
       throws IOException {
@@ -225,7 +328,8 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
         prepareSourceFile(generateMockSsmClientSourceCode(new AwsSsmClientMethodStubGenerator() {
           @Override
           public void generateGetParameterOfGetParameterRequestMethodStub(PrintWriter out) {
-            out.println("        throw software.amazon.awssdk.services.ssm.model.ParameterNotFoundException.builder()");
+            out.println(
+                "        throw software.amazon.awssdk.services.ssm.model.ParameterNotFoundException.builder()");
             out.println("            .message(request.name())");
             out.println("            .build();");
           }
@@ -260,7 +364,7 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
 
     assertEquals("null", output);
   }
-  
+
   @Test
   public void givenComponentWithParameterWithEnvNameTemplate_whenCompileAndRun_thenExpectedtOutput()
       throws IOException {
@@ -278,7 +382,8 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
           @Override
           public void generateGetParameterOfGetParameterRequestMethodStub(PrintWriter out) {
             out.println("        if(!request.name().equals(\"foo.bar\")) {");
-            out.println("            throw software.amazon.awssdk.services.ssm.model.ParameterNotFoundException.builder()");
+            out.println(
+                "            throw software.amazon.awssdk.services.ssm.model.ParameterNotFoundException.builder()");
             out.println("                .message(request.name())");
             out.println("                .build();");
             out.println("        }");
@@ -322,8 +427,8 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
     final String output = doRun(compilation).trim();
 
     assertEquals("42", output);
-  }  
-  
+  }
+
   @Test
   public void givenComponentWithParameterWithSysNameTemplate_whenCompileAndRun_thenExpectedtOutput()
       throws IOException {
@@ -341,7 +446,8 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
           @Override
           public void generateGetParameterOfGetParameterRequestMethodStub(PrintWriter out) {
             out.println("        if(!request.name().equals(\"foo.bar\")) {");
-            out.println("            throw software.amazon.awssdk.services.ssm.model.ParameterNotFoundException.builder()");
+            out.println(
+                "            throw software.amazon.awssdk.services.ssm.model.ParameterNotFoundException.builder()");
             out.println("                .message(request.name())");
             out.println("                .build();");
             out.println("        }");
@@ -385,8 +491,8 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
     final String output = doRun(compilation).trim();
 
     assertEquals("42", output);
-  }  
-  
+  }
+
   private static final String AWS_SDK_VERSION =
       Optional.ofNullable(System.getProperty("maven.awssdk.version")).orElseThrow(
           () -> new IllegalStateException("maven.awssdk.version system property not set"));
@@ -408,9 +514,34 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
 
     // We need our sister project classes to be available
     result.add(resolveProjectFile("../rapier-aws-ssm/target/classes"));
+    result.add(resolveProjectFile("../rapier-core/target/classes"));
 
     return result;
-  }  
+  }
+
+  public static final OffsetDateTime TEST_DATE =
+      OffsetDateTime.of(2024, 1, 1, 12, 34, 56, 0, ZoneOffset.UTC);
+
+  public static final String TEST_VERSION = "1.2.3";
+
+  public static final String TEST_URL = "https://www.example.com";
+
+  /**
+   * We need to set the date and version so our generated source code is deterministic.
+   */
+  @Override
+  protected List<Processor> getAnnotationProcessors() {
+    List<Processor> result = super.getAnnotationProcessors();
+    for (Processor processor : result) {
+      if (processor instanceof AwsSsmProcessor) {
+        AwsSsmProcessor evp = (AwsSsmProcessor) processor;
+        evp.setDate(TEST_DATE);
+        evp.setVersion(TEST_VERSION);
+        evp.setUrl(TEST_URL);
+      }
+    }
+    return unmodifiableList(result);
+  }
 
   public static interface AwsSsmClientMethodStubGenerator {
     public void generateGetParameterOfGetParameterRequestMethodStub(PrintWriter out);

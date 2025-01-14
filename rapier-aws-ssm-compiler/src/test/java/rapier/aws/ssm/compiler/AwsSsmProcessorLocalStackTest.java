@@ -352,6 +352,8 @@ public class AwsSsmProcessorLocalStackTest extends RapierTestBase {
     // Add our sister project's classes
     result.add(resolveProjectFile("../rapier-aws-ssm/target/classes").toPath().normalize()
         .toAbsolutePath().toString());
+    result.add(resolveProjectFile("../rapier-core/target/classes").toPath().normalize()
+        .toAbsolutePath().toString());
 
     // Add the JVM classpath
     for (File file : jvmClasspathFiles)

@@ -28,6 +28,7 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.Writer;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -65,18 +66,42 @@ import rapier.compiler.core.util.AnnotationProcessing;
 import rapier.compiler.core.util.CaseFormat;
 import rapier.compiler.core.util.ConversionExprFactories;
 import rapier.compiler.core.util.Java;
+import rapier.compiler.core.util.RapierInfo;
 
 @SupportedAnnotationTypes("dagger.Component")
 @SupportedSourceVersion(SourceVersion.RELEASE_11)
 public class AwsSsmProcessor extends RapierProcessorBase {
   private ConversionExprFactory converter;
 
+  private String version = RapierInfo.VERSION;
+
+  /* default */ void setVersion(String version) {
+    if (version == null)
+      throw new NullPointerException();
+    this.version = version;
+  }
+
+  private OffsetDateTime date = OffsetDateTime.now();
+
+  /* default */ void setDate(OffsetDateTime date) {
+    if (date == null)
+      throw new NullPointerException();
+    this.date = date;
+  }
+
+  private String url = RapierInfo.URL;
+
+  /* default */ void setUrl(String url) {
+    if (url == null)
+      throw new NullPointerException();
+    this.url = url;
+  }
+
   @Override
   public synchronized void init(ProcessingEnvironment processingEnv) {
     super.init(processingEnv);
 
     converter = ConversionExprFactories.standardAmbiguousFromStringFactory(getProcessingEnv());
-
   }
 
   @Override
@@ -312,13 +337,21 @@ public class AwsSsmProcessor extends RapierProcessorBase {
       writer.println("import java.util.Optional;");
       writer.println("import java.util.Properties;");
       writer.println("import javax.annotation.Nullable;");
+      writer.println("import javax.annotation.processing.Generated;");
       writer.println("import javax.inject.Inject;");
+      writer.println("import rapier.internal.RapierGenerated;");
       writer.println("import software.amazon.awssdk.services.ssm.SsmClient;");
       writer
           .println("import software.amazon.awssdk.services.ssm.model.ParameterNotFoundException;");
       writer.println("import software.amazon.awssdk.services.ssm.model.GetParameterRequest;");
       writer.println();
       writer.println("@Module");
+      writer.println("@RapierGenerated");
+      writer.println("@Generated(");
+      writer.println(
+          "    value = \"" + AwsSsmProcessor.class.getCanonicalName() + "@" + version + "\",");
+      writer.println("    comments = \"" + Java.escapeString(url) + "\",");
+      writer.println("    date = \"" + Java.escapeString(date.toInstant().toString()) + "\")");
       writer.println("public class " + moduleClassName + " {");
       writer.println("    private final SsmClient client;");
       writer.println("    private final Map<String, String> env;");
