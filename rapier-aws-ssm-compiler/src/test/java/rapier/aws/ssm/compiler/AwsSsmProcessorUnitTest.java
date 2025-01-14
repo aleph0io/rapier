@@ -260,7 +260,133 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
 
     assertEquals("null", output);
   }
+  
+  @Test
+  public void givenComponentWithParameterWithEnvNameTemplate_whenCompileAndRun_thenExpectedtOutput()
+      throws IOException {
+    // Define the source file to test
+    final JavaFileObject componentSource = prepareSourceFile("""
+        @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
+        public interface ExampleComponent {
+            @rapier.aws.ssm.AwsSsmStringParameter(value="foo.${env.QUUX}")
+            public Integer provisionFooBarAsInt();
+        }
+        """);
 
+    final JavaFileObject clientStubSource =
+        prepareSourceFile(generateMockSsmClientSourceCode(new AwsSsmClientMethodStubGenerator() {
+          @Override
+          public void generateGetParameterOfGetParameterRequestMethodStub(PrintWriter out) {
+            out.println("        if(!request.name().equals(\"foo.bar\")) {");
+            out.println("            throw software.amazon.awssdk.services.ssm.model.ParameterNotFoundException.builder()");
+            out.println("                .message(request.name())");
+            out.println("                .build();");
+            out.println("        }");
+            out.println("        return GetParameterResponse.builder()");
+            out.println("            .parameter(Parameter.builder()");
+            out.println("                .name(request.name())");
+            out.println("                .value(\"42\")");
+            out.println("                .build())");
+            out.println("            .build();");
+          }
+        }));
+
+    final JavaFileObject appSource = prepareSourceFile("""
+        import java.util.Map;
+        import java.net.URI;
+        import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+        import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+        import software.amazon.awssdk.regions.Region;
+        import software.amazon.awssdk.services.ssm.SsmClient;
+
+        public class App {
+            public static void main(String[] args) {
+                final SsmClient client = new MockSsmClient();
+
+                ExampleComponent component = DaggerExampleComponent.builder()
+                    .rapierExampleComponentAwsSsmModule(
+                        new RapierExampleComponentAwsSsmModule(
+                            client,
+                            Map.of("QUUX", "bar"),
+                            Map.of()))
+                    .build();
+                System.out.println(component.provisionFooBarAsInt());
+            }
+        }
+        """);
+
+    final Compilation compilation = doCompile(componentSource, clientStubSource, appSource);
+
+    assertThat(compilation).succeeded();
+
+    final String output = doRun(compilation).trim();
+
+    assertEquals("42", output);
+  }  
+  
+  @Test
+  public void givenComponentWithParameterWithSysNameTemplate_whenCompileAndRun_thenExpectedtOutput()
+      throws IOException {
+    // Define the source file to test
+    final JavaFileObject componentSource = prepareSourceFile("""
+        @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
+        public interface ExampleComponent {
+            @rapier.aws.ssm.AwsSsmStringParameter(value="foo.${sys.QUUX}")
+            public Integer provisionFooBarAsInt();
+        }
+        """);
+
+    final JavaFileObject clientStubSource =
+        prepareSourceFile(generateMockSsmClientSourceCode(new AwsSsmClientMethodStubGenerator() {
+          @Override
+          public void generateGetParameterOfGetParameterRequestMethodStub(PrintWriter out) {
+            out.println("        if(!request.name().equals(\"foo.bar\")) {");
+            out.println("            throw software.amazon.awssdk.services.ssm.model.ParameterNotFoundException.builder()");
+            out.println("                .message(request.name())");
+            out.println("                .build();");
+            out.println("        }");
+            out.println("        return GetParameterResponse.builder()");
+            out.println("            .parameter(Parameter.builder()");
+            out.println("                .name(request.name())");
+            out.println("                .value(\"42\")");
+            out.println("                .build())");
+            out.println("            .build();");
+          }
+        }));
+
+    final JavaFileObject appSource = prepareSourceFile("""
+        import java.util.Map;
+        import java.net.URI;
+        import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+        import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+        import software.amazon.awssdk.regions.Region;
+        import software.amazon.awssdk.services.ssm.SsmClient;
+
+        public class App {
+            public static void main(String[] args) {
+                final SsmClient client = new MockSsmClient();
+
+                ExampleComponent component = DaggerExampleComponent.builder()
+                    .rapierExampleComponentAwsSsmModule(
+                        new RapierExampleComponentAwsSsmModule(
+                            client,
+                            Map.of(),
+                            Map.of("QUUX", "bar")))
+                    .build();
+                System.out.println(component.provisionFooBarAsInt());
+            }
+        }
+        """);
+
+    final Compilation compilation = doCompile(componentSource, clientStubSource, appSource);
+
+    assertThat(compilation).succeeded();
+
+    final String output = doRun(compilation).trim();
+
+    assertEquals("42", output);
+  }  
+  
   private static final String AWS_SDK_VERSION =
       Optional.ofNullable(System.getProperty("maven.awssdk.version")).orElseThrow(
           () -> new IllegalStateException("maven.awssdk.version system property not set"));
@@ -284,7 +410,7 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
     result.add(resolveProjectFile("../rapier-aws-ssm/target/classes"));
 
     return result;
-  }
+  }  
 
   public static interface AwsSsmClientMethodStubGenerator {
     public void generateGetParameterOfGetParameterRequestMethodStub(PrintWriter out);
