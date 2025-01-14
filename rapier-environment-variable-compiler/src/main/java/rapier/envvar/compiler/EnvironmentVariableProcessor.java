@@ -89,6 +89,14 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
     this.date = date;
   }
 
+  private String url = RapierInfo.URL;
+
+  /* default */ void setUrl(String url) {
+    if (url == null)
+      throw new NullPointerException();
+    this.url = url;
+  }
+
   @Override
   public synchronized void init(ProcessingEnvironment processingEnv) {
     super.init(processingEnv);
@@ -337,7 +345,7 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
       writer.println("@Generated(");
       writer.println("    value = \"" + EnvironmentVariableProcessor.class.getCanonicalName() + "@"
           + version + "\",");
-      writer.println("    comments = \"" + Java.escapeString(RapierInfo.URL) + "\",");
+      writer.println("    comments = \"" + Java.escapeString(url) + "\",");
       writer.println("    date = \"" + Java.escapeString(date.toInstant().toString()) + "\")");
       writer.println("public class " + moduleClassName + " {");
       writer.println("    private final Map<String, String> env;");

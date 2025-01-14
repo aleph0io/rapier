@@ -82,7 +82,7 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
                 @RapierGenerated
                 @Generated(
                     value = "rapier.envvar.compiler.EnvironmentVariableProcessor@1.2.3",
-                    comments = "https://github.com/sigpwned/rapier",
+                    comments = "https://www.example.com",
                     date = "2024-01-01T12:34:56Z")
                 public class RapierExampleComponentEnvironmentVariableModule {
                     private final Map<String, String> env;
@@ -177,7 +177,7 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
                 @RapierGenerated
                 @Generated(
                     value = "rapier.envvar.compiler.EnvironmentVariableProcessor@1.2.3",
-                    comments = "https://github.com/sigpwned/rapier",
+                    comments = "https://www.example.com",
                     date = "2024-01-01T12:34:56Z")
                 public class RapierExampleComponentEnvironmentVariableModule {
                     private final Map<String, String> env;
@@ -356,6 +356,8 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
 
   public static final String TEST_VERSION = "1.2.3";
 
+  public static final String TEST_URL = "https://www.example.com";
+
   /**
    * We need to set the date and version so our generated source code is deterministic.
    */
@@ -367,6 +369,7 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
         EnvironmentVariableProcessor evp = (EnvironmentVariableProcessor) processor;
         evp.setDate(TEST_DATE);
         evp.setVersion(TEST_VERSION);
+        evp.setUrl(TEST_URL);
       }
     }
     return unmodifiableList(result);
