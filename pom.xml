@@ -292,5 +292,6 @@
         <module>rapier-cli-compiler</module>
         <module>rapier-aws-ssm</module>
         <module>rapier-aws-ssm-compiler</module>
+        <module>rapier-example</module>
     </modules>
 </project>
