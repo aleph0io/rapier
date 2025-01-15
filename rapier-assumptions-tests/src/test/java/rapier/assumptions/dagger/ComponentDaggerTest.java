@@ -361,4 +361,77 @@ public class ComponentDaggerTest extends DaggerTestBase {
     assertTrue(errors.contains("@Component may only be applied to an interface or abstract class"),
         "Expected a component error but it was not found.");
   }
+
+  /**
+   * Confirm that components cannot be composed without a provider. That is, one component A cannot
+   * have a dependency on component B without providing a way to create component B. Dagger does not
+   * create a binding for component B automatically, even if B can be created without any arguments.
+   */
+  @Test
+  public void givenComponentWithEmbeddedComponent_whenCompileAndRun_thenMissingBindingError()
+      throws IOException {
+    final String alphaComponentSourceCode = """
+        import dagger.Component;
+
+        @Component(modules={AlphaModule.class})
+        public interface AlphaComponent {
+            public String getString();
+        }
+        """;
+
+    final String alphaModuleSourceCode = """
+        import dagger.Module;
+        import dagger.Provides;
+
+        @Module
+        public class AlphaModule {
+            @Provides
+            public String provideString() {
+                return "foobar";
+            }
+        }
+        """;
+
+    final String bravoComponentSourceCode = """
+        import dagger.Component;
+
+        @Component(modules={BravoModule.class})
+        public interface BravoComponent {
+            public Integer getInteger();
+
+            public AlphaComponent getAlphaComponent();
+        }
+        """;
+
+    final String bravoModuleSourceCode = """
+        import dagger.Module;
+        import dagger.Provides;
+
+        @Module
+        public class BravoModule {
+            @Provides
+            public Integer provideInteger() {
+                return 123;
+            }
+        }
+        """;
+
+    final String appSourceCode = """
+        public class App {
+            public static void main(String[] args) {
+                final BravoComponent bravoComponent = DaggerBravoComponent.builder()
+                    .build();
+                System.out.println(bravoComponent.getInteger());
+                System.out.println(bravoComponent.getAlphaComponent().getString());
+            }
+        }
+        """;
+
+    final String errors = compileSourceCode(alphaComponentSourceCode, alphaModuleSourceCode,
+        bravoComponentSourceCode, bravoModuleSourceCode, appSourceCode);
+
+    assertTrue(errors.contains(
+        "[Dagger/MissingBinding] AlphaComponent cannot be provided without an @Provides-annotated method"),
+        "Expected a missing binding error but it was not found.");
+  }
 }

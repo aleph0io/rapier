@@ -32,7 +32,7 @@ public class ComponentDependencyDaggerTest extends DaggerTestBase {
    * Confirm that components with dependencies compile as expected
    */
   @Test
-  public void givenClassComponentWithDependency_whenCompiled_thenSucceeds() throws IOException {
+  public void givenComponentWithDependency_whenCompiled_thenSucceeds() throws IOException {
     final String alphaComponentSourceCode = """
         import dagger.Component;
 
@@ -56,10 +56,10 @@ public class ComponentDependencyDaggerTest extends DaggerTestBase {
   }
 
   /**
-   * Confirm that a component dependency cannot be a class
+   * Confirm that only referenced dependencies are pulled through component dependencies
    */
   @Test
-  public void givenClassComponentWithNonComponentClassDependency_whenCompiled_thenFails()
+  public void givenComponentWithWithDependencyOnComponentWithUnusedUnsatisifedDependency_whenCompiled_thenSucceeds()
       throws IOException {
     final String alphaComponentSourceCode = """
         import dagger.Component;
