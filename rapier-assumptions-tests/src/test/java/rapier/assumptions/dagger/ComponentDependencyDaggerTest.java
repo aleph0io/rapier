@@ -56,6 +56,36 @@ public class ComponentDependencyDaggerTest extends DaggerTestBase {
   }
 
   /**
+   * Confirm that a component dependency cannot be a class
+   */
+  @Test
+  public void givenClassComponentWithNonComponentClassDependency_whenCompiled_thenFails()
+      throws IOException {
+    final String alphaComponentSourceCode = """
+        import dagger.Component;
+
+        @Component(
+            dependencies = BravoComponent.class)
+        public interface AlphaComponent {
+        }
+        """;
+
+    final String bravoComponentSourceCode = """
+        import dagger.Provides;
+        
+        public interface BravoComponent {
+            public String provisionString();
+        }
+        """;
+
+    final String errors = compileSourceCode(alphaComponentSourceCode, bravoComponentSourceCode);
+    
+    System.err.println(errors);
+
+    assertTrue(errors.isEmpty(), "Expected no errors, but errors were found.");
+  }
+
+  /**
    * Confirm that components with circular dependencies are an error
    */
   @Test
@@ -158,7 +188,6 @@ public class ComponentDependencyDaggerTest extends DaggerTestBase {
     assertTrue(errors.contains("[Dagger/DuplicateBindings]"),
         "Expected duplicate bindings error, but none was found");
   }
-
 
   /**
    * Confirm that a component with multiple dependencies having duplicate bindings which DO NOT
