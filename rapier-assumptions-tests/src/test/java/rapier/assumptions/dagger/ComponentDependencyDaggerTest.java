@@ -19,6 +19,7 @@
  */
 package rapier.assumptions.dagger;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.IOException;
 import org.junit.jupiter.api.Test;
@@ -56,6 +57,64 @@ public class ComponentDependencyDaggerTest extends DaggerTestBase {
   }
 
   /**
+   * Confirm that components with dependencies compile as expected
+   */
+  @Test
+  public void givenComponentWithDependency_whenCompileAndRun_thenGetExpectedOutput()
+      throws IOException {
+    final String alphaComponentSourceCode = """
+        import dagger.Component;
+
+        @Component(dependencies = BravoComponent.class)
+        public interface AlphaComponent {
+            public String provisionStringAlpha();
+        }
+        """;
+
+    final String bravoComponentSourceCode = """
+        import dagger.Component;
+
+        @Component(modules = BravoModule.class)
+        public interface BravoComponent {
+            public String provisionStringBravo();
+        }
+        """;
+
+    final String bravoModuleSourceCode = """
+        import dagger.Module;
+        import dagger.Provides;
+
+        @Module
+        public class BravoModule {
+            @Provides
+            public String provideString() {
+                return "bravo";
+            }
+        }
+        """;
+
+    final String appSourceCode = """
+        public class App {
+            public static void main(String[] args) {
+                // Curiously, this doesn't work. It requires bravo to be provided explicitly.
+                // final AlphaComponent alpha = DaggerAlphaComponent.builder().build();
+            
+                final AlphaComponent alpha = DaggerAlphaComponent.builder()
+                    .bravoComponent(DaggerBravoComponent.builder().build())
+                    .build();
+                System.out.println(alpha.provisionStringAlpha());
+            }
+        }
+        """;
+
+    final String output = compileAndRunSourceCode(alphaComponentSourceCode,
+        bravoComponentSourceCode, bravoModuleSourceCode, appSourceCode).trim();
+
+    assertEquals("bravo", output);
+
+  }
+
+  /**
    * Confirm that only referenced dependencies are pulled through component dependencies
    */
   @Test
@@ -72,14 +131,14 @@ public class ComponentDependencyDaggerTest extends DaggerTestBase {
 
     final String bravoComponentSourceCode = """
         import dagger.Provides;
-        
+
         public interface BravoComponent {
             public String provisionString();
         }
         """;
 
     final String errors = compileSourceCode(alphaComponentSourceCode, bravoComponentSourceCode);
-    
+
     System.err.println(errors);
 
     assertTrue(errors.isEmpty(), "Expected no errors, but errors were found.");
@@ -196,7 +255,7 @@ public class ComponentDependencyDaggerTest extends DaggerTestBase {
    * the duplicate bindings.
    */
   @Test
-  public void givenComponentWithDuplicateBindingsInComponentDependenciesAndNoMatchingDependency_whenCompiled_thenFails()
+  public void givenComponentWithDuplicateBindingsInComponentDependenciesAndNoMatchingDependency_whenCompile_thenSucceeds()
       throws IOException {
     final String alphaComponentSourceCode = """
         import dagger.Component;
