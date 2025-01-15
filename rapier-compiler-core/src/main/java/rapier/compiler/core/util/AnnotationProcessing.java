@@ -22,8 +22,10 @@ package rapier.compiler.core.util;
 import static java.util.Collections.unmodifiableList;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
@@ -324,6 +326,13 @@ public final class AnnotationProcessing {
     }
 
     return Optional.empty();
+  }
+
+  public static Optional<? extends AnnotationValue> findAnnotationValueByName(AnnotationMirror mirror,
+      String name) {
+    return mirror.getElementValues().entrySet().stream()
+        .filter(e -> e.getKey().getSimpleName().contentEquals(name)).map(Map.Entry::getValue)
+        .findFirst();
   }
 
   public static String qualifiedClassName(String packageName, String className) {

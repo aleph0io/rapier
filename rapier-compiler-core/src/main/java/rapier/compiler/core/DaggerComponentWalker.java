@@ -22,7 +22,6 @@ package rapier.compiler.core;
 import static java.util.Objects.requireNonNull;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
@@ -54,7 +53,13 @@ public class DaggerComponentWalker {
      */
     public void visitComponentModule(TypeElement component, TypeMirror module);
 
-    // TODO add a method for component dependencies
+    /**
+     * Called for each component dependency referenced by the component.
+     * 
+     * @param component the logical component being visited
+     * @param module the dependency being visited
+     */
+    public void visitComponentDependency(TypeElement component, TypeMirror dependency);
 
     /**
      * Called for each "provision method" in the component.
@@ -108,12 +113,10 @@ public class DaggerComponentWalker {
     assert annotation.getAnnotationType().toString().equals("dagger.Component");
 
     final List<TypeMirror> modules = new ArrayList<>();
-    for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> e : annotation
-        .getElementValues().entrySet()) {
-      if (!e.getKey().getSimpleName().contentEquals("modules"))
-        continue;
-
-      e.getValue().accept(new SimpleAnnotationValueVisitor8<Void, Void>() {
+    final AnnotationValue modulesAnnotationValue =
+        AnnotationProcessing.findAnnotationValueByName(annotation, "modules").orElse(null);
+    if (modulesAnnotationValue != null) {
+      modulesAnnotationValue.accept(new SimpleAnnotationValueVisitor8<Void, Void>() {
         @Override
         public Void visitArray(List<? extends AnnotationValue> vals, Void p) {
           for (AnnotationValue val : vals) {
@@ -128,12 +131,35 @@ public class DaggerComponentWalker {
           return null;
         }
       }, null);
+    }
 
-      break;
+    final List<TypeMirror> dependencies = new ArrayList<>();
+    final AnnotationValue dependenciesAnnotationValue =
+        AnnotationProcessing.findAnnotationValueByName(annotation, "dependencies").orElse(null);
+    if (dependenciesAnnotationValue != null) {
+      dependenciesAnnotationValue.accept(new SimpleAnnotationValueVisitor8<Void, Void>() {
+        @Override
+        public Void visitArray(List<? extends AnnotationValue> vals, Void p) {
+          for (AnnotationValue val : vals) {
+            val.accept(this, null);
+          }
+          return null;
+        }
+
+        @Override
+        public Void visitType(TypeMirror t, Void p) {
+          dependencies.add(t);
+          return null;
+        }
+      }, null);
     }
 
     for (TypeMirror module : modules) {
       visitor.visitComponentModule(component, module);
+    }
+
+    for (TypeMirror dependency : dependencies) {
+      visitor.visitComponentDependency(component, dependency);
     }
   }
 

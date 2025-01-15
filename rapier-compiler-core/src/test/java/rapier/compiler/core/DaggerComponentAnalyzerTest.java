@@ -42,7 +42,7 @@ public class DaggerComponentAnalyzerTest {
   @Test
   public void givenComponentWithModulesAndJsr330InjectionSites_whenCompile_thenDiscoverAllDependencies() {
     // Mock Dagger @Component source
-    String componentSource = """
+    final String componentSource = """
             import dagger.Component;
 
             @Component(modules = {ReferencedModule.class})
@@ -51,8 +51,18 @@ public class DaggerComponentAnalyzerTest {
             }
         """;
 
+    // Mock Dagger @Component dependency
+    final String dependedComponentSource = """
+            import dagger.Component;
+
+            @Component(modules = {IncludedModule.class})
+            public interface DependedComponent {
+                Delta provisionDelta();
+            }
+        """;
+
     // Mock ReferencedModule source
-    String referencedModuleSource = """
+    final String referencedModuleSource = """
             import dagger.Module;
             import dagger.Provides;
             import javax.inject.Named;
@@ -68,7 +78,7 @@ public class DaggerComponentAnalyzerTest {
         """;
 
     // Mock IncludedModule source
-    String includedModuleSource = """
+    final String includedModuleSource = """
             import dagger.Module;
             import dagger.Provides;
             import javax.inject.Named;
@@ -84,7 +94,7 @@ public class DaggerComponentAnalyzerTest {
         """;
 
     // Mock Alpha source
-    String alphaSource = """
+    final String alphaSource = """
             import javax.inject.Inject;
             import javax.inject.Named;
 
@@ -102,7 +112,7 @@ public class DaggerComponentAnalyzerTest {
         """;
 
     // Mock Bravo source
-    String bravoSource = """
+    final String bravoSource = """
             import javax.inject.Inject;
             import javax.inject.Named;
 
@@ -120,7 +130,7 @@ public class DaggerComponentAnalyzerTest {
         """;
 
     // Mock Charlie source
-    String charlieSource = """
+    final String charlieSource = """
             import javax.inject.Inject;
             import javax.inject.Named;
 
@@ -134,6 +144,18 @@ public class DaggerComponentAnalyzerTest {
 
                 @Inject
                 public void setCharlieMethod(@Named("charlieMethod") String charlieMethod) {}
+            }
+        """;
+
+    // Mock Charlie source
+    final String deltaSource = """
+            import javax.inject.Inject;
+            import javax.inject.Named;
+
+            public class Delta {
+                @Inject
+                @Named("deltaField")
+                public String deltaField;
             }
         """;
 
@@ -161,17 +183,19 @@ public class DaggerComponentAnalyzerTest {
         return Set.of("dagger.Component");
       }
     }).compile(JavaFileObjects.forSourceString("TestComponent", componentSource),
+        JavaFileObjects.forSourceString("DependedComponent", dependedComponentSource),
         JavaFileObjects.forSourceString("ReferencedModule", referencedModuleSource),
         JavaFileObjects.forSourceString("IncludedModule", includedModuleSource),
         JavaFileObjects.forSourceString("Alpha", alphaSource),
         JavaFileObjects.forSourceString("Bravo", bravoSource),
-        JavaFileObjects.forSourceString("Charlie", charlieSource));
+        JavaFileObjects.forSourceString("Charlie", charlieSource),
+        JavaFileObjects.forSourceString("Delta", deltaSource));
 
     // Ensure the compilation succeeded
     assertThat(compilation).succeeded();
 
     // Assertions
-    assertEquals(12, dependencies.size());
+    assertEquals(14, dependencies.size());
     assertTrue(dependencies.stream().anyMatch(d -> d.toString().equals(
         "DaggerInjectionSite [element=alphaField, siteType=INJECT_INSTANCE_FIELD, provisionStyle=VERBATIM, provisionedType=java.lang.String, providedType=java.lang.String, qualifier=@javax.inject.Named(\"alphaField\"), annotations=[@javax.inject.Inject, @javax.inject.Named(\"alphaField\")], nullable=false]")));
     assertTrue(dependencies.stream().anyMatch(d -> d.toString().equals(
@@ -196,5 +220,9 @@ public class DaggerComponentAnalyzerTest {
         "DaggerInjectionSite [element=bravo, siteType=MODULE_INSTANCE_PROVIDES_METHOD_PARAMETER, provisionStyle=VERBATIM, provisionedType=Bravo, providedType=Bravo, qualifier=null, annotations=[], nullable=false]")));
     assertTrue(dependencies.stream().anyMatch(d -> d.toString().equals(
         "DaggerInjectionSite [element=provisionAlpha(), siteType=COMPONENT_PROVISION_METHOD_RESULT, provisionStyle=VERBATIM, provisionedType=Alpha, providedType=Alpha, qualifier=null, annotations=[], nullable=false]")));
+    assertTrue(dependencies.stream().anyMatch(d -> d.toString().equals(
+        "DaggerInjectionSite [element=deltaField, siteType=INJECT_INSTANCE_FIELD, provisionStyle=VERBATIM, provisionedType=java.lang.String, providedType=java.lang.String, qualifier=@javax.inject.Named(\"deltaField\"), annotations=[@javax.inject.Inject, @javax.inject.Named(\"deltaField\")], nullable=false]")));
+    assertTrue(dependencies.stream().anyMatch(d -> d.toString().equals(
+        "DaggerInjectionSite [element=provisionDelta(), siteType=COMPONENT_PROVISION_METHOD_RESULT, provisionStyle=VERBATIM, provisionedType=Delta, providedType=Delta, qualifier=null, annotations=[], nullable=false]")));
   }
 }

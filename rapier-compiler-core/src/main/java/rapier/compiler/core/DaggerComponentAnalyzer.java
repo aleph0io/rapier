@@ -50,15 +50,77 @@ import rapier.compiler.core.util.AnnotationProcessing;
 
 public class DaggerComponentAnalyzer {
   private final ProcessingEnvironment processingEnv;
+  private final Set<DaggerInjectionSite> dependencies;
+  private final Set<TypeMirror> visitedModules;
+  private final Deque<TypeMirror> modulesQueue;
+  private final Set<TypeMirror> visitedComponents;
+  private final Deque<TypeMirror> componentsQueue;
+  private final Set<TypeMirror> visitedDependencies;
+  private final Deque<TypeMirror> dependenciesQueue;
 
   public DaggerComponentAnalyzer(ProcessingEnvironment processingEnv) {
     this.processingEnv = requireNonNull(processingEnv);
+    this.dependencies = new HashSet<>();
+    this.visitedModules = new HashSet<>();
+    this.modulesQueue = new ArrayDeque<>();
+    this.visitedComponents = new HashSet<>();
+    this.componentsQueue = new ArrayDeque<>();
+    this.visitedDependencies = new HashSet<>();
+    this.dependenciesQueue = new ArrayDeque<>();
   }
 
   public DaggerComponentAnalysis analyzeComponent(TypeElement componentType) {
-    final Set<DaggerInjectionSite> dependencies = new HashSet<>();
-    final Deque<TypeMirror> modulesQueue = new ArrayDeque<>();
-    new DaggerComponentWalker(getProcessingEnv()).walk(componentType,
+    dependencies.clear();
+    visitedModules.clear();
+    modulesQueue.clear();
+    visitedComponents.clear();
+    componentsQueue.clear();
+    visitedDependencies.clear();
+    dependenciesQueue.clear();
+
+    walkComponent(componentType);
+
+    // Visit our components first to gather all our modules
+    while (!componentsQueue.isEmpty()) {
+      final TypeMirror componentDependencyType = componentsQueue.poll();
+      final TypeElement componentDependencyElement =
+          (TypeElement) getTypes().asElement(componentDependencyType);
+      walkComponent(componentDependencyElement);
+    }
+
+    // Now visit our modules
+    while (!modulesQueue.isEmpty()) {
+      final TypeMirror module = modulesQueue.poll();
+      walkModule(module);
+    }
+
+    assert componentsQueue.isEmpty();
+    assert modulesQueue.isEmpty();
+
+
+    for (DaggerInjectionSite dependency : dependencies) {
+      dependenciesQueue.offer(dependency.getProvidedType());
+    }
+
+    while (!dependenciesQueue.isEmpty()) {
+      final TypeMirror dependency = dependenciesQueue.poll();
+      walkDependency(dependency);
+    }
+
+    return new DaggerComponentAnalysis(componentType, dependencies);
+  }
+
+  private void walkComponent(TypeElement component) {
+    final TypeMirror componentType = component.asType();
+
+    final boolean added = visitedComponents.add(componentType);
+    if (added == false) {
+      // This means we have a circular dependency. Dagger will fail the build. No need to do
+      // anything drastic here. Just break the loop.
+      return;
+    }
+
+    new DaggerComponentWalker(getProcessingEnv()).walk(component,
         new DaggerComponentWalker.Visitor() {
           @Override
           public void beginComponent(TypeElement component) {}
@@ -66,6 +128,11 @@ public class DaggerComponentAnalyzer {
           @Override
           public void visitComponentModule(TypeElement component, TypeMirror module) {
             modulesQueue.offer(module);
+          }
+
+          @Override
+          public void visitComponentDependency(TypeElement component, TypeMirror dependency) {
+            componentsQueue.offer(dependency);
           }
 
           @Override
@@ -90,186 +157,177 @@ public class DaggerComponentAnalyzer {
           @Override
           public void endComponent(TypeElement component) {}
         });
+  }
 
-    // We use a queue here because modules can reference other modules
-    // TODO Handle module includes when added
-    final Set<TypeMirror> visitedModules = new HashSet<>();
-    while (!modulesQueue.isEmpty()) {
-      final TypeMirror module = modulesQueue.poll();
-
-      boolean added = visitedModules.add(module);
-      if (added == false)
-        continue;
-
-      final TypeElement moduleElement = (TypeElement) getTypes().asElement(module);
-
-      new DaggerModuleWalker(getProcessingEnv()).walk(moduleElement,
-          new DaggerModuleWalker.Visitor() {
-            @Override
-            public void beginModule(TypeElement module) {}
-
-            @Override
-            public void visitModuleIncludedModule(TypeElement module, TypeMirror includedModule) {
-              modulesQueue.offer(includedModule);
-            }
-
-            @Override
-            public void visitModuleStaticProvidesMethod(TypeElement module,
-                ExecutableElement methodElement) {
-              visitModuleProvidesMethod(module, methodElement);
-            }
-
-            @Override
-            public void visitModuleInstanceProvidesMethod(TypeElement module,
-                ExecutableElement methodElement) {
-              visitModuleProvidesMethod(module, methodElement);
-            }
-
-            private void visitModuleProvidesMethod(TypeElement module,
-                ExecutableElement methodElement) {
-              final DeclaredType moduleType = (DeclaredType) module.asType();
-
-              final ExecutableType methodType =
-                  (ExecutableType) getTypes().asMemberOf(moduleType, methodElement);
-
-              final int parameterCount = methodType.getParameterTypes().size();
-
-              assert parameterCount == methodElement.getParameters().size();
-
-              for (int i = 0; i < parameterCount; i++) {
-                // for (VariableElement parameter : methodElement.getParameters()) {
-                final VariableElement parameterElement = methodElement.getParameters().get(i);
-                final TypeMirror parameterType = methodType.getParameterTypes().get(i);
-                if (isValidInjectionSiteType(parameterElement, parameterType) == false)
-                  continue;
-
-                final List<AnnotationMirror> annotations =
-                    new ArrayList<>(parameterElement.getAnnotationMirrors());
-
-                final DaggerInjectionSiteType siteType;
-                if (methodElement.getModifiers()
-                    .contains(javax.lang.model.element.Modifier.STATIC)) {
-                  siteType = DaggerInjectionSiteType.MODULE_STATIC_PROVIDES_METHOD_PARAMETER;
-                } else {
-                  siteType = DaggerInjectionSiteType.MODULE_INSTANCE_PROVIDES_METHOD_PARAMETER;
-                }
-
-                newInjectionSite(siteType, parameterElement, parameterType, annotations)
-                    .ifPresent(dependencies::add);
-              }
-            }
-
-            @Override
-            public void endModule(TypeElement module) {}
-          });
+  private void walkModule(TypeMirror module) {
+    boolean added = visitedModules.add(module);
+    if (added == false) {
+      // This means we have a circular dependency. Dagger will fail the build. No need to do
+      // anything drastic here. Just break the loop.
+      return;
     }
 
-    final Deque<TypeMirror> dependenciesQueue = new ArrayDeque<>();
-    for (DaggerInjectionSite dependency : dependencies) {
-      dependenciesQueue.offer(dependency.getProvidedType());
-    }
+    final TypeElement moduleElement = (TypeElement) getTypes().asElement(module);
 
-    final Set<TypeMirror> visitedDependencies = new HashSet<>();
-    while (!dependenciesQueue.isEmpty()) {
-      final TypeMirror dependency = dependenciesQueue.poll();
+    new DaggerModuleWalker(getProcessingEnv()).walk(moduleElement,
+        new DaggerModuleWalker.Visitor() {
+          @Override
+          public void beginModule(TypeElement module) {}
 
-      boolean added = visitedDependencies.add(dependency);
-      if (added == false)
-        continue;
+          @Override
+          public void visitModuleIncludedModule(TypeElement module, TypeMirror includedModule) {
+            modulesQueue.offer(includedModule);
+          }
 
-      // We are only interested in walking concrete types
-      final TypeElement dependencyElement = (TypeElement) getTypes().asElement(dependency);
-      if (dependencyElement.getModifiers().contains(Modifier.ABSTRACT))
-        continue;
+          @Override
+          public void visitModuleStaticProvidesMethod(TypeElement module,
+              ExecutableElement methodElement) {
+            visitModuleProvidesMethod(module, methodElement);
+          }
 
-      new DaggerJsr330Walker(getProcessingEnv()).walk(dependencyElement,
-          new DaggerJsr330Walker.Visitor() {
-            @Override
-            public void beginClass(TypeElement type) {}
+          @Override
+          public void visitModuleInstanceProvidesMethod(TypeElement module,
+              ExecutableElement methodElement) {
+            visitModuleProvidesMethod(module, methodElement);
+          }
 
-            @Override
-            public void visitClassMethodInjectionSite(TypeElement enclosingElement,
-                ExecutableElement methodElement) {
-              final DeclaredType enclosingType = (DeclaredType) enclosingElement.asType();
+          private void visitModuleProvidesMethod(TypeElement module,
+              ExecutableElement methodElement) {
+            final DeclaredType moduleType = (DeclaredType) module.asType();
 
-              final ExecutableType methodType =
-                  (ExecutableType) getTypes().asMemberOf(enclosingType, methodElement);
+            final ExecutableType methodType =
+                (ExecutableType) getTypes().asMemberOf(moduleType, methodElement);
 
-              final int parameterCount = methodType.getParameterTypes().size();
+            final int parameterCount = methodType.getParameterTypes().size();
 
-              assert parameterCount == methodElement.getParameters().size();
+            assert parameterCount == methodElement.getParameters().size();
 
-              for (int i = 0; i < parameterCount; i++) {
-                final VariableElement parameterElement = methodElement.getParameters().get(i);
-                final TypeMirror parameterType = methodType.getParameterTypes().get(i);
-                if (isValidInjectionSiteType(parameterElement, parameterType) == false)
-                  continue;
-
-                final List<AnnotationMirror> annotations =
-                    new ArrayList<>(parameterElement.getAnnotationMirrors());
-
-                newInjectionSite(DaggerInjectionSiteType.INJECT_INSTANCE_METHOD, methodElement,
-                    parameterType, annotations).ifPresent(site -> {
-                      dependenciesQueue.offer(site.getProvidedType());
-                      dependencies.add(site);
-                    });
-              }
-            }
-
-            @Override
-            public void visitClassFieldInjectionSite(TypeElement enclosingElement,
-                VariableElement fieldElement) {
-              final DeclaredType enclosingType = (DeclaredType) enclosingElement.asType();
-
-              final TypeMirror fieldType = getTypes().asMemberOf(enclosingType, fieldElement);
-              if (isValidInjectionSiteType(fieldElement, fieldType) == false)
-                return;
+            for (int i = 0; i < parameterCount; i++) {
+              // for (VariableElement parameter : methodElement.getParameters()) {
+              final VariableElement parameterElement = methodElement.getParameters().get(i);
+              final TypeMirror parameterType = methodType.getParameterTypes().get(i);
+              if (isValidInjectionSiteType(parameterElement, parameterType) == false)
+                continue;
 
               final List<AnnotationMirror> annotations =
-                  new ArrayList<>(fieldElement.getAnnotationMirrors());
+                  new ArrayList<>(parameterElement.getAnnotationMirrors());
 
-              newInjectionSite(DaggerInjectionSiteType.INJECT_INSTANCE_FIELD, fieldElement,
-                  fieldType, annotations).ifPresent(site -> {
+              final DaggerInjectionSiteType siteType;
+              if (methodElement.getModifiers().contains(javax.lang.model.element.Modifier.STATIC)) {
+                siteType = DaggerInjectionSiteType.MODULE_STATIC_PROVIDES_METHOD_PARAMETER;
+              } else {
+                siteType = DaggerInjectionSiteType.MODULE_INSTANCE_PROVIDES_METHOD_PARAMETER;
+              }
+
+              newInjectionSite(siteType, parameterElement, parameterType, annotations)
+                  .ifPresent(dependencies::add);
+            }
+          }
+
+          @Override
+          public void endModule(TypeElement module) {}
+        });
+  }
+
+  private void walkDependency(TypeMirror dependency) {
+    boolean added = visitedDependencies.add(dependency);
+    if (added == false) {
+      // This is fine. It is perfectly legal to have multiple injection sites with the same type.
+      // We just don't need to visit any type more than once.
+      return;
+    }
+
+    // We are only interested in walking concrete types
+    final TypeElement dependencyElement = (TypeElement) getTypes().asElement(dependency);
+    if (dependencyElement.getModifiers().contains(Modifier.ABSTRACT)) {
+      return;
+    }
+
+    new DaggerJsr330Walker(getProcessingEnv()).walk(dependencyElement,
+        new DaggerJsr330Walker.Visitor() {
+          @Override
+          public void beginClass(TypeElement type) {}
+
+          @Override
+          public void visitClassMethodInjectionSite(TypeElement enclosingElement,
+              ExecutableElement methodElement) {
+            final DeclaredType enclosingType = (DeclaredType) enclosingElement.asType();
+
+            final ExecutableType methodType =
+                (ExecutableType) getTypes().asMemberOf(enclosingType, methodElement);
+
+            final int parameterCount = methodType.getParameterTypes().size();
+
+            assert parameterCount == methodElement.getParameters().size();
+
+            for (int i = 0; i < parameterCount; i++) {
+              final VariableElement parameterElement = methodElement.getParameters().get(i);
+              final TypeMirror parameterType = methodType.getParameterTypes().get(i);
+              if (isValidInjectionSiteType(parameterElement, parameterType) == false)
+                continue;
+
+              final List<AnnotationMirror> annotations =
+                  new ArrayList<>(parameterElement.getAnnotationMirrors());
+
+              newInjectionSite(DaggerInjectionSiteType.INJECT_INSTANCE_METHOD, methodElement,
+                  parameterType, annotations).ifPresent(site -> {
                     dependenciesQueue.offer(site.getProvidedType());
                     dependencies.add(site);
                   });
             }
+          }
 
-            @Override
-            public void visitClassConstructorInjectionSite(TypeElement enclosingElement,
-                ExecutableElement constructorElement) {
-              final DeclaredType enclosingType = (DeclaredType) enclosingElement.asType();
+          @Override
+          public void visitClassFieldInjectionSite(TypeElement enclosingElement,
+              VariableElement fieldElement) {
+            final DeclaredType enclosingType = (DeclaredType) enclosingElement.asType();
 
-              final ExecutableType constructorType =
-                  (ExecutableType) getTypes().asMemberOf(enclosingType, constructorElement);
+            final TypeMirror fieldType = getTypes().asMemberOf(enclosingType, fieldElement);
+            if (isValidInjectionSiteType(fieldElement, fieldType) == false)
+              return;
 
-              final int parameterCount = constructorType.getParameterTypes().size();
+            final List<AnnotationMirror> annotations =
+                new ArrayList<>(fieldElement.getAnnotationMirrors());
 
-              assert parameterCount == constructorElement.getParameters().size();
+            newInjectionSite(DaggerInjectionSiteType.INJECT_INSTANCE_FIELD, fieldElement, fieldType,
+                annotations).ifPresent(site -> {
+                  dependenciesQueue.offer(site.getProvidedType());
+                  dependencies.add(site);
+                });
+          }
 
-              for (int i = 0; i < parameterCount; i++) {
-                final VariableElement parameterElement = constructorElement.getParameters().get(i);
-                final TypeMirror parameterType = constructorType.getParameterTypes().get(i);
-                if (isValidInjectionSiteType(parameterElement, parameterType) == false)
-                  continue;
+          @Override
+          public void visitClassConstructorInjectionSite(TypeElement enclosingElement,
+              ExecutableElement constructorElement) {
+            final DeclaredType enclosingType = (DeclaredType) enclosingElement.asType();
 
-                final List<AnnotationMirror> annotations =
-                    new ArrayList<>(parameterElement.getAnnotationMirrors());
+            final ExecutableType constructorType =
+                (ExecutableType) getTypes().asMemberOf(enclosingType, constructorElement);
 
-                newInjectionSite(DaggerInjectionSiteType.INJECT_CONSTRUCTOR_PARAMETER,
-                    parameterElement, parameterType, annotations).ifPresent(site -> {
-                      dependenciesQueue.offer(site.getProvidedType());
-                      dependencies.add(site);
-                    });
-              }
+            final int parameterCount = constructorType.getParameterTypes().size();
+
+            assert parameterCount == constructorElement.getParameters().size();
+
+            for (int i = 0; i < parameterCount; i++) {
+              final VariableElement parameterElement = constructorElement.getParameters().get(i);
+              final TypeMirror parameterType = constructorType.getParameterTypes().get(i);
+              if (isValidInjectionSiteType(parameterElement, parameterType) == false)
+                continue;
+
+              final List<AnnotationMirror> annotations =
+                  new ArrayList<>(parameterElement.getAnnotationMirrors());
+
+              newInjectionSite(DaggerInjectionSiteType.INJECT_CONSTRUCTOR_PARAMETER,
+                  parameterElement, parameterType, annotations).ifPresent(site -> {
+                    dependenciesQueue.offer(site.getProvidedType());
+                    dependencies.add(site);
+                  });
             }
+          }
 
-            @Override
-            public void endClass(TypeElement type) {}
-          });
-    }
-
-    return new DaggerComponentAnalysis(componentType, dependencies);
+          @Override
+          public void endClass(TypeElement type) {}
+        });
   }
 
   private Optional<DaggerInjectionSite> newInjectionSite(DaggerInjectionSiteType siteType,

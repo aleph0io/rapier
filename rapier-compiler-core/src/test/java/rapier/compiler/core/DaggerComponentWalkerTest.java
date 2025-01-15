@@ -49,7 +49,9 @@ public class DaggerComponentWalkerTest {
 
             import dagger.Component;
 
-            @Component(modules = {MyModule.class})
+            @Component(
+                modules = {MyModule.class},
+                dependencies = {MyDependency.class})
             public interface MyComponent extends MyComponentParent {
                 Integer provideInteger();
             }
@@ -61,11 +63,16 @@ public class DaggerComponentWalkerTest {
             class MyModule {
                 // Module implementation
             }
+
+            interface MyDependency {
+                // Dependency implementation
+            }
         """;
 
     final AtomicReference<TypeElement> began = new AtomicReference<>();
     final AtomicReference<TypeElement> ended = new AtomicReference<>();
     final List<TypeMirror> modules = new ArrayList<>();
+    final List<TypeMirror> dependencies = new ArrayList<>();
     final List<ExecutableElement> provisionMethods = new ArrayList<>();
 
     // Compile the source and check results
@@ -77,7 +84,7 @@ public class DaggerComponentWalkerTest {
         roundEnv.getElementsAnnotatedWith(Component.class).forEach(element -> {
           if (element instanceof TypeElement) {
             final TypeElement componentElement = (TypeElement) element;
-            
+
             DaggerComponentWalker walker = new DaggerComponentWalker(processingEnv);
 
             // Mock Visitor
@@ -95,6 +102,12 @@ public class DaggerComponentWalkerTest {
               public void visitComponentModule(TypeElement component, TypeMirror module) {
                 assertEquals(expectedComponent, component);
                 modules.add(module);
+              }
+
+              @Override
+              public void visitComponentDependency(TypeElement component, TypeMirror dependency) {
+                assertEquals(expectedComponent, component);
+                dependencies.add(dependency);
               }
 
               @Override
@@ -134,6 +147,9 @@ public class DaggerComponentWalkerTest {
 
     assertEquals(1, modules.size());
     assertEquals("com.example.MyModule", modules.get(0).toString());
+
+    assertEquals(1, dependencies.size());
+    assertEquals("com.example.MyDependency", dependencies.get(0).toString());
 
     assertEquals(2, provisionMethods.size());
     assertTrue(provisionMethods.stream()
