@@ -1,0 +1,65 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.sigpwned</groupId>
+        <artifactId>rapier</artifactId>
+        <version>0.0.0-b0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>rapier-bom</artifactId>
+    <name>rapier-bom</name>
+    <packaging>pom</packaging>
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- Environment variable -->
+            <dependency>
+                <groupId>com.sigpwned</groupId>
+                <artifactId>rapier-environment-variable</artifactId>
+                <version>0.0.0-b0-SNAPSHOT</version>
+            </dependency>
+            <dependency>
+                <groupId>com.sigpwned</groupId>
+                <artifactId>rapier-environment-variable-compiler</artifactId>
+                <version>0.0.0-b0-SNAPSHOT</version>
+            </dependency>
+  
+            <!-- System property -->
+            <dependency>
+                <groupId>com.sigpwned</groupId>
+                <artifactId>rapier-system-property</artifactId>
+                <version>0.0.0-b0-SNAPSHOT</version>
+            </dependency>
+            <dependency>
+                <groupId>com.sigpwned</groupId>
+                <artifactId>rapier-system-property-compiler</artifactId>
+                <version>0.0.0-b0-SNAPSHOT</version>
+            </dependency>
+  
+            <!-- AWS SSM -->
+            <dependency>
+                <groupId>com.sigpwned</groupId>
+                <artifactId>rapier-aws-ssm</artifactId>
+                <version>0.0.0-b0-SNAPSHOT</version>
+            </dependency>
+            <dependency>
+                <groupId>com.sigpwned</groupId>
+                <artifactId>rapier-aws-ssm-compiler</artifactId>
+                <version>0.0.0-b0-SNAPSHOT</version>
+            </dependency>
+  
+            <!-- CLI -->
+            <dependency>
+                <groupId>com.sigpwned</groupId>
+                <artifactId>rapier-cli</artifactId>
+                <version>0.0.0-b0-SNAPSHOT</version>
+            </dependency>
+            <dependency>
+                <groupId>com.sigpwned</groupId>
+                <artifactId>rapier-cli-compiler</artifactId>
+                <version>0.0.0-b0-SNAPSHOT</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
+</project>

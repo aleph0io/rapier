@@ -51,7 +51,7 @@
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
         <maven.compiler.release>11</maven.compiler.release>
-        
+
         <!-- These versions are injected into tests, so all attempts to -->
         <!-- control versions of these dependencies must be done here. -->
         <dagger.version>2.54</dagger.version>
@@ -303,5 +303,6 @@
         <module>rapier-aws-ssm</module>
         <module>rapier-aws-ssm-compiler</module>
         <module>rapier-example</module>
+        <module>rapier-bom</module>
     </modules>
 </project>
