@@ -1,6 +1,6 @@
 # rapier [![tests](https://github.com/sigpwned/rapier/actions/workflows/tests.yml/badge.svg)](https://github.com/sigpwned/rapier/actions/workflows/tests.yml)
 
-A code-generation companion library for [Dagger](https://github.com/google/dagger).
+A code-generation companion library for [Dagger](https://github.com/google/dagger) focused on eliminating boilerplate code when pulling configuration data from common configuration sources.
 
 ## Rapier Features
 
@@ -191,6 +191,49 @@ Rapier also does not currently support the following Dagger add-on features. It 
 
 ## Advanced Usage
 
+### Data Type Conversion
+
+As part of eliminating boilerplate code, each Rapier integration provides a set of standard data type conversion. For instance, in this example, the environment variable module generates code to convert the native `String` to a `long`:
+
+    @Component(modules = {RapierExampleComponentEnvironmentVariableModule.class})
+    public interface ExampleComponent {
+        /**
+         * Get timeout in milliseconds from environment variable TIMEOUT, or use the
+         * default of 30000 if not present
+         */
+        @EnvironmentVariable(value="TIMEOUT", defaultValue="30000")
+        public long getTimeout();
+    }
+
+#### String-typed Configuration Sources
+
+For `String`-typed configuration sources, the following conversions are supported:
+
+* Primitive types (`byte`, `short`, `int`, `long`, `char`, `float`, `double`, `boolean`)
+* Boxed primitive types (`Byte`, `Short`, `Integer`, `Long`, `Character`, `Float`, `Double`, `Boolean`)
+* Custom conversions for other types `T` via:
+    * For type `T`, uses `public static T fromString(String)`
+    * For type `T`, uses `public static T valueOf(String)`
+    * For type `T`, uses `public T(String)`
+
+So, to allow Rapier to convert from `String` to another type `T` automatically, simply add a matching `fromString` method, a matching `valueOf` method, or a matching single-argument constructor. Of course, users are still free simply to add a factory method in another module, too.
+
+
+#### Other Configuration Sources
+
+For configuration sources of another type `C` (e.g., CLI flags are `Boolean`-valued), the following conversions are supported:
+
+* `String` using `public String toString()`
+* Custom conversions for other types `T` via:
+    * For type `T`, uses `public static T valueOf(C)`
+    * For type `T`, uses `public T(C)`
+    
+Similarly, to allow Rapier to convert from `C` to another type `T` automatically, simply add a matching `valueOf` method, or a matching single-argument constructor. Of course, users are still free simply to add a factory method in another module here, too.
+
+#### Additional Information
+
+Specific details about the type conversions each module supports appear in their respective READMEs.
+
 ### Templating
 
 Rapier supports using environment variables and system properties to specify configuration coordinates, e.g., environment variable names. For example, when using the AWS SSM integration, it might be useful to use the current deployment stage to load different configuration data.
@@ -229,6 +272,14 @@ The following integration attributes support templating:
 Note that no integration supports templates for default values at this time.
 
 The above integrations all support test constructors that allow users to specify custom environment variables and system properties for templates during testing.
+
+## Regarding Beta Versions
+
+The Rapier library is currently in a beta phase. This does not imply that the library is unstable or unreliable; in fact, the authors are successfully using Rapier in production already. However, as a beta release, it is subject to potential non-backwards-compatible changes in future versions without prior notice.
+
+While the primary user-facing interface of Rapier is expected to remain relatively stable, certain components are still under active development and may evolve more frequently. Specifically:
+
+* List Handling: Particularly with respect to default values.
 
 ## Examples
 
