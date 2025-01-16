@@ -33,6 +33,7 @@ For example, to use Rapier's environment variable integration in your Maven buil
     
     <build>
       <plugins>
+        <!-- Configuration compilation -->
         <plugin>
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-compiler-plugin</artifactId>
@@ -56,6 +57,26 @@ For example, to use Rapier's environment variable integration in your Maven buil
               </path>
             </annotationProcessorPaths>
           </configuration>
+        </plugin>
+        
+        <!-- Add generated source code to build -->
+        <plugin>
+          <groupId>org.codehaus.mojo</groupId>
+          <artifactId>build-helper-maven-plugin</artifactId>
+          <executions>
+            <execution>
+              <id>add-generated-sources</id>
+              <phase>generate-sources</phase>
+              <goals>
+                <goal>add-source</goal>
+              </goals>
+              <configuration>
+                <sources>
+                  <source>${project.build.directory}/generated-sources/annotations</source>
+                </sources>
+              </configuration>
+            </execution>
+          </executions>
         </plugin>
       </plugins>
     </build>
@@ -100,7 +121,7 @@ Next, define a component class that uses the `@EnvironmentVariable` annotation t
         public long getTimeout();
     }
     
-This will generate a new module, `RapierExampleComponentEnvironmentVariableModule`, in the same package as `ExampleComponent`. (Note that the example component references the generated module by name.) The generated module will look like this.
+This will generate a new module, `RapierExampleComponentEnvironmentVariableModule`, for `ExampleComponent` in the same package. (Note that the example component references the generated module by name.) The generated module will look like this.
 
     @Module
     public class RapierExampleComponentEnvironmentVariableModule {
@@ -122,6 +143,8 @@ This will generate a new module, `RapierExampleComponentEnvironmentVariableModul
         public RapierExampleComponentEnvironmentVariableModule(Map<String, String> env) {
             this.env = unmodifiableMap(env);
         }
+        
+        // Additional code left out for simplicity
     
         @Provides
         @EnvironmentVariable(value="TIMELINE", defaultValue="30000")
@@ -273,7 +296,43 @@ Note that no integration supports templates for default values at this time.
 
 The above integrations all support test constructors that allow users to specify custom environment variables and system properties for templates during testing.
 
-## Regarding Beta Versions
+### Testing Using Rapier
+
+Rapier was designed to allow the easy test of applications built with it. All Rapier modules generate code that includes features to allow the user to control the data Rapier returns for testing purposes. For example, the environment variable module generates module code like this:
+
+    @Module
+    public class RapierExampleComponentEnvironmentVariableModule {
+        /**
+         * Test constructor, allows users to provide custom environment variables for
+         * use during test and templating.
+         *
+         * @param env custom environment variables for test and templating
+         */
+        public RapierExampleComponentEnvironmentVariableModule(Map<String, String> env) {
+            // implementation
+        }
+    
+        /**
+         * Test constructor, allows users to provide custom environment variables for
+         * use during test and templating, and custom system properties for use during
+         * templating.
+         *
+         * @param env custom environment variables for test and templating
+         * @param sys custom system properties for templating
+         */
+        public RapierExampleComponentEnvironmentVariableModule(
+                Map<String, String> env,
+                Properties sys) {
+            // implementation
+        }
+    }
+    
+This allows users to provide custom values for use in tests when retrieving
+configuration data and evaluating name templates. For example:
+
+
+
+## Regarding Beta Versioning
 
 The Rapier library is currently in a beta phase. This does not imply that the library is unstable or unreliable; in fact, the authors are successfully using Rapier in production already. However, as a beta release, it is subject to potential non-backwards-compatible changes in future versions without prior notice.
 
@@ -287,4 +346,4 @@ See the rapier-exmaples module for examples of usage in real-world scenarios.
 
 ## Colophon
 
-A rapier is a sword that was frequently used as a companion weapon to the dagger
+A [rapier](https://en.wikipedia.org/wiki/Rapier) is a sword that frequently used a [dagger](https://en.wikipedia.org/wiki/Parrying_dagger) as a [companion weapon](https://en.wikipedia.org/wiki/Companion_weapon).

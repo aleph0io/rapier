@@ -44,7 +44,7 @@
                         </goals>
                         <configuration>
                             <sources>
-                                <source>target/generated-sources/annotations</source>
+                                <source>${project.build.directory}/generated-sources/annotations</source>
                             </sources>
                         </configuration>
                     </execution>
