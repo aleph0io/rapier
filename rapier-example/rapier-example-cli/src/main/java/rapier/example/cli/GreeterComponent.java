@@ -21,6 +21,12 @@ package rapier.example.cli;
 
 import dagger.Component;
 
+/**
+ * A Dagger component that provides a {@link Greeter} instance. Note that it includes both
+ * {@link GreeterModule} and {@link RapierGreeterComponentCliModule} modules, where
+ * {@link RapierGreeterComponentCliModule} is a generated module that provides the CLI parameters
+ * for the {@link Greeter} instance.
+ */
 @Component(modules = {GreeterModule.class, RapierGreeterComponentCliModule.class})
 public interface GreeterComponent {
   public Greeter greeter();

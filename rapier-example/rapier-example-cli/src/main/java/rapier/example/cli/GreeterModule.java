@@ -25,6 +25,9 @@ import rapier.cli.CliOptionParameter;
 import rapier.cli.CliOptionParameterHelp;
 import rapier.cli.CliPositionalParameter;
 
+/**
+ * A Dagger module that provides a {@link Greeter} object from CLI input. 
+ */
 @Module
 public class GreeterModule {
   @Provides

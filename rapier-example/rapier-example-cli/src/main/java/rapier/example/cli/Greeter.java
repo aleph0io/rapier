@@ -19,6 +19,9 @@
  */
 package rapier.example.cli;
 
+/**
+ * Greeter is a simple class that generates a greeting.
+ */
 public class Greeter {
   private final String greeting;
   private final String name;

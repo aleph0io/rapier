@@ -20,8 +20,8 @@
 package rapier.example.cli;
 
 /**
- * The main entry point for the server application. This class creates the Dagger component and
- * starts the server.
+ * The main entry point for the CLI application. This class creates the Dagger component prints
+ * the greeting.
  */
 public class App {
   public static void main(String[] args) {
