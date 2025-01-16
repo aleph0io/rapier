@@ -25,7 +25,6 @@
         <connection>scm:git:ssh://git@github.com/sigpwned/rapier.git</connection>
         <developerConnection>scm:git:ssh://git@github.com/sigpwned/rapier.git</developerConnection>
         <url>https://github.com/sigpwned/rapier/tree/main</url>
-        <tag>v70.1.0</tag>
     </scm>
 
     <licenses>
@@ -52,7 +51,14 @@
         <maven.compiler.source>11</maven.compiler.source>
         <maven.compiler.target>11</maven.compiler.target>
         <maven.compiler.release>11</maven.compiler.release>
+        
+        <!-- These versions are injected into tests, so all attempts to -->
+        <!-- control versions of these dependencies must be done here. -->
         <dagger.version>2.54</dagger.version>
+        <javax.inject.version>1</javax.inject.version>
+        <jakarta.inject-api.version>2.0.1</jakarta.inject-api.version>
+        <jsr305.version>3.0.2</jsr305.version>
+        <awssdk.version>2.29.43</awssdk.version>
     </properties>
 
     <build>
@@ -63,23 +69,71 @@
                     <artifactId>maven-surefire-plugin</artifactId>
                     <version>3.5.2</version>
                     <configuration>
-                        <!-- The below is required for testing annotation processors -->
-                        <!-- using com.google.testing.compile:compile-testing.       -->
+                        <!--
+                            -XX:+EnableDynamicAgentLoading is to suppress a
+                            Mockito self-attach warning when running tests
+                        -->
+                        <!--
+                            -Xshare:off is to suppress some warnings from
+                            Mockito when mocking Object methods during tests
+                        -->
+                        <!--
+                            The "add exports" flags below below are required for
+                            testing annotation processors using
+                            com.google.testing.compile:compile-testing in
+                            Java 9+.
+                        -->
                         <argLine>
-                            --add-exports jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED
-                            --add-opens jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED
-                            --add-exports jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED
-                            --add-opens jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED
-                            --add-exports jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED
-                            --add-opens jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED
+                            -XX:+EnableDynamicAgentLoading
+                            -Xshare:off
+                            --add-exports
+                            jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED
+                            --add-opens
+                            jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED
+                            --add-exports
+                            jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED
+                            --add-opens
+                            jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED
+                            --add-exports
+                            jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED
+                            --add-opens
+                            jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED
                         </argLine>
+                        <systemPropertyVariables>
+                            <maven.dagger.version>${dagger.version}</maven.dagger.version>
+                            <maven.javax.inject.version>${javax.inject.version}</maven.javax.inject.version>
+                            <maven.jakarta.inject-api.version>${jakarta.inject-api.version}</maven.jakarta.inject-api.version>
+                            <maven.jsr305.version>${jsr305.version}</maven.jsr305.version>
+                            <maven.awssdk.version>${awssdk.version}</maven.awssdk.version>
+                            <maven.project.basedir>${project.basedir}</maven.project.basedir>
+                        </systemPropertyVariables>
                     </configuration>
                 </plugin>            
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-jar-plugin</artifactId>
                     <version>3.4.2</version>
-                </plugin>            
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-resources-plugin</artifactId>
+                    <version>3.3.1</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>build-helper-maven-plugin</artifactId>
+                    <version>3.6.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-shade-plugin</artifactId>
+                    <version>3.6.0</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.codehaus.mojo</groupId>
+                    <artifactId>templating-maven-plugin</artifactId>
+                    <version>3.0.0</version>
+                </plugin>
             </plugins>
         </pluginManagement>
         <plugins>
@@ -177,7 +231,7 @@
             <dependency>
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
-                <version>2.29.43</version>
+                <version>${awssdk.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -196,6 +250,13 @@
                 <scope>import</scope>
             </dependency>
             <dependency>
+                <groupId>org.mockito</groupId>
+                <artifactId>mockito-bom</artifactId>
+                <version>5.15.2</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
                 <groupId>com.google.dagger</groupId>
                 <artifactId>dagger</artifactId>
                 <version>${dagger.version}</version>
@@ -206,6 +267,22 @@
                 <version>${dagger.version}</version>
             </dependency>
             <dependency>
+                <groupId>javax.inject</groupId>
+                <artifactId>javax.inject</artifactId>
+                <version>${javax.inject.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>jakarta.inject</groupId>
+                <artifactId>jakarta.inject-api</artifactId>
+                <version>${jakarta.inject-api.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.google.code.findbugs</groupId>
+                <artifactId>jsr305</artifactId>
+                <version>${jsr305.version}</version>
+            </dependency>
+            
+            <dependency>
                 <groupId>com.google.testing.compile</groupId>
                 <artifactId>compile-testing</artifactId>
                 <version>0.21.0</version>
@@ -215,9 +292,16 @@
 
     <modules>
         <module>rapier-core</module>
-        <module>rapier-processor-environment-variable</module>
-        <module>rapier-processor-system-property</module>
-        <module>rapier-processor-aws-ssm</module>
-        <module>rapier-processor-cli</module>
+        <module>rapier-compiler-core</module>
+        <module>rapier-assumptions-tests</module>
+        <module>rapier-environment-variable</module>
+        <module>rapier-environment-variable-compiler</module>
+        <module>rapier-system-property</module>
+        <module>rapier-system-property-compiler</module>
+        <module>rapier-cli</module>
+        <module>rapier-cli-compiler</module>
+        <module>rapier-aws-ssm</module>
+        <module>rapier-aws-ssm-compiler</module>
+        <module>rapier-example</module>
     </modules>
 </project>

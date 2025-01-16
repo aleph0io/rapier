@@ -7,29 +7,27 @@
         <version>0.0.0-b0-SNAPSHOT</version>
     </parent>
 
-    <artifactId>rapier-core</artifactId>
-    <name>rapier-core</name>
+    <artifactId>rapier-cli</artifactId>
+    <name>rapier-cli</name>
     <packaging>jar</packaging>
-    
-    
-    
+
+    <dependencyManagement>
+        <dependencies>
+            <!-- We have embedded this dependency in the code directly. -->
+            <!-- Include this pseudo-dependency for dependabot alerts. -->
+            <dependency>
+                <groupId>com.sigpwned</groupId>
+                <artifactId>just-args</artifactId>
+                <version>0.0.0</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 
     <dependencies>
         <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>jakarta.inject</groupId>
-            <artifactId>jakarta.inject-api</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>com.google.dagger</groupId>
-            <artifactId>dagger</artifactId>
+            <groupId>com.sigpwned</groupId>
+            <artifactId>rapier-core</artifactId>
+            <version>${project.version}</version>
         </dependency>
 
         <dependency>
@@ -45,11 +43,6 @@
         <dependency>
             <groupId>org.junit.jupiter</groupId>
             <artifactId>junit-jupiter</artifactId>
-            <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>org.mockito</groupId>
-            <artifactId>mockito-core</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
