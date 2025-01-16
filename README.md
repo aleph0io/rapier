@@ -2,98 +2,237 @@
 
 A code-generation companion library for [Dagger](https://github.com/google/dagger).
 
-## Features
+## Rapier Features
 
-This library generates Dagger Modules automatically from annotations on Component injection sites for common tasks. The following injection sites are supported:
+Rapier generates Dagger modules automatically from annotations on Dagger injection sites.
 
-* Component provision methods
-* Module provide methods
-* Class inject constructor parameters
-* Class inject methods
-* Class inject fields
-
-## Quickstart
-
-To load an environment variable automatically, ensure that the corresponding annotation processor runs *before* Dagger's annotation processor:
-
-    <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-compiler-plugin</artifactId>
-        <configuration>
-            <!-- Rapier requires Java 11+, just like Dagger -->
-            <source>11</source>
-            <target>11</target>
-            <annotationProcessorPaths>
-                <!-- Rapier environment variable annotation processor -->
-                <path>
-                    <groupId>com.sigpwned</groupId>
-                    <artifactId>rapier-processor-environment-variable</artifactId>
-                    <version>0.0.0-b0</version>
-                </path>
-                
-                <!-- Dagger annotation processor -->
-                <path>
-                    <groupId>com.google.dagger</groupId>
-                    <artifactId>dagger-compiler</artifactId>
-                    <version>2.48</version>
-                </path>
-            </annotationProcessorPaths>
-        </configuration>
-    </plugin>
-
-
-And then use the following component:
+For example, given the following component:
 
     @Component(modules = {RapierExampleComponentEnvironmentVariableModule.class})
     public interface ExampleComponent {
         /**
-         * Get timeout in milliseconds
+         * Get timeout in milliseconds from environment variable TIMEOUT, or use the
+         * default of 30000 if not present
          */
         @EnvironmentVariable(value="TIMEOUT", defaultValue="30000")
         public long getTimeout();
     }
     
-This will generate a new module, `RapierExampleComponentEnvironmentVariableModule`, that looks like this:
+...Rapier would automatically generate the named `RapierExampleComponentEnvironmentVariableModule` module class to provide the logic for retrieving the `TIMEOUT` environment variable, using the default value of `30000` if the environment variable is not set, and convert it to `long`.
+
+## Quickstart
+
+In order for Rapier to generate code for a configuration source (e.g., environment variables), the associated Rapier annotation processor has to run during the build. Because Rapier generates code for Dagger to consume, all of Rapier's annotation processors must run before Dagger's annotation processor. This involves setting up annotation processor execution order manually in your build.
+
+For example, to use Rapier's environment variable integration in your Maven build, add the following configuration in your `pom.xml`:
+
+    <properties>
+      <rapier.version>0.0.0-b0</rapier.version>
+      <dagger.version>2.52</dagger.version>
+    </properties>
+    
+    <build>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-compiler-plugin</artifactId>
+          <configuration>
+            <!-- Rapier requires Java 11+, just like Dagger -->
+            <source>11</source>
+            <target>11</target>
+            <annotationProcessorPaths>
+              <!-- Rapier environment variable annotation processor -->
+              <path>
+                <groupId>com.sigpwned</groupId>
+                <artifactId>rapier-environment-variable-compiler</artifactId>
+                <version>${rapier.version}</version>
+              </path>
+                    
+              <!-- Dagger annotation processor -->
+              <path>
+                <groupId>com.google.dagger</groupId>
+                <artifactId>dagger-compiler</artifactId>
+                <version>${dagger.version}</version>
+              </path>
+            </annotationProcessorPaths>
+          </configuration>
+        </plugin>
+      </plugins>
+    </build>
+    
+    <dependencies>
+        <dependency>
+            <groupId>com.sigpwned</groupId>
+            <artifactId>rapier-environment-variable</artifactId>
+            <version>${repier.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.sigpwned</groupId>
+            <artifactId>rapier-environment-variable-compiler</artifactId>
+            <version>${repier.version}</version>
+            <scope>provided</scope>
+        </dependency>
+        <dependency>
+            <groupId>com.google.dagger</groupId>
+            <artifactId>dagger</artifactId>
+            <version>${dagger.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>com.google.dagger</groupId>
+            <artifactId>dagger-compiler</artifactId>
+            <version>${dagger.version}</version>
+            <scope>provided</scope>
+        </dependency>
+    </dependencies>
+
+Next, define a component class that uses the `@EnvironmentVariable` annotation to create a dependency on an environment variable:
+
+    @Component(modules = {
+        // Note that we refer to the generated module here, by name
+        RapierExampleComponentEnvironmentVariableModule.class
+    })
+    public interface ExampleComponent {
+        /**
+         * Get timeout in milliseconds from environment variable TIMEOUT, or use the
+         * default of 30000 if not present
+         */
+        @EnvironmentVariable(value="TIMEOUT", defaultValue="30000")
+        public long getTimeout();
+    }
+    
+This will generate a new module, `RapierExampleComponentEnvironmentVariableModule`, in the same package as `ExampleComponent`. (Note that the example component references the generated module by name.) The generated module will look like this.
 
     @Module
     public class RapierExampleComponentEnvironmentVariableModule {
         private final Map<String, String> env;
-
-        @Inject
+        
+        /**
+         * Default constructor, used by Dagger automatically if no module instance given
+         */
         public RapierExampleComponentEnvironmentVariableModule() {
             this(System.getenv());
         }
-
+        
+        /**
+         * Test constructor, allows users to provide custom environment variables during
+         * test.
+         *
+         * @param env custom environment variables for test
+         */
         public RapierExampleComponentEnvironmentVariableModule(Map<String, String> env) {
             this.env = unmodifiableMap(env);
         }
-
+    
         @Provides
-        @EnvironmentVariable("TIMEOUT")
-        public java.lang.Long provideEnvironmentVariableFooBarAsLong(@EnvironmentVariable(value="TIMEOUT", defaultValue="30000") String value) {
-            java.lang.Long result= java.lang.Long.valueOf(value);
-            if (result == null)
-                throw new IllegalStateException("Environment variable TIMEOUT  as java.lang.Long not set");
-            return result;
+        @EnvironmentVariable(value="TIMELINE", defaultValue="30000")
+        public String provideEnvironmentVariableTimelineAsString() {
+            final String name="TIMELINE";
+            final String value=env.get(name);
+            if (value == null)
+                return "30000";
+            return value;
         }
-
+        
         @Provides
-        @EnvironmentVariable(value="TIMEOUT", defaultValue="30000")
-        public String provideEnvironmentVariableFooBarAsString() {
-            String result=env.get("TIMEOUT");
-            return result != null ? resut : "30000";
+        @EnvironmentVariable(value="TIMELINE", defaultValue="30000")
+        public java.lang.Long provideEnvironmentVariableTimelineAsLong(
+                @EnvironmentVariable(value="TIMELINE", defaultValue="30000") String value) {
+            return java.lang.Long.valueOf(value);
         }
     }
 
-Note that Rapier is smart enough to recognize that the default String representation is insufficient, and therefore generates an additional binding for Long.
+Note that the generated module has a test constructor, allowing users to provide custom environment variables during testing.
 
-Note that the `ExampleComponent` component includes the generated `RapierExampleComponentEnvironmentVariableModule` module, even though the latter is generated from the former.
+## Existing Integrations
 
-The library has processors for the following parameter types:
+Rapier has integrations with the following configuration sources:
 
-* Java environment variables
-* Java system properties
-* AWS SSM Parameter Store Parameters
+* Java environment variables (`@EnvironmentVariable`)
+* Java system properties (`@SystemProperty`)
+* AWS SSM Parameter Store Parameters (`@AwsSsmStringParameter`)
+* CLI arguments (`@CliPositionalParameter`, `@CliOptionParameter`, `@CliFlagParameter`)
+
+Each integration has two modules in this repository: a "compile" dependency to be added to the project as a dependency that contains annotations, and a "provided" dependency to add to the build that contains the annotation processor to generate the appropriate code. For example, for environment variables, the modules are, respectively:
+
+* `rapier-environment-variable`
+* `rapier-environment-variable-compiler`
+
+Information about how to use each provider is in each module's "compile" dependency.
+
+## Supported Dagger Features
+
+Rapier automatically detects and generates providers for injection sites based on the following core Dagger features:
+
+* Component-module dependencies (i.e., `@Component(modules)`)
+* Component-component dependencies (i.e., `@Component(dependencies)`)
+* Module-module dependencies (i.e., `@Module(includes)`)
+* Component provision methods
+* Module provide methods (i.e., `@Provider` methods without parameters)
+* Module factory methods (i.e., `@Provider` methods with parameters)
+* JSR 330-style `@Inject` constructors
+* JSR 330-style `@Inject` methods
+* JSR 330-style `@Inject` fields
+* `Lazy<T>`
+* `Provider<T>`
+
+Rapier does *not* currently support the following core Dagger features. It may or may not work with these Dagger features.
+
+* [Subcomponents](https://dagger.dev/dev-guide/subcomponents.html)
+* [Assisted injection](https://dagger.dev/dev-guide/assisted-injection)
+* Module `@Bind` methods
+* `Provider<Lazy<T>>`
+* `MembersInjector`
+* `@BindsOptionalOf`
+* `@BindsInstance`
+
+Rapier also does not currently support the following Dagger add-on features. It may or may not work with these Dagger features.
+
+* [Producers](https://dagger.dev/dev-guide/producers)
+
+## Advanced Usage
+
+### Templating
+
+Rapier supports using environment variables and system properties to specify configuration coordinates, e.g., environment variable names. For example, when using the AWS SSM integration, it might be useful to use the current deployment stage to load different configuration data.
+
+    @Component(modules = RapierExampleComponentAwsSsmModule.class)
+    public interface ExampleComponent {
+        @AwsSsmStringParameter("${env.STAGE}.databaseHost")
+        public String databaseHostname();
+    }
+    
+The above `ExampleComponent` uses the environment variable `STAGE` to choose which parameter to load at runtime.
+
+In this usage, the `STAGE` variable must be present, or Rapier will throw an `IllegalStateException` during initialization. However, users can also provide a default value to use if the environment variable is missing:
+
+    @Component(modules = RapierExampleComponentAwsSsmModule.class)
+    public interface ExampleComponent {
+        @AwsSsmStringParameter("${env.STAGE:-test}.databaseHost")
+        public String databaseHostname();
+    }
+
+In this usage, Rapier will use the value of the `STAGE` variable if it is present, or `"test"` otherwise.
+
+Rapier supports the following syntax for name templates:
+
+* `${env.NAME}` - Replace with the value of the `NAME` environment variable if present, or else throw `IllegalStateException`
+* `${env.NAME:-default}` - Replace with the value of the `NAME` environment variable if present, or else use the value `"default"`
+* `${sys.name}` - Replace with the value of the `name` system property if present, or else throw `IllegalStateException`
+* `${sys.name:-default}` - Replace with the value of the `name` system property if present, or else use the value `"default"`
+
+The following integration attributes support templating:
+
+* `@EnvironmentVariable(value)`
+* `@SystemProperty(value)`
+* `@AwsSsmStringParameter(value)`
+
+Note that no integration supports templates for default values at this time.
+
+The above integrations all support test constructors that allow users to specify custom environment variables and system properties for templates during testing.
+
+## Examples
+
+See the rapier-exmaples module for examples of usage in real-world scenarios.
 
 ## Colophon
 
