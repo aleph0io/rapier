@@ -87,6 +87,7 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
 
             import static java.util.Arrays.asList;
             import static java.util.Collections.emptyList;
+            import static java.util.Collections.singletonList;
             import static java.util.Collections.unmodifiableList;
 
             import dagger.Module;
@@ -102,7 +103,7 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
             import rapier.cli.CliFlagParameter;
             import rapier.cli.CliOptionParameter;
             import rapier.cli.CliPositionalParameter;
-            import rapier.cli.compiler.thirdparty.com.sigpwned.just.args.JustArgs;
+            import rapier.cli.thirdparty.com.sigpwned.just.args.JustArgs;
 
             @Module
             @RapierGenerated
@@ -373,6 +374,7 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
 
             import static java.util.Arrays.asList;
             import static java.util.Collections.emptyList;
+            import static java.util.Collections.singletonList;
             import static java.util.Collections.unmodifiableList;
 
             import dagger.Module;
@@ -388,7 +390,7 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
             import rapier.cli.CliFlagParameter;
             import rapier.cli.CliOptionParameter;
             import rapier.cli.CliPositionalParameter;
-            import rapier.cli.compiler.thirdparty.com.sigpwned.just.args.JustArgs;
+            import rapier.cli.thirdparty.com.sigpwned.just.args.JustArgs;
 
             @Module
             @RapierGenerated
@@ -643,6 +645,7 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
 
             import static java.util.Arrays.asList;
             import static java.util.Collections.emptyList;
+            import static java.util.Collections.singletonList;
             import static java.util.Collections.unmodifiableList;
 
             import dagger.Module;
@@ -658,7 +661,7 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
             import rapier.cli.CliFlagParameter;
             import rapier.cli.CliOptionParameter;
             import rapier.cli.CliPositionalParameter;
-            import rapier.cli.compiler.thirdparty.com.sigpwned.just.args.JustArgs;
+            import rapier.cli.thirdparty.com.sigpwned.just.args.JustArgs;
 
             @Module
             @RapierGenerated
@@ -891,6 +894,7 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
 
             import static java.util.Arrays.asList;
             import static java.util.Collections.emptyList;
+            import static java.util.Collections.singletonList;
             import static java.util.Collections.unmodifiableList;
 
             import dagger.Module;
@@ -906,7 +910,7 @@ public class CliProcessorModuleGenerationTest extends RapierTestBase {
             import rapier.cli.CliFlagParameter;
             import rapier.cli.CliOptionParameter;
             import rapier.cli.CliPositionalParameter;
-            import rapier.cli.compiler.thirdparty.com.sigpwned.just.args.JustArgs;
+            import rapier.cli.thirdparty.com.sigpwned.just.args.JustArgs;
 
             @Module
             @RapierGenerated

@@ -13,5 +13,6 @@
 
     <modules>
         <module>rapier-example-server</module>
+        <module>rapier-example-cli</module>
     </modules>
 </project>

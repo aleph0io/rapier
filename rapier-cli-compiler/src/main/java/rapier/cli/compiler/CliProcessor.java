@@ -25,21 +25,15 @@ import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toCollection;
 import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
-import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.io.Writer;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -81,8 +75,8 @@ import rapier.cli.compiler.model.PositionalParameterHelp;
 import rapier.cli.compiler.model.PositionalParameterKey;
 import rapier.cli.compiler.model.PositionalParameterMetadata;
 import rapier.cli.compiler.model.PositionalRepresentationKey;
-import rapier.cli.compiler.thirdparty.com.sigpwned.just.args.JustArgs;
 import rapier.cli.compiler.util.CliProcessing;
+import rapier.cli.thirdparty.com.sigpwned.just.args.JustArgs;
 import rapier.compiler.core.ConversionExprFactory;
 import rapier.compiler.core.DaggerComponentAnalyzer;
 import rapier.compiler.core.RapierProcessorBase;
@@ -245,7 +239,6 @@ public class CliProcessor extends RapierProcessorBase {
         commandMetadata, positionalInjectionSites, positionalMetadataService, optionInjectionSites,
         optionMetadataService, flagInjectionSites, flagMetadataService);
 
-    final Path shadeDir = Paths.get("src", "main", "shade");
 
     try {
       // TODO Is this the right set of elements?
@@ -254,26 +247,6 @@ public class CliProcessor extends RapierProcessorBase {
           Java.qualifiedClassName(componentPackageName, moduleClassName), dependentElements);
       try (final Writer writer = moduleSourceFile.openWriter()) {
         writer.write(moduleSource);
-      }
-
-      final Iterator<Path> iterator = Files.walk(shadeDir).filter(p -> Files.isRegularFile(p))
-          .filter(p -> p.getFileName().toString().endsWith(".java")).iterator();
-      while (iterator.hasNext()) {
-        Path javaFile = iterator.next();
-        try {
-          final String relativePath = shadeDir.relativize(javaFile).toString();
-          final String qualifiedClassName =
-              relativePath.replace(File.separator, ".").replaceAll("\\.java$", "");
-          final JavaFileObject shadeSourceFile =
-              getFiler().createSourceFile(qualifiedClassName, dependentElements);
-          try (final Writer writer = shadeSourceFile.openWriter()) {
-            writer.write(Files.readString(javaFile, StandardCharsets.UTF_8));
-          }
-        } catch (IOException e) {
-          e.printStackTrace();
-          getMessager().printMessage(Diagnostic.Kind.ERROR,
-              "Failed to create source file: " + e.getMessage());
-        }
       }
     } catch (IOException e) {
       e.printStackTrace();
@@ -983,6 +956,7 @@ public class CliProcessor extends RapierProcessorBase {
       out.println();
       out.println("import static java.util.Arrays.asList;");
       out.println("import static java.util.Collections.emptyList;");
+      out.println("import static java.util.Collections.singletonList;");
       out.println("import static java.util.Collections.unmodifiableList;");
       out.println();
       out.println("import dagger.Module;");

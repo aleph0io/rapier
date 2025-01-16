@@ -13,11 +13,11 @@
 
     <dependencyManagement>
         <dependencies>
-            <!-- This dependency is embedded in this project. -->
-            <!-- This makes dependabot notify us of new releases. -->
+            <!-- We have embedded this dependency in the code directly. -->
+            <!-- Include this pseudo-dependency for dependabot alerts. -->
             <dependency>
                 <groupId>com.sigpwned</groupId>
-                <artifactId>just-args-java</artifactId>
+                <artifactId>just-args</artifactId>
                 <version>0.0.0</version>
             </dependency>
         </dependencies>
