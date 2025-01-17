@@ -2,7 +2,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.sigpwned</groupId>
+        <groupId>io.aleph0</groupId>
         <artifactId>rapier-example</artifactId>
         <version>0.0.0-b0-SNAPSHOT</version>
     </parent>
@@ -19,7 +19,7 @@
                 <configuration>
                     <annotationProcessorPaths>
                         <path>
-                            <groupId>com.sigpwned</groupId>
+                            <groupId>io.aleph0</groupId>
                             <artifactId>rapier-cli-compiler</artifactId>
                             <version>${project.version}</version>
                         </path>
@@ -86,12 +86,12 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.sigpwned</groupId>
+            <groupId>io.aleph0</groupId>
             <artifactId>rapier-cli</artifactId>
             <version>${project.version}</version>
         </dependency>
         <dependency>
-            <groupId>com.sigpwned</groupId>
+            <groupId>io.aleph0</groupId>
             <artifactId>rapier-cli-compiler</artifactId>
             <version>${project.version}</version>
             <scope>provided</scope>

@@ -1,24 +1,24 @@
 <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     
-    <groupId>com.sigpwned</groupId>
+    <groupId>io.aleph0</groupId>
     <artifactId>rapier</artifactId>
     <version>0.0.0-b0-SNAPSHOT</version>
     <name>rapier</name>
     <inceptionYear>2024</inceptionYear>
     <description>Code generation companion for Dagger</description>
-    <url>https://github.com/sigpwned/rapier</url>
+    <url>https://github.com/aleph0io/rapier</url>
     <packaging>pom</packaging>
 
     <organization>
-        <name>Andy Boothe</name>
-        <url>https://www.sigpwned.com/</url>
+        <name>aleph0</name>
+        <url>https://www.aleph0.io/</url>
     </organization>
 
     <scm>
-        <connection>scm:git:ssh://git@github.com/sigpwned/rapier.git</connection>
-        <developerConnection>scm:git:ssh://git@github.com/sigpwned/rapier.git</developerConnection>
-        <url>https://github.com/sigpwned/rapier/tree/main</url>
+        <connection>scm:git:ssh://git@github.com/aleph0io/rapier.git</connection>
+        <developerConnection>scm:git:ssh://git@github.com/aleph0io/rapier.git</developerConnection>
+        <url>https://github.com/aleph0io/rapier/tree/main</url>
     </scm>
 
     <licenses>
@@ -31,13 +31,15 @@
     <developers>
         <developer>
             <name>Andy Boothe</name>
-            <email>andy.boothe@gmail.com</email>
+            <email>andy@aleph0.io</email>
+            <organization>aleph0</organization>
+            <organizationUrl>https://www.aleph0.io</organizationUrl>
         </developer>
     </developers>
 
     <issueManagement>
         <system>GitHub</system>
-        <url>https://github.com/sigpwned/rapier</url>
+        <url>https://github.com/aleph0io/rapier</url>
     </issueManagement>
 
     <properties>

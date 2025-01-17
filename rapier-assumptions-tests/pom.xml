@@ -2,7 +2,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>com.sigpwned</groupId>
+        <groupId>io.aleph0</groupId>
         <artifactId>rapier</artifactId>
         <version>0.0.0-b0-SNAPSHOT</version>
     </parent>
@@ -13,13 +13,13 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.sigpwned</groupId>
+            <groupId>io.aleph0</groupId>
             <artifactId>rapier-compiler-core</artifactId>
             <version>${project.version}</version>
         </dependency>
 
         <dependency>
-            <groupId>com.sigpwned</groupId>
+            <groupId>io.aleph0</groupId>
             <artifactId>rapier-compiler-core</artifactId>
             <version>${project.version}</version>
             <type>test-jar</type>
