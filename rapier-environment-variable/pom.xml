@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.aleph0</groupId>
         <artifactId>rapier</artifactId>
-        <version>0.0.0-b0</version>
+        <version>0.0.0-b1-SNAPSHOT</version>
     </parent>
 
     <artifactId>rapier-environment-variable</artifactId>
