@@ -249,8 +249,8 @@ For more information about type conversions, see [the Rapier wiki](https://githu
 The environment variable module supports simple environment variable and system property templating in the `@EnvironmentVariable(value)` field, which contains the name of the environment variable to provide. For example:
 
     /**
-     * If the environment variable has the value "PROD", then this provisions the
-     * environment variable "FOO_PROD". If the environment variable "PROD" is not
+     * If the environment variable "STAGE" has the value "PROD", then this provisions
+     * the environment variable "FOO_PROD". If the environment variable "STAGE" is not
      * present, then the generated code would throw an `IllegalStateException` on
      * initialization.
      */
