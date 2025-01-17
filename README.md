@@ -149,9 +149,9 @@ This will generate a new module, `RapierExampleComponentEnvironmentVariableModul
         // Additional code left out for simplicity
     
         @Provides
-        @EnvironmentVariable(value="TIMELINE", defaultValue="30000")
-        public String provideEnvironmentVariableTimelineAsString() {
-            final String name="TIMELINE";
+        @EnvironmentVariable(value="TIMEOUT", defaultValue="30000")
+        public String provideEnvironmentVariableTIMEOUTAsString() {
+            final String name="TIMEOUT";
             final String value=env.get(name);
             if (value == null)
                 return "30000";
@@ -159,9 +159,9 @@ This will generate a new module, `RapierExampleComponentEnvironmentVariableModul
         }
         
         @Provides
-        @EnvironmentVariable(value="TIMELINE", defaultValue="30000")
-        public java.lang.Long provideEnvironmentVariableTimelineAsLong(
-                @EnvironmentVariable(value="TIMELINE", defaultValue="30000") String value) {
+        @EnvironmentVariable(value="TIMEOUT", defaultValue="30000")
+        public java.lang.Long provideEnvironmentVariableTIMEOUTAsLong(
+                @EnvironmentVariable(value="TIMEOUT", defaultValue="30000") String value) {
             return java.lang.Long.valueOf(value);
         }
     }
