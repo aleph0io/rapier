@@ -20,6 +20,8 @@ For example, given the following component:
     
 ...Rapier would automatically generate the named `RapierExampleComponentEnvironmentVariableModule` module class to provide the logic for retrieving the `TIMEOUT` environment variable, using the default value of `30000` if the environment variable is not set, and convert it to `long`.
 
+Rapier supports code generation for environment variables, system parameters, AWS Systems Manager parameter store, and CLI argument parsing, with more integrations added every release.
+
 ## Quickstart
 
 In order for Rapier to generate code for a configuration source (e.g., environment variables), the associated Rapier annotation processor has to run during the build. Because Rapier generates code for Dagger to consume, all of Rapier's annotation processors must run before Dagger's annotation processor. This involves setting up annotation processor execution order manually in your build.
