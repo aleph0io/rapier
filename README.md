@@ -346,6 +346,16 @@ While the primary user-facing interface of Rapier is expected to remain relative
 
 See the rapier-exmaples module for examples of usage in real-world scenarios.
 
+## Contributing
+
+We’d love your help to make this project even better! Here are some ways you can contribute:
+
+* Weigh in on the roadmap: Check out our [roadmap project](https://github.com/orgs/aleph0io/projects/11) to see what’s planned for future releases. Share your thoughts, leave comments, and vote on features or issues that matter most to you. Your feedback helps shape the direction of this library.
+* Report bugs: Found a bug? Let us know by [opening an issue](https://github.com/aleph0io/rapier/issues). Providing detailed bug reports helps us fix problems faster and ensures a better experience for everyone.
+* Contribute code: If you’re feeling adventurous, dive into the codebase! Whether it’s fixing a bug, improving documentation, or adding a new feature, your pull requests are always welcome.
+
+Every contribution, big or small, helps grow and improve this library. Thank you for your support! :heart:️
+
 ## Colophon
 
 A [rapier](https://en.wikipedia.org/wiki/Rapier) is a sword that frequently used a [dagger](https://en.wikipedia.org/wiki/Parrying_dagger) as a [companion weapon](https://en.wikipedia.org/wiki/Companion_weapon).
