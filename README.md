@@ -1,4 +1,4 @@
-# rapier [![tests](https://github.com/sigpwned/rapier/actions/workflows/tests.yml/badge.svg)](https://github.com/sigpwned/rapier/actions/workflows/tests.yml)
+# rapier [![tests](https://github.com/sigpwned/rapier/actions/workflows/tests.yml/badge.svg)](https://github.com/sigpwned/rapier/actions/workflows/tests.yml) [![Maven Central Version](https://img.shields.io/maven-central/v/io.aleph0/rapier)](https://central.sonatype.com/artifact/io.aleph0/rapier)  [![javadoc](https://javadoc.io/badge2/io.aleph0/rapier/javadoc.svg)](https://javadoc.io/doc/io.aleph0/rapier) 
 
 A code-generation companion library for [Dagger](https://github.com/google/dagger) focused on eliminating boilerplate code when pulling configuration data from common configuration sources.
 
