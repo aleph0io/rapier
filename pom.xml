@@ -3,7 +3,7 @@
     
     <groupId>io.aleph0</groupId>
     <artifactId>rapier</artifactId>
-    <version>0.0.0-b0</version>
+    <version>0.0.0-b1-SNAPSHOT</version>
     <name>rapier</name>
     <inceptionYear>2024</inceptionYear>
     <description>Code generation companion for Dagger</description>
@@ -19,7 +19,7 @@
         <connection>scm:git:ssh://git@github.com/aleph0io/rapier.git</connection>
         <developerConnection>scm:git:ssh://git@github.com/aleph0io/rapier.git</developerConnection>
         <url>https://github.com/aleph0io/rapier/tree/main</url>
-      <tag>v0.0.0-b0</tag>
+      <tag>HEAD</tag>
   </scm>
 
     <licenses>
