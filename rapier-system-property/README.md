@@ -51,7 +51,7 @@ Note a few things about the generated code:
 
 ## Quickstart
 
-First, add Rapier and Dagger to your build. This involves adding dependencies, annotation processors, and a generated source folder. Ensure the system property annotation processor runs before the Dagger annotation processor.
+First, add Rapier and Dagger to your build. This involves adding dependencies, annotation processors, and a generated source folder. You can add as many Rapier dependencies and annotation processors to your build as you'd like, but all the Rapier annotation processors run before the Dagger annotation processor.
 
 If using Maven, add this to your `pom.xml`:
 
@@ -150,7 +150,7 @@ Next, define a component class that uses the `@SystemProperty` annotation to cre
         public long timeout();
     }
     
-This will generate a new module, `RapierExampleComponentSystemPropertyModule`, for `ExampleComponent` in the same package. Note that the example component references the generated module by name. Generating the module isn't useful if it isn't added to the component!
+Rapier analyzes dependencies on the component level and generates a module for each component in the same package as the component. Therefore, the above will generate a new module, `RapierExampleComponentSystemPropertyModule`, for `ExampleComponent` in the same package. Note that the example component references the generated module by name. Generating the module isn't useful if it isn't added to the component!
 
 Now create and use the component in your code like any other Dagger component:
 
@@ -159,6 +159,54 @@ Now create and use the component in your code like any other Dagger component:
             .build();
         System.out.println(component.timeout());
     }
+
+
+## Provisioning sites
+
+Rapier is designed to integrate with Dagger seamlessly and supports provisioning system properties in most Dagger-supported injection sites. For example, the below shows how `@SystemProperty` can be used to provision configuration data in modules.
+
+    @Component(modules = {
+      ServerModule.class,
+      RapierExampleComponentSystemPropertyModule.class })
+    public class ExampleComponent {
+      public Server server();
+    }
+
+    @Module(includes = {DataStoreModule.class})
+    public class ServerModule {
+      @Provides
+      public Server getServer(
+          @SystemProperty(value = "SERVER_PORT", defaultValue = "7070") int port,
+          DataStore dataStore) {
+        return new ExampleServer(port, dataStore);
+      }
+    }
+    
+    @Module
+    public class DataStoreModule {
+      @Provides
+      public DataStore getDataStore(
+          @SystemProperty(value = "DATABASE_HOST", defaultValue = "localhost") String host,
+          @SystemProperty(value = "DATABASE_PORT", defaultValue = "5432") int port) {
+        return new ExampleDataStore(host, port);
+      }
+    }
+
+Rapier supports the following Dagger features for system property discovery:
+
+* Component-module dependencies (i.e., `@Component(modules)`)
+* Component-component dependencies (i.e., `@Component(dependencies)`)
+* Module-module dependencies (i.e., `@Module(includes)`)
+* Component provision methods
+* Module provide methods (i.e., `@Provider` methods without parameters)
+* Module factory methods (i.e., `@Provider` methods with parameters)
+* JSR 330-style `@Inject` constructors
+* JSR 330-style `@Inject` methods
+* JSR 330-style `@Inject` fields
+* `Lazy<T>`
+* `Provider<T>`
+
+For more information about Rapier's injection site discovery, see [the Rapier wiki](https://github.com/aleph0io/rapier/wiki/Injection-site-discovery).
 
 ## Customizing the code
 
