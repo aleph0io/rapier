@@ -392,45 +392,44 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
               .append(stringSignature(representationDefaultValue));
         }
 
+        final String representationAnnotation;
+        if (representationDefaultValue != null) {
+          representationAnnotation = "@EnvironmentVariable(value=\"" + name + "\", defaultValue=\""
+              + Java.escapeString(representationDefaultValue) + "\")";
+        } else {
+          representationAnnotation = "@EnvironmentVariable(\"" + name + "\")";
+        }
+
+        final boolean representationIsNullable =
+            representationDefaultValue == null && !parameterIsRequired;
+
+        final String nullableAnnotation = representationIsNullable ? "@Nullable" : "";
+
         if (getTypes().isSameType(type, getStringType())) {
+          writer.println("    " + nullableAnnotation);
+          writer.println("    @Provides");
+          writer.println("    " + representationAnnotation);
+          writer.println("    public String " + baseMethodName + "AsString() {");
+          writer.println("        final String name=" + nameExpr + ";");
+          writer.println("        final String value=env.get(name);");
           if (representationDefaultValue != null) {
-            writer.println("    @Provides");
-            writer.println("    @EnvironmentVariable(value=\"" + name + "\", defaultValue=\""
-                + Java.escapeString(representationDefaultValue) + "\")");
-            writer.println("    public String " + baseMethodName + "AsString() {");
-            writer.println("        final String name=" + nameExpr + ";");
-            writer.println("        final String value=env.get(name);");
-            writer.println("        return Optional.ofNullable(value).orElse(\""
-                + Java.escapeString(representationDefaultValue) + "\");");
-            writer.println("    }");
-            writer.println();
+            writer.println("        if(value == null)");
+            writer.println(
+                "            return \"" + Java.escapeString(representationDefaultValue) + "\";");
           } else if (parameterIsRequired) {
-            writer.println("    @Provides");
-            writer.println("    @EnvironmentVariable(\"" + name + "\")");
-            writer.println("    public String " + baseMethodName + "AsString() {");
-            writer.println("        final String name=" + nameExpr + ";");
-            writer.println("        final String value=env.get(name);");
-            writer.println("        if (value == null)");
+            writer.println("        if(value == null)");
             writer.println(
                 "            throw new IllegalStateException(\"Environment variable \" + name + \" not set\");");
-            writer.println("        return value;");
-            writer.println("    }");
-            writer.println();
-          } else {
+          }
+          writer.println("        return value;");
+          writer.println("    }");
+          writer.println();
+
+          if (representationIsNullable) {
             writer.println("    @Provides");
-            writer.println("    @Nullable");
-            writer.println("    @EnvironmentVariable(\"" + name + "\")");
-            writer.println("    public String " + baseMethodName + "AsString() {");
-            writer.println("        final String name=" + nameExpr + ";");
-            writer.println("        final String value=env.get(name);");
-            writer.println("        return value;");
-            writer.println("    }");
-            writer.println();
-            writer.println("    @Provides");
-            writer.println("    @EnvironmentVariable(\"" + name + "\")");
-            writer.println("    public Optional<String> " + baseMethodName
-                + "AsOptionalOfString(@Nullable @EnvironmentVariable(\"" + name
-                + "\") String value) {");
+            writer.println("    " + representationAnnotation);
+            writer.println("    public Optional<String> " + baseMethodName + "AsOptionalOfString("
+                + representationAnnotation + " String value) {");
             writer.println("        return Optional.ofNullable(value);");
             writer.println("    }");
             writer.println();
@@ -446,42 +445,37 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
 
           final String typeSimpleName = getSimpleTypeName(type);
 
-          if (representationDefaultValue != null) {
-            // We don't need to check nullability here because the default value "protects" us
-            // from any possible null values.
-            writer.println("    @Provides");
-            writer.println("    @EnvironmentVariable(value=\"" + name + "\", defaultValue=\""
-                + Java.escapeString(representationDefaultValue) + "\")");
-            writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
-                + "(@EnvironmentVariable(value=\"" + name + "\", defaultValue=\""
-                + Java.escapeString(representationDefaultValue) + "\") String value) {");
-            writer.println("        return " + conversionExpr + ";");
-            writer.println("    }");
-            writer.println();
-          } else if (parameterIsRequired) {
-            writer.println("    @Provides");
-            writer.println("    @EnvironmentVariable(\"" + name + "\")");
-            writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
-                + "(@EnvironmentVariable(\"" + name + "\") String value) {");
-            writer.println("        final " + type + " result = " + conversionExpr + ";");
+          writer.println("    " + nullableAnnotation);
+          writer.println("    @Provides");
+          writer.println("    " + representationAnnotation);
+          writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName + "("
+              + nullableAnnotation + " " + representationAnnotation + " String value) {");
+          if (representationIsNullable == true) {
+            writer.println("        if(value == null)");
+            writer.println("            return null;");
+          }
+          writer.println("        final " + type + " result;");
+          writer.println("        try {");
+          writer.println("            result = " + conversionExpr + ";");
+          writer.println("        } catch (Exception e) {");
+          writer.println("            final String name=" + nameExpr + ";");
+          writer.println("            throw new IllegalArgumentException(");
+          writer.println("                \"Environment variable \" + name + \" representation "
+              + type + " argument not valid\", e);");
+          writer.println("        }");
+          if (representationIsNullable == false) {
             writer.println("        if (result == null) {");
             writer.println("            final String name=" + nameExpr + ";");
             writer.println(
                 "            throw new IllegalStateException(\"Environment variable \" + name + \" representation "
                     + type + " not set\");");
             writer.println("        }");
-            writer.println("        return result;");
-            writer.println("    }");
-            writer.println();
-          } else {
-            writer.println("    @Provides");
-            writer.println("    @Nullable");
-            writer.println("    @EnvironmentVariable(\"" + name + "\")");
-            writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
-                + "(@Nullable @EnvironmentVariable(\"" + name + "\") String value) {");
-            writer.println("        return value != null ? " + conversionExpr + " : null;");
-            writer.println("    }");
-            writer.println();
+          }
+          writer.println("        return result;");
+          writer.println("    }");
+          writer.println();
+
+          if (representationIsNullable) {
             writer.println("    @Provides");
             writer.println("    @EnvironmentVariable(\"" + name + "\")");
             writer.println("    public Optional<" + type + "> " + baseMethodName + "AsOptionalOf"

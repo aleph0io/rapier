@@ -75,7 +75,415 @@ public class EnvironmentVariableProcessorRunTest extends RapierTestBase {
   }
 
   @Test
-  public void givenSimpleComponentWithNameTemplateEnvWithoutDefaultValue_whenCompileAndRunWithReferencedVariable_thenGetExpectedOutput()
+  public void givenComponentWithRequiredParameter_whenCompileAndRunWithValue_thenGetExpectedOutput()
+      throws IOException {
+    final JavaFileObject componentSource = prepareSourceFile("""
+        package com.example;
+
+        @dagger.Component(modules = {RapierExampleComponentEnvironmentVariableModule.class})
+        public interface ExampleComponent {
+            @rapier.envvar.EnvironmentVariable("FOO_BAR")
+            public String provisionFooBar();
+        }
+        """);
+
+    final JavaFileObject appSource = prepareSourceFile("""
+        package com.example;
+
+        import java.util.Map;
+
+        public class App {
+            public static void main(String[] args) {
+                final ExampleComponent component=DaggerExampleComponent.builder()
+                    .rapierExampleComponentEnvironmentVariableModule(
+                        new RapierExampleComponentEnvironmentVariableModule(Map.of(
+                            "FOO_BAR", "42")))
+                    .build();
+                System.out.println(component.provisionFooBar());
+            }
+        }
+        """);
+
+    // Run the annotation processor
+    final Compilation compilation = doCompile(componentSource, appSource);
+
+    // Assert the compilation succeeded
+    assertThat(compilation).succeeded();
+
+    final String output = doRun(compilation).trim();
+
+    assertEquals("42", output);
+  }
+
+  @Test
+  public void givenComponentWithRequiredParameter_whenCompileAndRunWithoutValue_thenCatchIllegalStateException()
+      throws IOException {
+    final JavaFileObject componentSource = prepareSourceFile("""
+        package com.example;
+
+        @dagger.Component(modules = {RapierExampleComponentEnvironmentVariableModule.class})
+        public interface ExampleComponent {
+            @rapier.envvar.EnvironmentVariable("FOO_BAR")
+            public String provisionFooBar();
+        }
+        """);
+
+    final JavaFileObject appSource = prepareSourceFile("""
+        package com.example;
+
+        import java.util.Map;
+
+        public class App {
+            public static void main(String[] args) {
+                try {
+                  // We have to actually use the created component to trigger it to be built
+                  DaggerExampleComponent.builder()
+                      .rapierExampleComponentEnvironmentVariableModule(
+                          new RapierExampleComponentEnvironmentVariableModule(Map.of()))
+                      .build()
+                      .provisionFooBar();
+                } catch (Exception e) {
+                    System.out.println(e.getClass().getName());
+                }
+            }
+        }
+        """);
+
+    // Run the annotation processor
+    final Compilation compilation = doCompile(componentSource, appSource);
+
+    // Assert the compilation succeeded
+    assertThat(compilation).succeeded();
+
+    final String output = doRun(compilation).trim();
+
+    assertEquals("java.lang.IllegalStateException", output);
+  }
+
+  @Test
+  public void givenComponentWithNullableParameter_whenCompileAndRunWithoutValue_thenGetExpectedOutput()
+      throws IOException {
+    final JavaFileObject componentSource = prepareSourceFile("""
+        package com.example;
+
+        @dagger.Component(modules = {RapierExampleComponentEnvironmentVariableModule.class})
+        public interface ExampleComponent {
+            @javax.annotation.Nullable
+            @rapier.envvar.EnvironmentVariable("FOO_BAR")
+            public String provisionFooBar();
+        }
+        """);
+
+    final JavaFileObject appSource = prepareSourceFile("""
+        package com.example;
+
+        import java.util.Map;
+
+        public class App {
+            public static void main(String[] args) {
+                final ExampleComponent component = DaggerExampleComponent.builder()
+                    .rapierExampleComponentEnvironmentVariableModule(
+                        new RapierExampleComponentEnvironmentVariableModule(Map.of()))
+                    .build();
+                System.out.println(component.provisionFooBar());
+            }
+        }
+        """);
+
+    // Run the annotation processor
+    final Compilation compilation = doCompile(componentSource, appSource);
+
+    // Assert the compilation succeeded
+    assertThat(compilation).succeeded();
+
+    final String output = doRun(compilation).trim();
+
+    assertEquals("null", output);
+  }
+
+  @Test
+  public void givenComponentWithNullableParameter_whenCompileAndRunWithValue_thenGetExpectedOutput()
+      throws IOException {
+    final JavaFileObject componentSource = prepareSourceFile("""
+        package com.example;
+
+        @dagger.Component(modules = {RapierExampleComponentEnvironmentVariableModule.class})
+        public interface ExampleComponent {
+            @javax.annotation.Nullable
+            @rapier.envvar.EnvironmentVariable("FOO_BAR")
+            public String provisionFooBar();
+        }
+        """);
+
+    final JavaFileObject appSource = prepareSourceFile("""
+        package com.example;
+
+        import java.util.Map;
+
+        public class App {
+            public static void main(String[] args) {
+                final ExampleComponent component = DaggerExampleComponent.builder()
+                    .rapierExampleComponentEnvironmentVariableModule(
+                        new RapierExampleComponentEnvironmentVariableModule(Map.of(
+                            "FOO_BAR", "42")))
+                    .build();
+                System.out.println(component.provisionFooBar());
+            }
+        }
+        """);
+
+    // Run the annotation processor
+    final Compilation compilation = doCompile(componentSource, appSource);
+
+    // Assert the compilation succeeded
+    assertThat(compilation).succeeded();
+
+    final String output = doRun(compilation).trim();
+
+    assertEquals("42", output);
+  }
+
+  @Test
+  public void givenComponentWithParameterWithDefaultValue_whenCompileAndRunWithoutValue_thenGetExpectedOutput()
+      throws IOException {
+    final JavaFileObject componentSource = prepareSourceFile("""
+        package com.example;
+
+        @dagger.Component(modules = {RapierExampleComponentEnvironmentVariableModule.class})
+        public interface ExampleComponent {
+            @javax.annotation.Nullable
+            @rapier.envvar.EnvironmentVariable(value="FOO_BAR", defaultValue="43")
+            public String provisionFooBar();
+        }
+        """);
+
+    final JavaFileObject appSource = prepareSourceFile("""
+        package com.example;
+
+        import java.util.Map;
+
+        public class App {
+            public static void main(String[] args) {
+                final ExampleComponent component = DaggerExampleComponent.builder()
+                    .rapierExampleComponentEnvironmentVariableModule(
+                        new RapierExampleComponentEnvironmentVariableModule(Map.of()))
+                    .build();
+                System.out.println(component.provisionFooBar());
+            }
+        }
+        """);
+
+    // Run the annotation processor
+    final Compilation compilation = doCompile(componentSource, appSource);
+
+    // Assert the compilation succeeded
+    assertThat(compilation).succeeded();
+
+    final String output = doRun(compilation).trim();
+
+    assertEquals("43", output);
+  }
+
+  @Test
+  public void givenComponentWithParameterWithDefaultValue_whenCompileAndRunWithValue_thenGetExpectedOutput()
+      throws IOException {
+    final JavaFileObject componentSource = prepareSourceFile("""
+        package com.example;
+
+        @dagger.Component(modules = {RapierExampleComponentEnvironmentVariableModule.class})
+        public interface ExampleComponent {
+            @javax.annotation.Nullable
+            @rapier.envvar.EnvironmentVariable(value="FOO_BAR", defaultValue="43")
+            public String provisionFooBar();
+        }
+        """);
+
+    final JavaFileObject appSource = prepareSourceFile("""
+        package com.example;
+
+        import java.util.Map;
+
+        public class App {
+            public static void main(String[] args) {
+                final ExampleComponent component = DaggerExampleComponent.builder()
+                    .rapierExampleComponentEnvironmentVariableModule(
+                        new RapierExampleComponentEnvironmentVariableModule(Map.of(
+                            "FOO_BAR", "42")))
+                    .build();
+                System.out.println(component.provisionFooBar());
+            }
+        }
+        """);
+
+    // Run the annotation processor
+    final Compilation compilation = doCompile(componentSource, appSource);
+
+    // Assert the compilation succeeded
+    assertThat(compilation).succeeded();
+
+    final String output = doRun(compilation).trim();
+
+    assertEquals("42", output);
+  }
+
+  @Test
+  public void givenComponentWithIntParameter_whenCompileAndRunWithNonIntArgument_thenCatchIllegalArgumentException()
+      throws IOException {
+    final JavaFileObject componentSource = prepareSourceFile("""
+        package com.example;
+
+        @dagger.Component(modules = {RapierExampleComponentEnvironmentVariableModule.class})
+        public interface ExampleComponent {
+            @rapier.envvar.EnvironmentVariable("FOO_BAR")
+            public int provisionFooBar();
+        }
+        """);
+
+    final JavaFileObject appSource = prepareSourceFile("""
+        package com.example;
+
+        import java.util.Map;
+
+        public class App {
+            public static void main(String[] args) {
+                try {
+                  // We have to actually use the created component to trigger it to be built
+                  DaggerExampleComponent.builder()
+                      .rapierExampleComponentEnvironmentVariableModule(
+                          new RapierExampleComponentEnvironmentVariableModule(Map.of(
+                              "FOO_BAR", "not an int")))
+                      .build()
+                      .provisionFooBar();
+                } catch (Exception e) {
+                    System.out.println(e.getClass().getName());
+                }
+            }
+        }
+        """);
+
+    // Run the annotation processor
+    final Compilation compilation = doCompile(componentSource, appSource);
+
+    // Assert the compilation succeeded
+    assertThat(compilation).succeeded();
+
+    final String output = doRun(compilation).trim();
+
+    assertEquals("java.lang.IllegalArgumentException", output);
+  }
+
+  @Test
+  public void givenComponentWithTypeConversionThatThrowsCheckedException_whenCompileAndRunWithoutThrow_thenGetExpectedOutput()
+      throws IOException {
+    final JavaFileObject componentSource = prepareSourceFile("""
+        package com.example;
+
+        @dagger.Component(modules = {RapierExampleComponentEnvironmentVariableModule.class})
+        public interface ExampleComponent {
+            @rapier.envvar.EnvironmentVariable("FOO_BAR")
+            public ExampleType provisionFooBar();
+        }
+        """);
+
+    final JavaFileObject typeSource = prepareSourceFile("""
+        package com.example;
+
+        public class ExampleType {
+            public final String value;
+            
+            public ExampleType(String value) throws Exception {
+                this.value = value;
+            }
+        }
+        """);
+
+    final JavaFileObject appSource = prepareSourceFile("""
+        package com.example;
+
+        import java.util.Map;
+
+        public class App {
+            public static void main(String[] args) {
+                ExampleComponent component = DaggerExampleComponent.builder()
+                    .rapierExampleComponentEnvironmentVariableModule(
+                        new RapierExampleComponentEnvironmentVariableModule(Map.of(
+                            "FOO_BAR", "example")))
+                    .build();
+                System.out.println(component.provisionFooBar().value);
+            }
+        }
+        """);
+
+    // Run the annotation processor
+    final Compilation compilation = doCompile(componentSource, typeSource, appSource);
+
+    // Assert the compilation succeeded
+    assertThat(compilation).succeeded();
+
+    final String output = doRun(compilation).trim();
+
+    assertEquals("example", output);
+  }
+
+  @Test
+  public void givenComponentWithTypeConversionThatThrowsCheckedException_whenCompileAndRunWithThrow_thenCatchIllegalArgumentException()
+      throws IOException {
+    final JavaFileObject componentSource = prepareSourceFile("""
+        package com.example;
+
+        @dagger.Component(modules = {RapierExampleComponentEnvironmentVariableModule.class})
+        public interface ExampleComponent {
+            @rapier.envvar.EnvironmentVariable("FOO_BAR")
+            public ExampleType provisionFooBar();
+        }
+        """);
+
+    final JavaFileObject typeSource = prepareSourceFile("""
+        package com.example;
+
+        public class ExampleType {
+            public final String value;
+            
+            public ExampleType(String value) throws Exception {
+                throw new Exception("hello");
+            }
+        }
+        """);
+
+    final JavaFileObject appSource = prepareSourceFile("""
+        package com.example;
+
+        import java.util.Map;
+
+        public class App {
+            public static void main(String[] args) {
+                try {
+                    DaggerExampleComponent.builder()
+                        .rapierExampleComponentEnvironmentVariableModule(
+                            new RapierExampleComponentEnvironmentVariableModule(Map.of(
+                                "FOO_BAR", "example")))
+                        .build()
+                        .provisionFooBar();
+                } catch (Exception e) {
+                    System.out.println(e.getClass().getName());
+                }
+            }
+        }
+        """);
+
+    // Run the annotation processor
+    final Compilation compilation = doCompile(componentSource, typeSource, appSource);
+
+    // Assert the compilation succeeded
+    assertThat(compilation).succeeded();
+
+    final String output = doRun(compilation).trim();
+
+    assertEquals("java.lang.IllegalArgumentException", output);
+  }
+
+  @Test
+  public void givenComponentWithNameTemplateEnvWithoutDefaultValue_whenCompileAndRunWithReferencedVariable_thenGetExpectedOutput()
       throws IOException {
     final JavaFileObject componentSource = prepareSourceFile("""
         package com.example;
@@ -117,7 +525,7 @@ public class EnvironmentVariableProcessorRunTest extends RapierTestBase {
   }
 
   @Test
-  public void givenSimpleComponentWithNameTemplateEnvWithoutDefaultValue_whenCompileAndRunWithoutReferencedVariable_thenCatchException()
+  public void givenComponentWithNameTemplateEnvWithoutDefaultValue_whenCompileAndRunWithoutReferencedVariable_thenCatchException()
       throws IOException {
     final JavaFileObject componentSource = prepareSourceFile("""
         package com.example;
@@ -163,7 +571,7 @@ public class EnvironmentVariableProcessorRunTest extends RapierTestBase {
   }
 
   @Test
-  public void givenSimpleComponentWithNameTemplateEnvWithDefaultValue_whenCompileAndRunWithReferencedVariable_thenGetExpectedOutput()
+  public void givenComponentWithNameTemplateEnvWithDefaultValue_whenCompileAndRunWithReferencedVariable_thenGetExpectedOutput()
       throws IOException {
     final JavaFileObject componentSource = prepareSourceFile("""
         package com.example;
@@ -205,7 +613,7 @@ public class EnvironmentVariableProcessorRunTest extends RapierTestBase {
   }
 
   @Test
-  public void givenSimpleComponentWithNameTemplateEnvWithDefaultValue_whenCompileAndRunWithoutReferencedVariable_thenCatchException()
+  public void givenComponentWithNameTemplateEnvWithDefaultValue_whenCompileAndRunWithoutReferencedVariable_thenCatchException()
       throws IOException {
     final JavaFileObject componentSource = prepareSourceFile("""
         package com.example;
@@ -247,7 +655,7 @@ public class EnvironmentVariableProcessorRunTest extends RapierTestBase {
   }
 
   @Test
-  public void givenSimpleComponentWithNameTemplateSysWithoutDefaultValue_whenCompileAndRunWithReferencedVariable_thenGetExpectedOutput()
+  public void givenComponentWithNameTemplateSysWithoutDefaultValue_whenCompileAndRunWithReferencedVariable_thenGetExpectedOutput()
       throws IOException {
     final JavaFileObject componentSource = prepareSourceFile("""
         package com.example;
@@ -290,7 +698,7 @@ public class EnvironmentVariableProcessorRunTest extends RapierTestBase {
   }
 
   @Test
-  public void givenSimpleComponentWithNameTemplateSysWithoutDefaultValue_whenCompileAndRunWithoutReferencedVariable_thenCatchException()
+  public void givenComponentWithNameTemplateSysWithoutDefaultValue_whenCompileAndRunWithoutReferencedVariable_thenCatchException()
       throws IOException {
     final JavaFileObject componentSource = prepareSourceFile("""
         package com.example;
@@ -337,7 +745,7 @@ public class EnvironmentVariableProcessorRunTest extends RapierTestBase {
   }
 
   @Test
-  public void givenSimpleComponentWithNameTemplateSysWithDefaultValue_whenCompileAndRunWithReferencedVariable_thenGetExpectedOutput()
+  public void givenComponentWithNameTemplateSysWithDefaultValue_whenCompileAndRunWithReferencedVariable_thenGetExpectedOutput()
       throws IOException {
     final JavaFileObject componentSource = prepareSourceFile("""
         package com.example;
@@ -380,7 +788,7 @@ public class EnvironmentVariableProcessorRunTest extends RapierTestBase {
   }
 
   @Test
-  public void givenSimpleComponentWithNameTemplateSysWithDefaultValue_whenCompileAndRunWithoutReferencedVariable_thenCatchException()
+  public void givenComponentWithNameTemplateSysWithDefaultValue_whenCompileAndRunWithoutReferencedVariable_thenCatchException()
       throws IOException {
     final JavaFileObject componentSource = prepareSourceFile("""
         package com.example;

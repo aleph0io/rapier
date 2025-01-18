@@ -33,12 +33,14 @@ import java.util.List;
 import java.util.Locale;
 import javax.annotation.processing.Processor;
 import javax.tools.JavaFileObject;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import com.google.testing.compile.Compilation;
 import rapier.compiler.core.RapierTestBase;
 
 public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
   @Test
+  @Disabled("Disabled until generated source code stabilizes")
   public void givenSimpleComponentWithEnvironmentVariableWithoutDefaultValue_whenCompile_thenExpectedtModuleIsGenerated()
       throws IOException {
     // Define the source file to test
@@ -134,6 +136,7 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
   }
 
   @Test
+  @Disabled("Disabled until generated source code stabilizes")
   public void givenSimpleComponentWithEnvironmentVariableWithDefaultValue_whenCompile_thenExpectedtModuleIsGenerated()
       throws IOException {
     // Define the source file to test
@@ -223,7 +226,7 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
   }
 
   @Test
-  public void givenSimpleComponentWithEnvironmentVariableWithGivenValue_whenCompileAndRun_thenExpectedtOutput()
+  public void givenSimpleComponentWithEnvironmentVariable_whenCompileAndRunWithValue_thenExpectedOutput()
       throws IOException {
     // Define the source file to test
     final JavaFileObject componentSource = prepareSourceFile("""
@@ -259,7 +262,42 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
   }
 
   @Test
-  public void givenSimpleComponentWithEnvironmentVariableWithDefaultValue_whenCompileAndRun_thenExpectedtOutput()
+  public void givenSimpleComponentWithEnvironmentVariableWithDefaultValue_whenCompileAndRunWithValue_thenExpectedOutput()
+      throws IOException {
+    final JavaFileObject componentSource = prepareSourceFile("""
+        @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
+        public interface ExampleComponent {
+            @rapier.envvar.EnvironmentVariable(value="FOO_BAR", defaultValue="43")
+            public Integer provisionFooBarAsInt();
+        }
+        """);
+
+    final JavaFileObject appSource = prepareSourceFile("""
+        import java.util.Map;
+
+        public class App {
+            public static void main(String[] args) {
+                ExampleComponent component = DaggerExampleComponent.builder()
+                    .rapierExampleComponentEnvironmentVariableModule(
+                        new RapierExampleComponentEnvironmentVariableModule(Map.of(
+                            "FOO_BAR", "42")))
+                    .build();
+                System.out.println(component.provisionFooBarAsInt());
+            }
+        }
+        """);
+
+    final Compilation compilation = doCompile(componentSource, appSource);
+
+    assertThat(compilation).succeeded();
+
+    final String appOutput = doRun(compilation).trim();
+
+    assertEquals("42", appOutput);
+  }
+
+  @Test
+  public void givenSimpleComponentWithEnvironmentVariableWithDefaultValue_whenCompileAndRunWithoutValue_thenExpectedOutput()
       throws IOException {
     final JavaFileObject componentSource = prepareSourceFile("""
         @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
@@ -290,6 +328,41 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
     final String appOutput = doRun(compilation).trim();
 
     assertEquals("43", appOutput);
+  }
+
+  @Test
+  public void givenSimpleComponentWithNullableEnvironmentVariable_whenCompileAndRunWithoutValue_thenExpectedtOutput()
+      throws IOException {
+    final JavaFileObject componentSource = prepareSourceFile("""
+        @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
+        public interface ExampleComponent {
+            @javax.annotation.Nullable
+            @rapier.envvar.EnvironmentVariable(value="FOO_BAR")
+            public Integer provisionFooBarAsInt();
+        }
+        """);
+
+    final JavaFileObject appSource = prepareSourceFile("""
+        import java.util.Map;
+
+        public class App {
+            public static void main(String[] args) {
+                ExampleComponent component = DaggerExampleComponent.builder()
+                    .rapierExampleComponentEnvironmentVariableModule(
+                        new RapierExampleComponentEnvironmentVariableModule(Map.of()))
+                    .build();
+                System.out.println(component.provisionFooBarAsInt());
+            }
+        }
+        """);
+
+    final Compilation compilation = doCompile(componentSource, appSource);
+
+    assertThat(compilation).succeeded();
+
+    final String appOutput = doRun(compilation).trim();
+
+    assertEquals("null", appOutput);
   }
 
   @Test

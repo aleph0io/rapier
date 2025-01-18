@@ -25,6 +25,7 @@ import javax.annotation.processing.AbstractProcessor;
 import javax.annotation.processing.Filer;
 import javax.annotation.processing.Messager;
 import javax.annotation.processing.ProcessingEnvironment;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
@@ -107,6 +108,24 @@ public abstract class RapierProcessorBase extends AbstractProcessor {
       stringType = getElements().getTypeElement("java.lang.String").asType();
     }
     return stringType;
+  }
+
+  private transient TypeMirror runtimeExceptionType;
+
+  protected TypeMirror getRuntimeExceptionType() {
+    if (runtimeExceptionType == null) {
+      runtimeExceptionType = getElements().getTypeElement("java.lang.RuntimeException").asType();
+    }
+    return runtimeExceptionType;
+  }
+
+  private transient TypeMirror exceptionType;
+
+  protected TypeMirror getExceptionType() {
+    if (exceptionType == null) {
+      exceptionType = getElements().getTypeElement("java.lang.Exception").asType();
+    }
+    return exceptionType;
   }
 
   /**
@@ -195,5 +214,38 @@ public abstract class RapierProcessorBase extends AbstractProcessor {
     });
 
     return result.toString();
+  }
+
+  /**
+   * Returns true if the given {@link ExecutableElement executable element} (e.g., a method) throws
+   * a checked exception.
+   * 
+   * @param element the element
+   * @return true if the element throws a checked, otherwise false
+   */
+  protected boolean throwsCheckedException(ExecutableElement element) {
+    if (element == null)
+      throw new NullPointerException();
+    return element.getThrownTypes().stream().anyMatch(this::isCheckedException);
+  }
+
+  /**
+   * Returns true if the given type is a checked exception.
+   * 
+   * @param type the type
+   * @return true if the type is a checked exception, i.e., a subtype of {@link Exception} but not a
+   *         subtype of {@link RuntimeException}
+   */
+  protected boolean isCheckedException(TypeMirror type) {
+    final boolean isSubtypeOfException = getTypes().isSubtype(type, getExceptionType());
+    if (isSubtypeOfException == false)
+      return false;
+
+    final boolean isSubtypeOfRuntimeException =
+        getTypes().isSubtype(type, getRuntimeExceptionType());
+    if (isSubtypeOfRuntimeException == true)
+      return false;
+
+    return true;
   }
 }

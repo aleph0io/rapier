@@ -328,8 +328,8 @@ public final class AnnotationProcessing {
     return Optional.empty();
   }
 
-  public static Optional<? extends AnnotationValue> findAnnotationValueByName(AnnotationMirror mirror,
-      String name) {
+  public static Optional<? extends AnnotationValue> findAnnotationValueByName(
+      AnnotationMirror mirror, String name) {
     return mirror.getElementValues().entrySet().stream()
         .filter(e -> e.getKey().getSimpleName().contentEquals(name)).map(Map.Entry::getValue)
         .findFirst();
