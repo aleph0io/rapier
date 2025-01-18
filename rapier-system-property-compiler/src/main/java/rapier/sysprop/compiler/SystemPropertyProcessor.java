@@ -368,8 +368,8 @@ public class SystemPropertyProcessor extends RapierProcessorBase {
           .println("    public " + moduleClassName + "(Map<String, String> env, Properties sys) {");
       writer.println("        this(env, sys.entrySet().stream()");
       writer.println("            .collect(toMap(");
-      writer.println("                e -> e.getKey().toString(),");
-      writer.println("                e -> e.getValue().toString())));");
+      writer.println("                e -> (String) e.getKey(),");
+      writer.println("                e -> (String) e.getValue())));");
       writer.println("    }");
       writer.println();
       writer.println(
