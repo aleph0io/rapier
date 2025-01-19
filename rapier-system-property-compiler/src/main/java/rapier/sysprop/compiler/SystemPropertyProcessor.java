@@ -40,6 +40,7 @@ import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
@@ -56,6 +57,7 @@ import dagger.Component;
 import rapier.compiler.core.ConversionExprFactory;
 import rapier.compiler.core.DaggerComponentAnalyzer;
 import rapier.compiler.core.RapierProcessorBase;
+import rapier.compiler.core.TemplateParser;
 import rapier.compiler.core.model.DaggerInjectionSite;
 import rapier.compiler.core.util.AnnotationProcessing;
 import rapier.compiler.core.util.CaseFormat;
@@ -144,8 +146,7 @@ public class SystemPropertyProcessor extends RapierProcessorBase {
     emitCompilerWarnings(injectionSites, parameterMetadataService);
 
     // Determine all the various and sundry representations to generate bindings for
-    final Set<RepresentationKey> representations =
-        this.computeRepresentationsToGenerate(injectionSites);
+    final Set<RepresentationKey> representations = computeRepresentationsToGenerate(injectionSites);
 
     final String componentPackageName =
         getElements().getPackageOf(component).getQualifiedName().toString();
@@ -181,7 +182,44 @@ public class SystemPropertyProcessor extends RapierProcessorBase {
         .analyzeComponent(component).getInjectionSites().stream()
         .filter(d -> d.getQualifier().isPresent()).filter(d -> getTypes()
             .isSameType(d.getQualifier().orElseThrow().getAnnotationType(), getQualifierType()))
-        .collect(toList());
+        .filter(d -> {
+          final ParameterKey parameter = ParameterKey.fromInjectionSite(d);
+          if (!isValidSystemPropertyNameTemplate(parameter.getName())) {
+            getMessager().printMessage(Diagnostic.Kind.ERROR,
+                "Invalid system property name template", d.getElement());
+            return false;
+          }
+          return true;
+        }).collect(toList());
+  }
+
+  private boolean isValidSystemPropertyNameTemplate(String template) {
+    final AtomicBoolean result = new AtomicBoolean(true);
+    try {
+      new TemplateParser().parse(template, new TemplateParser.ParseHandler() {
+        @Override
+        public void onText(int index, String text) {
+          if (!text.chars().allMatch(SystemPropertyProcessor.this::isValidSystemPropertyNameChar)) {
+            result.set(false);
+          }
+        }
+
+        @Override
+        public void onVariableExpression(int index, String variableName) {}
+
+        @Override
+        public void onVariableExpressionWithDefaultValue(int index, String variableName,
+            String defaultValue) {}
+      });
+    } catch (TemplateParser.TemplateSyntaxException e) {
+      result.set(false);
+    }
+    return result.get();
+  }
+
+  private boolean isValidSystemPropertyNameChar(int ch) {
+    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9')
+        || ch == '_' || ch == '.' || ch == '-';
   }
 
   @FunctionalInterface
