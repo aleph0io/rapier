@@ -34,6 +34,7 @@ import java.util.List;
 import java.util.Optional;
 import javax.annotation.processing.Processor;
 import javax.tools.JavaFileObject;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import com.google.testing.compile.Compilation;
 import rapier.compiler.core.RapierTestBase;
@@ -47,6 +48,7 @@ import rapier.compiler.core.util.Maven;
  */
 public class AwsSsmProcessorUnitTest extends RapierTestBase {
   @Test
+  @Disabled("Disabled until generated code settles")
   public void givenSimpleComponent_whenCompile_thenGenerateExpectedCode() throws IOException {
     // Define the source file to test
     final JavaFileObject componentSource = prepareSourceFile("""

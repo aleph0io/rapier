@@ -333,6 +333,8 @@ public class AwsSsmProcessor extends RapierProcessorBase {
       writer.println("import " + AwsSsmStringParameter.class.getName() + ";");
       writer.println("import dagger.Module;");
       writer.println("import dagger.Provides;");
+      writer.println("import java.io.IOException;");
+      writer.println("import java.io.UncheckedIOException;");
       writer.println("import java.util.Map;");
       writer.println("import java.util.Optional;");
       writer.println("import java.util.Properties;");
@@ -399,61 +401,55 @@ public class AwsSsmProcessor extends RapierProcessorBase {
               .append(stringSignature(representationDefaultValue));
         }
 
+        final String representationAnnotation;
+        if (representationDefaultValue != null) {
+          representationAnnotation = "@AwsSsmStringParameter(value=\"" + name
+              + "\", defaultValue=\"" + Java.escapeString(representationDefaultValue) + "\")";
+        } else {
+          representationAnnotation = "@AwsSsmStringParameter(\"" + name + "\")";
+        }
+
+        final boolean representationIsNullable =
+            representationDefaultValue == null && !parameterIsRequired;
+
+        final String nullableAnnotation = representationIsNullable ? "@Nullable" : "";
+
         if (getTypes().isSameType(type, getStringType())) {
+          writer.println("    " + nullableAnnotation);
+          writer.println("    @Provides");
+          writer.println("    " + representationAnnotation);
+          writer.println("    public String " + baseMethodName + "AsString() {");
+          writer.println("        final String name=" + nameExpr + ";");
+          writer.println("        String value;");
+          writer.println("        try {");
+          writer.println("            value = client");
+          writer.println("                .getParameter(b -> b.name(name))");
+          writer.println("                .parameter()");
+          writer.println("                .value();");
+          writer.println("        } catch(ParameterNotFoundException e) {");
           if (representationDefaultValue != null) {
-            writer.println("    @Provides");
-            writer.println("    @AwsSsmStringParameter(value=\"" + name + "\", defaultValue=\""
-                + Java.escapeString(representationDefaultValue) + "\")");
-            writer.println("    public String " + baseMethodName + "AsString() {");
-            writer.println("        final String name=" + nameExpr + ";");
-            writer.println("        try {");
-            writer.println("            return client");
-            writer.println("                .getParameter(b -> b.name(name))");
-            writer.println("                .parameter()");
-            writer.println("                .value();");
-            writer.println("        } catch(ParameterNotFoundException e) {");
             writer.println(
-                "            return \"" + Java.escapeString(representationDefaultValue) + "\";");
-            writer.println("        }");
-            writer.println("    }");
-            writer.println();
+                "            value = \"" + Java.escapeString(representationDefaultValue) + "\";");
           } else if (parameterIsRequired) {
-            writer.println("    @Provides");
-            writer.println("    @AwsSsmStringParameter(\"" + name + "\")");
-            writer.println("    public String " + baseMethodName + "AsString() {");
-            writer.println("        final String name=" + nameExpr + ";");
-            writer.println("        try {");
-            writer.println("            return client");
-            writer.println("                .getParameter(b -> b.name(name))");
-            writer.println("                .parameter()");
-            writer.println("                .value();");
-            writer.println("        } catch(ParameterNotFoundException e) {");
             writer.println(
                 "            throw new IllegalStateException(\"AWS SSM Parameter \" + name + \" not set\");");
-            writer.println("        }");
-            writer.println("    }");
-            writer.println();
           } else {
+            writer.println("            value = null;");
+          }
+          writer.println("        } catch(Exception e) {");
+          writer.println("            throw new UncheckedIOException(");
+          writer.println("                new IOException(");
+          writer.println("                    \"Failed to retrieve AWS SSM Parameter \" + name, e));");
+          writer.println("        }");
+          writer.println("        return value;");
+          writer.println("    }");
+          writer.println();
+
+          if (representationIsNullable) {
             writer.println("    @Provides");
-            writer.println("    @Nullable");
-            writer.println("    @AwsSsmStringParameter(\"" + name + "\")");
-            writer.println("    public String " + baseMethodName + "AsString() {");
-            writer.println("        final String name=" + nameExpr + ";");
-            writer.println("        try {");
-            writer.println("            return client");
-            writer.println("                .getParameter(b -> b.name(name))");
-            writer.println("                .parameter()");
-            writer.println("                .value();");
-            writer.println("        } catch(ParameterNotFoundException e) {");
-            writer.println("            return null;");
-            writer.println("        }");
-            writer.println("    }");
-            writer.println();
-            writer.println("    @Provides");
-            writer.println("    @AwsSsmStringParameter(\"" + name + "\")");
-            writer.println("    public Optional<String> " + baseMethodName
-                + "AsOptionalOfString(@Nullable @AwsSsmStringParameter(\"" + name
-                + "\") String value) {");
+            writer.println("    " + representationAnnotation);
+            writer.println("    public Optional<String> " + baseMethodName + "AsOptionalOfString("
+                + representationAnnotation + " String value) {");
             writer.println("        return Optional.ofNullable(value);");
             writer.println("    }");
             writer.println();
@@ -469,47 +465,41 @@ public class AwsSsmProcessor extends RapierProcessorBase {
 
           final String typeSimpleName = getSimpleTypeName(type);
 
-          if (representationDefaultValue != null) {
-            // We don't need to check nullability here because the default value "protects" us
-            // from any possible null values.
-            writer.println("    @Provides");
-            writer.println("    @AwsSsmStringParameter(value=\"" + name + "\", defaultValue=\""
-                + Java.escapeString(representationDefaultValue) + "\")");
-            writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
-                + "(@AwsSsmStringParameter(value=\"" + name + "\", defaultValue=\""
-                + Java.escapeString(representationDefaultValue) + "\") String value) {");
-            writer.println("        return " + conversionExpr + ";");
-            writer.println("    }");
-            writer.println();
-          } else if (parameterIsRequired) {
-            writer.println("    @Provides");
-            writer.println("    @AwsSsmStringParameter(\"" + name + "\")");
-            writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
-                + "(@AwsSsmStringParameter(\"" + name + "\") String value) {");
-            writer.println("        " + type + " result = " + conversionExpr + ";");
+          writer.println("    " + nullableAnnotation);
+          writer.println("    @Provides");
+          writer.println("    " + representationAnnotation);
+          writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName + "("
+              + nullableAnnotation + " " + representationAnnotation + " String value) {");
+          if (representationIsNullable == true) {
+            writer.println("        if(value == null)");
+            writer.println("            return null;");
+          }
+          writer.println("        final " + type + " result;");
+          writer.println("        try {");
+          writer.println("            result = " + conversionExpr + ";");
+          writer.println("        } catch (Exception e) {");
+          writer.println("            final String name=" + nameExpr + ";");
+          writer.println("            throw new IllegalArgumentException(");
+          writer.println("                \"Environment variable \" + name + \" representation "
+              + type + " argument not valid\", e);");
+          writer.println("        }");
+          if (representationIsNullable == false) {
             writer.println("        if (result == null) {");
             writer.println("            final String name=" + nameExpr + ";");
             writer.println(
-                "            throw new IllegalStateException(\"AWS SSM string parameter \" + name + \" representation "
+                "            throw new IllegalStateException(\"Environment variable \" + name + \" representation "
                     + type + " not set\");");
             writer.println("        }");
-            writer.println("        return result;");
-            writer.println("    }");
-            writer.println();
-          } else {
+          }
+          writer.println("        return result;");
+          writer.println("    }");
+          writer.println();
+
+          if (representationIsNullable) {
             writer.println("    @Provides");
-            writer.println("    @Nullable");
-            writer.println("    @AwsSsmStringParameter(\"" + name + "\")");
-            writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
-                + "(@Nullable @AwsSsmStringParameter(\"" + name + "\") String value) {");
-            writer.println("        return value != null ? " + conversionExpr + " : null;");
-            writer.println("    }");
-            writer.println();
-            writer.println("    @Provides");
-            writer.println("    @AwsSsmStringParameter(\"" + name + "\")");
+            writer.println("    " + representationAnnotation);
             writer.println("    public Optional<" + type + "> " + baseMethodName + "AsOptionalOf"
-                + typeSimpleName + "(@AwsSsmStringParameter(\"" + name
-                + "\") Optional<String> o) {");
+                + typeSimpleName + "(" + representationAnnotation + " Optional<String> o) {");
             writer.println("        return o.map(value -> " + conversionExpr + ");");
             writer.println("    }");
             writer.println();
