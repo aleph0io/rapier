@@ -384,7 +384,7 @@ public class AwsSsmProcessor extends RapierProcessorBase {
       writer.println("    }");
       writer.println();
       for (RepresentationKey representation : representationsInOrder) {
-        final TypeMirror type = representation.getType();
+        final TypeMirror representationType = representation.getType();
         final String name = representation.getName();
         final String nameExpr = this.compileTemplate(name, "env", "sys");
         final String representationDefaultValue = representation.getDefaultValue().orElse(null);
@@ -414,7 +414,7 @@ public class AwsSsmProcessor extends RapierProcessorBase {
 
         final String nullableAnnotation = representationIsNullable ? "@Nullable" : "";
 
-        if (getTypes().isSameType(type, getStringType())) {
+        if (getTypes().isSameType(representationType, getStringType())) {
           writer.println("    " + nullableAnnotation);
           writer.println("    @Provides");
           writer.println("    " + representationAnnotation);
@@ -439,7 +439,8 @@ public class AwsSsmProcessor extends RapierProcessorBase {
           writer.println("        } catch(Exception e) {");
           writer.println("            throw new UncheckedIOException(");
           writer.println("                new IOException(");
-          writer.println("                    \"Failed to retrieve AWS SSM Parameter \" + name, e));");
+          writer.println(
+              "                    \"Failed to retrieve AWS SSM Parameter \" + name, e));");
           writer.println("        }");
           writer.println("        return value;");
           writer.println("    }");
@@ -456,39 +457,40 @@ public class AwsSsmProcessor extends RapierProcessorBase {
           }
         } else {
           final String conversionExpr =
-              getConverter().generateConversionExpr(type, "value").orElse(null);
+              getConverter().generateConversionExpr(representationType, "value").orElse(null);
           if (conversionExpr == null) {
             getMessager().printMessage(Diagnostic.Kind.ERROR,
-                "Cannot convert " + type + " from " + getStringType());
+                "Cannot convert " + representationType + " from " + getStringType());
             continue;
           }
 
-          final String typeSimpleName = getSimpleTypeName(type);
+          final String typeSimpleName = getSimpleTypeName(representationType);
 
           writer.println("    " + nullableAnnotation);
           writer.println("    @Provides");
           writer.println("    " + representationAnnotation);
-          writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName + "("
-              + nullableAnnotation + " " + representationAnnotation + " String value) {");
+          writer.println(
+              "    public " + representationType + " " + baseMethodName + "As" + typeSimpleName
+                  + "(" + nullableAnnotation + " " + representationAnnotation + " String value) {");
           if (representationIsNullable == true) {
             writer.println("        if(value == null)");
             writer.println("            return null;");
           }
-          writer.println("        final " + type + " result;");
+          writer.println("        final " + representationType + " result;");
           writer.println("        try {");
           writer.println("            result = " + conversionExpr + ";");
           writer.println("        } catch (Exception e) {");
           writer.println("            final String name=" + nameExpr + ";");
           writer.println("            throw new IllegalArgumentException(");
           writer.println("                \"Environment variable \" + name + \" representation "
-              + type + " argument not valid\", e);");
+              + representationType + " argument not valid\", e);");
           writer.println("        }");
           if (representationIsNullable == false) {
             writer.println("        if (result == null) {");
             writer.println("            final String name=" + nameExpr + ";");
             writer.println(
                 "            throw new IllegalStateException(\"Environment variable \" + name + \" representation "
-                    + type + " not set\");");
+                    + representationType + " not set\");");
             writer.println("        }");
           }
           writer.println("        return result;");
@@ -498,9 +500,10 @@ public class AwsSsmProcessor extends RapierProcessorBase {
           if (representationIsNullable) {
             writer.println("    @Provides");
             writer.println("    " + representationAnnotation);
-            writer.println("    public Optional<" + type + "> " + baseMethodName + "AsOptionalOf"
-                + typeSimpleName + "(" + representationAnnotation + " Optional<String> o) {");
-            writer.println("        return o.map(value -> " + conversionExpr + ");");
+            writer.println("    public Optional<" + representationType + "> " + baseMethodName
+                + "AsOptionalOf" + typeSimpleName + "(" + representationAnnotation + " "
+                + representationType + " value) {");
+            writer.println("        return Optional.ofNullable(value);");
             writer.println("    }");
             writer.println();
           }
