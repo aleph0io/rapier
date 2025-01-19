@@ -1422,6 +1422,10 @@ public class CliProcessor extends RapierProcessorBase {
           out.println("            return singletonList(\""
               + Java.escapeString(representationDefaultValue) + "\");");
         } else if (parameterIsRequired == false) {
+          // This code looks weird because the logic is not entirely localized. Additional logic is
+          // included in the constructor. If a required parameter is not set, the constructor will
+          // throw an exception. If an optional parameter is not set, the constructor will set the
+          // field to null. This is why we check for null here.
           out.println("        if(" + fieldName + " == null)");
           out.println("            return emptyList();");
         }
@@ -1453,7 +1457,20 @@ public class CliProcessor extends RapierProcessorBase {
         out.println("    " + representationAnnotation);
         out.println("    public " + representationType + " " + baseMethodName + "As"
             + typeSimpleName + "(" + representationAnnotation + " List<String> value) {");
-        out.println("        return " + conversionExpr + ";");
+        out.println("        " + representationType + " result;");
+        out.println("        try {");
+        out.println("            result = " + conversionExpr + ";");
+        out.println("        } catch (Exception e) {");
+        out.println("            throw new IllegalArgumentException(");
+        out.println("                \"Positional parameter " + position + " representation "
+            + representationType + " argument not valid\", e);");
+        out.println("        }");
+        out.println("        if(result == null) {");
+        out.println("            throw new IllegalStateException(");
+        out.println("                \"Positional parameter " + position + " representation "
+            + representationType + " not set\");");
+        out.println("        }");
+        out.println("        return result;");
         out.println("    }");
         out.println();
 
@@ -1461,8 +1478,8 @@ public class CliProcessor extends RapierProcessorBase {
           out.println("    @Provides");
           out.println("    " + representationAnnotation);
           out.println("    public Optional<" + representationType + "> " + baseMethodName
-              + "AsOptionalOf" + typeSimpleName + "(" + representationAnnotation
-              + " " + representationType+" value) {");
+              + "AsOptionalOf" + typeSimpleName + "(" + representationAnnotation + " "
+              + representationType + " value) {");
           out.println("        return Optional.of(value);");
           out.println("    }");
           out.println();
@@ -1480,12 +1497,15 @@ public class CliProcessor extends RapierProcessorBase {
         out.println("    " + representationAnnotation);
         out.println("    public String " + baseMethodName + "AsString() {");
         if (representationDefaultValue != null) {
-          out.println("        if(" + fieldName + " == null)");
+          out.println("        if(" + fieldName + " == null) {");
           out.println(
               "            return \"" + Java.escapeString(representationDefaultValue) + "\";");
-        } else if (parameterIsRequired == false) {
-          out.println("        if(" + fieldName + " == null)");
-          out.println("            return null;");
+          out.println("        }");
+        } else if (parameterIsRequired) {
+          out.println("        if(" + fieldName + " == null) {");
+          out.println("            throw new IllegalStateException(");
+          out.println("                \"Positional parameter " + position + " not set\");");
+          out.println("        }");
         }
         out.println("        return " + fieldName + ";");
         out.println("    }");
@@ -1518,11 +1538,26 @@ public class CliProcessor extends RapierProcessorBase {
             + typeSimpleName + "(" + representationAnnotation + " String value) {");
         out.println("        if(value == null)");
         out.println("            return null;");
-        out.println("        return " + conversionExpr + ";");
+        out.println("        " + representationType + " result;");
+        out.println("        try {");
+        out.println("            result = " + conversionExpr + ";");
+        out.println("        } catch (Exception e) {");
+        out.println("            throw new IllegalArgumentException(");
+        out.println("                \"Positional parameter " + position + " representation "
+            + representationType + " argument not valid\", e);");
+        out.println("        }");
+        if(representationIsNullable == false) {
+          out.println("        if(result == null) {");
+          out.println("            throw new IllegalStateException(");
+          out.println("                \"Positional parameter " + position + " representation "
+              + representationType + " not set\");");
+          out.println("        }");
+        }
+        out.println("        return result;");
         out.println("    }");
         out.println();
 
-        if (representationIsNullable) {
+        if (representationIsNullable == true) {
           out.println("    " + nullableAnnotation);
           out.println("    @Provides");
           out.println("    " + representationAnnotation);
