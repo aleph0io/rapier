@@ -1502,10 +1502,7 @@ public class CliProcessor extends RapierProcessorBase {
               "            return \"" + Java.escapeString(representationDefaultValue) + "\";");
           out.println("        }");
         } else if (parameterIsRequired) {
-          out.println("        if(" + fieldName + " == null) {");
-          out.println("            throw new IllegalStateException(");
-          out.println("                \"Positional parameter " + position + " not set\");");
-          out.println("        }");
+          // No special action required here. It is handled in the constructor.
         }
         out.println("        return " + fieldName + ";");
         out.println("    }");
@@ -1546,7 +1543,7 @@ public class CliProcessor extends RapierProcessorBase {
         out.println("                \"Positional parameter " + position + " representation "
             + representationType + " argument not valid\", e);");
         out.println("        }");
-        if(representationIsNullable == false) {
+        if (representationIsNullable == false) {
           out.println("        if(result == null) {");
           out.println("            throw new IllegalStateException(");
           out.println("                \"Positional parameter " + position + " representation "
@@ -1726,194 +1723,150 @@ public class CliProcessor extends RapierProcessorBase {
       baseMethodName.append("WithDefaultValue").append(stringSignature(representationDefaultValue));
     }
 
-    if (representationIsList == true
-        && getTypes().isSameType(representationType, getListOfStringType())) {
-      // This is a varargs parameter, and we're generating the "default" binding.
-      if (representationDefaultValue != null) {
-        final String defaultValueExpr = "\"" + Java.escapeString(representationDefaultValue) + "\"";
+    final String representationAnnotation;
+    if (representationDefaultValue != null) {
+      representationAnnotation = "@CliOptionParameter(" + nameClauses + ", defaultValue=\""
+          + Java.escapeString(representationDefaultValue) + "\")";
+    } else {
+      representationAnnotation = "@CliOptionParameter(" + nameClauses + ")";
+    }
+
+    if (representationIsList) {
+      if (getTypes().isSameType(representationType, getListOfStringType())) {
         out.println("    @Provides");
-        out.println(
-            "    @CliOptionParameter(" + nameClauses + ", defaultValue=" + defaultValueExpr + ")");
+        out.println("    " + representationAnnotation);
         out.println("    public List<String> " + baseMethodName + "AsListOfString() {");
-        out.println("        if(" + fieldName + " == null)");
-        out.println("            return singletonList(" + defaultValueExpr + ");");
+        if (representationDefaultValue != null) {
+          out.println("        if(" + fieldName + " == null)");
+          out.println("            return singletonList(\""
+              + Java.escapeString(representationDefaultValue) + "\");");
+        } else if (parameterIsRequired == false) {
+          // This code looks weird because the logic is not entirely localized. Additional logic is
+          // included in the constructor. If a required parameter is not set, the constructor will
+          // throw an exception. If an optional parameter is not set, the constructor will set the
+          // field to null. This is why we check for null here.
+          out.println("        if(" + fieldName + " == null)");
+          out.println("            return emptyList();");
+        }
         out.println("        return " + fieldName + ";");
         out.println("    }");
         out.println();
-      } else if (parameterIsRequired) {
-        // We don't need to check for null here because we already did in the constructor
-        out.println("    @Provides");
-        out.println("    @CliOptionParameter(" + nameClauses + ")");
-        out.println("    public List<String> " + baseMethodName + "AsListOfString() {");
-        out.println("        return " + fieldName + ";");
-        out.println("    }");
-        out.println();
+
+        if (representationDefaultValue == null && parameterIsRequired == false) {
+          out.println("    @Provides");
+          out.println("    " + representationAnnotation);
+          out.println("    public Optional<List<String>> " + baseMethodName
+              + "AsOptionalOfListOfString(" + representationAnnotation + " List<String> value) {");
+          out.println("        return Optional.of(value);");
+          out.println("    }");
+          out.println();
+        }
       } else {
-        // We never generate a nullable list of strings. We just use empty list.
+        final String typeSimpleName = getSimpleTypeName(representationType);
+        final String conversionExpr = listOfStringConversionExpr;
+
         out.println("    @Provides");
-        out.println("    @CliOptionParameter(" + nameClauses + ")");
-        out.println("    public List<String> " + baseMethodName + "AsListOfString() {");
-        out.println("        if(" + fieldName + " == null)");
-        out.println("            return emptyList();");
-        out.println("        return " + fieldName + ";");
+        out.println("    " + representationAnnotation);
+        out.println("    public " + representationType + " " + baseMethodName + "As"
+            + typeSimpleName + "(" + representationAnnotation + " List<String> value) {");
+        out.println("        " + representationType + " result;");
+        out.println("        try {");
+        out.println("            result = " + conversionExpr + ";");
+        out.println("        } catch (Exception e) {");
+        out.println("            throw new IllegalArgumentException(");
+        out.println("                \"Option parameter " + userFacingName + " representation "
+            + representationType + " argument not valid\", e);");
+        out.println("        }");
+        out.println("        if(result == null) {");
+        out.println("            throw new IllegalStateException(");
+        out.println("                \"Option parameter " + userFacingName + " representation "
+            + representationType + " not set\");");
+        out.println("        }");
+        out.println("        return result;");
         out.println("    }");
         out.println();
-        out.println("    @Provides");
-        out.println("    @CliOptionParameter(" + nameClauses + ")");
-        out.println("    public Optional<List<String>> " + baseMethodName
-            + "AsOptionalOfString(@CliOptionParameter(" + nameClauses + ") List<String> value) {");
-        out.println("        return Optional.of(value);");
-        out.println("    }");
-        out.println();
-      }
-    } else if (representationIsList == false
-        && getTypes().isSameType(representationType, getStringType())) {
-      // This is a single positional parameter, and we are generating the "default" binding
-      if (representationDefaultValue != null) {
-        // We can safely access the first value because the default value guarantees it exists
-        final String defaultValueExpr = "\"" + Java.escapeString(representationDefaultValue) + "\"";
-        out.println("    @Provides");
-        out.println(
-            "    @CliOptionParameter(" + nameClauses + ", defaultValue=" + defaultValueExpr + ")");
-        out.println("    public String " + baseMethodName + "AsString(");
-        out.println("            @CliOptionParameter(" + nameClauses + ", defaultValue="
-            + defaultValueExpr + ") List<String> values) {");
-        out.println("        return values.get(values.size()-1);");
-        out.println("    }");
-        out.println();
-      } else if (parameterIsRequired) {
-        // We don't need to check for null here because we already did in the constructor
-        out.println("    @Provides");
-        out.println("    @CliOptionParameter(" + nameClauses + ")");
-        out.println("    public String " + baseMethodName + "AsString(");
-        out.println("            @CliOptionParameter(" + nameClauses + ") List<String> values) {");
-        out.println("        return values.get(values.size()-1);");
-        out.println("    }");
-        out.println();
-      } else {
-        out.println("    @Provides");
-        out.println("    @Nullable");
-        out.println("    @CliOptionParameter(" + nameClauses + ")");
-        out.println("    public String " + baseMethodName + "AsString(");
-        out.println("            @CliOptionParameter(" + nameClauses + ") List<String> values) {");
-        out.println("        if(values.isEmpty())");
-        out.println("            return null;");
-        out.println("        return values.get(values.size()-1);");
-        out.println("    }");
-        out.println();
-        out.println("    @Provides");
-        out.println("    @CliOptionParameter(" + nameClauses + ")");
-        out.println("    public Optional<String> " + baseMethodName
-            + "AsOptionalOfString(@Nullable @CliPositionalParameter(" + nameClauses
-            + ") String value) {");
-        out.println("        return Optional.ofNullable(value);");
-        out.println("    }");
-        out.println();
+
+        if (representationDefaultValue == null && parameterIsRequired == false) {
+          out.println("    @Provides");
+          out.println("    " + representationAnnotation);
+          out.println("    public Optional<" + representationType + "> " + baseMethodName
+              + "AsOptionalOf" + typeSimpleName + "(" + representationAnnotation + " "
+              + representationType + " value) {");
+          out.println("        return Optional.of(value);");
+          out.println("    }");
+          out.println();
+        }
       }
     } else {
-      final String typeSimpleName = getSimpleTypeName(representationType);
-      if (representationIsList) {
-        final String conversionExpr = getListOfStringConverter()
-            .generateConversionExpr(representationType, "value").orElse(null);
-        if (conversionExpr == null) {
-          // This should never happen, we've already checked that the conversion is possible.
-          getMessager().printMessage(Diagnostic.Kind.ERROR,
-              "Cannot convert " + representationType + " from " + getStringType());
-          return;
-        }
+      final boolean representationIsNullable =
+          representationDefaultValue == null && !parameterIsRequired;
 
+      final String nullableAnnotation = representationIsNullable ? "@Nullable" : "";
+
+      if (getTypes().isSameType(representationType, getStringType())) {
+        out.println("    " + nullableAnnotation);
+        out.println("    @Provides");
+        out.println("    " + representationAnnotation);
+        out.println("    public String " + baseMethodName + "AsString() {");
         if (representationDefaultValue != null) {
-          // We don't need to check nullability here because the default value "protects" us
-          // from any possible null values.
-          final String defaultValueExpr =
-              "\"" + Java.escapeString(representationDefaultValue) + "\"";
-          out.println("    @Provides");
-          out.println("    @CliOptionParameter(" + nameClauses + ", defaultValue="
-              + defaultValueExpr + ")");
-          out.println("    public " + representationType + " " + baseMethodName + "As"
-              + typeSimpleName + "(@CliOptionParameter(" + nameClauses + ", defaultValue="
-              + defaultValueExpr + " ) List<String> value) {");
-          out.println("        return " + conversionExpr + ";");
-          out.println("    }");
-          out.println();
+          out.println("        if(" + fieldName + " == null) {");
+          out.println(
+              "            return \"" + Java.escapeString(representationDefaultValue) + "\";");
+          out.println("        }");
         } else if (parameterIsRequired) {
-          // We don't need to check for null here because we already did in the constructor
+          // No special action required here. It is handled in the constructor.
+        }
+        out.println("        return " + fieldName + ".get(" + fieldName + ".size()-1);");
+        out.println("    }");
+        out.println();
+
+        if (representationIsNullable) {
           out.println("    @Provides");
-          out.println("    @CliOptionParameter(" + nameClauses + ")");
-          out.println("    public " + representationType + " " + baseMethodName + "As"
-              + typeSimpleName + "(@CliOptionParameter(" + nameClauses + ") List<String> value) {");
-          out.println("        return " + conversionExpr + ";");
-          out.println("    }");
-          out.println();
-        } else {
-          // We never generate a nullable list of strings. We just use empty list.
-          out.println("    @Provides");
-          out.println("    @CliOptionParameter(" + nameClauses + ")");
-          out.println("    public " + representationType + " " + baseMethodName + "As"
-              + typeSimpleName + "(@CliOptionParameter(" + nameClauses + ") List<String> value) {");
-          out.println("        return " + conversionExpr + ";");
-          out.println("    }");
-          out.println();
-          out.println("    @Provides");
-          out.println("    @CliOptionParameter(" + nameClauses + ")");
-          out.println("    public Optional<" + representationType + "> " + baseMethodName
-              + "AsOptionalOf" + typeSimpleName + "(@CliOptionParameter(" + nameClauses
-              + ") Optional<List<String>> o) {");
-          out.println("        return o.map(value -> " + conversionExpr + ");");
+          out.println("    " + representationAnnotation);
+          out.println("    public Optional<String> " + baseMethodName + "AsOptionalOfString("
+              + representationAnnotation + " String value) {");
+          out.println("        return Optional.ofNullable(value);");
           out.println("    }");
           out.println();
         }
       } else {
-        final String conversionExpr =
-            getStringConverter().generateConversionExpr(representationType, "value").orElse(null);
-        if (conversionExpr == null) {
-          // This should never happen, we've already checked that the conversion is possible.
-          getMessager().printMessage(Diagnostic.Kind.ERROR,
-              "Cannot convert " + representationType + " from " + getStringType());
-          return;
-        }
+        final String typeSimpleName = getSimpleTypeName(representationType);
+        final String conversionExpr = stringConversionExpr;
 
-        if (representationDefaultValue != null) {
-          // We don't need to check nullability here because the default value "protects" us
-          // from any possible null values.
-          final String defaultValueExpr =
-              "\"" + Java.escapeString(representationDefaultValue) + "\"";
+        out.println("    " + nullableAnnotation);
+        out.println("    @Provides");
+        out.println("    " + representationAnnotation);
+        out.println("    public " + representationType + " " + baseMethodName + "As"
+            + typeSimpleName + "(" + representationAnnotation + " String value) {");
+        out.println("        if(value == null)");
+        out.println("            return null;");
+        out.println("        " + representationType + " result;");
+        out.println("        try {");
+        out.println("            result = " + conversionExpr + ";");
+        out.println("        } catch (Exception e) {");
+        out.println("            throw new IllegalArgumentException(");
+        out.println("                \"Option parameter " + userFacingName + " representation "
+            + representationType + " argument not valid\", e);");
+        out.println("        }");
+        if (representationIsNullable == false) {
+          out.println("        if(result == null) {");
+          out.println("            throw new IllegalStateException(");
+          out.println("                \"Option parameter " + userFacingName + " representation "
+              + representationType + " not set\");");
+          out.println("        }");
+        }
+        out.println("        return result;");
+        out.println("    }");
+        out.println();
+
+        if (representationIsNullable == true) {
+          out.println("    " + nullableAnnotation);
           out.println("    @Provides");
-          out.println("    @CliOptionParameter(" + nameClauses + ", defaultValue="
-              + defaultValueExpr + ")");
-          out.println("    public " + representationType + " " + baseMethodName + "As"
-              + typeSimpleName + "(@CliOptionParameter(" + nameClauses + ", defaultValue="
-              + defaultValueExpr + " ) String value) {");
-          out.println("        return " + conversionExpr + ";");
-          out.println("    }");
-          out.println();
-        } else if (parameterIsRequired) {
-          // We don't need to check for null here because we already did in the constructor
-          out.println("    @Provides");
-          out.println("    @CliOptionParameter(" + nameClauses + ")");
-          out.println("    public " + representationType + " " + baseMethodName + "As"
-              + typeSimpleName + "(@CliOptionParameter(" + nameClauses + ") String value) {");
-          out.println("        return " + conversionExpr + ";");
-          out.println("    }");
-          out.println();
-        } else {
-          out.println("    @Provides");
-          out.println("    @Nullable");
-          out.println("    @CliOptionParameter(" + nameClauses + ")");
-          out.println(
-              "    public " + representationType + " " + baseMethodName + "As" + typeSimpleName
-                  + "(@Nullable @CliOptionParameter(" + nameClauses + ") String value) {");
-          out.println("        if(value == null)");
-          out.println("            return null;");
-          out.println("        return " + conversionExpr + ";");
-          out.println("    }");
-          out.println();
-          out.println("    @Provides");
-          out.println("    @CliOptionParameter(" + nameClauses + ")");
+          out.println("    " + representationAnnotation);
           out.println("    public Optional<" + representationType + "> " + baseMethodName
-              + "AsOptionalOf" + typeSimpleName + "(@CliOptionParameter(" + nameClauses
-              + ") Optional<String> o) {");
-          out.println("        return o.map(value -> " + conversionExpr + ");");
+              + "AsOptionalOf" + typeSimpleName + "(" + representationAnnotation + " "
+              + representationType + " value) {");
+          out.println("        return Optional.ofNullable(value);");
           out.println("    }");
           out.println();
         }
