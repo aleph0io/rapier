@@ -2105,198 +2105,153 @@ public class CliProcessor extends RapierProcessorBase {
           .append(representationDefaultValue.booleanValue() ? "True" : "False");
     }
 
-    if (representationIsList == true
-        && getTypes().isSameType(representationType, getListOfBooleanType())) {
-      if (representationDefaultValue != null) {
-        final String annotationDefaultValueExpr =
-            "CliFlagParameterValue." + representationDefaultValue;
-        final String javaDefaultValueExpr = "Boolean." + representationDefaultValue;
+    final String annotationDefaultValueExpr = "CliFlagParameterValue." + representationDefaultValue;
+
+    final String javaDefaultValueExpr = "Boolean." + representationDefaultValue;
+
+    final String representationAnnotation;
+    if (representationDefaultValue != null) {
+      representationAnnotation =
+          "@CliFlagParameter(" + nameClauses + ", defaultValue=" + annotationDefaultValueExpr + ")";
+    } else {
+      representationAnnotation = "@CliFlagParameter(" + nameClauses + ")";
+    }
+
+    if (representationIsList) {
+      if (getTypes().isSameType(representationType, getListOfBooleanType())) {
         out.println("    @Provides");
-        out.println("    @CliFlagParameter(" + nameClauses + ", defaultValue="
-            + annotationDefaultValueExpr + ")");
+        out.println("    " + representationAnnotation);
         out.println("    public List<Boolean> " + baseMethodName + "AsListOfBoolean() {");
-        out.println("        if(" + fieldName + " == null)");
-        out.println("            return singletonList(" + javaDefaultValueExpr + ");");
+        if (representationDefaultValue != null) {
+          out.println("        if(" + fieldName + " == null)");
+          out.println("            return singletonList(" + javaDefaultValueExpr + ");");
+        } else if (parameterIsRequired == false) {
+          // This code looks weird because the logic is not entirely localized. Additional logic is
+          // included in the constructor. If a required parameter is not set, the constructor will
+          // throw an exception. If an optional parameter is not set, the constructor will set the
+          // field to null. This is why we check for null here.
+          out.println("        if(" + fieldName + " == null)");
+          out.println("            return emptyList();");
+        }
         out.println("        return " + fieldName + ";");
         out.println("    }");
         out.println();
-      } else if (parameterIsRequired) {
-        // We don't need to check for null here because we already did in the constructor
-        out.println("    @Provides");
-        out.println("    @CliFlagParameter(" + nameClauses + ")");
-        out.println("    public List<Boolean> " + baseMethodName + "AsListOfBoolean() {");
-        out.println("        return " + fieldName + ";");
-        out.println("    }");
-        out.println();
+
+        if (representationDefaultValue == null && parameterIsRequired == false) {
+          out.println("    @Provides");
+          out.println("    " + representationAnnotation);
+          out.println("    public Optional<List<String>> " + baseMethodName
+              + "AsOptionalOfListOfString(" + representationAnnotation + " List<String> value) {");
+          out.println("        return Optional.of(value);");
+          out.println("    }");
+          out.println();
+        }
       } else {
-        // We never generate a nullable list of strings. We just use empty list.
+        final String typeSimpleName = getSimpleTypeName(representationType);
+        final String conversionExpr = listOfBooleanConversionExpr;
+
         out.println("    @Provides");
-        out.println("    @CliFlagParameter(" + nameClauses + ")");
-        out.println("    public List<Boolean> " + baseMethodName + "AsListOfBoolean() {");
-        out.println("        if(" + fieldName + " == null)");
-        out.println("            return emptyList();");
-        out.println("        return " + fieldName + ";");
+        out.println("    " + representationAnnotation);
+        out.println("    public " + representationType + " " + baseMethodName + "As"
+            + typeSimpleName + "(" + representationAnnotation + " List<Boolean> value) {");
+        out.println("        " + representationType + " result;");
+        out.println("        try {");
+        out.println("            result = " + conversionExpr + ";");
+        out.println("        } catch (Exception e) {");
+        out.println("            throw new IllegalArgumentException(");
+        out.println("                \"Option parameter " + userFacingName + " representation "
+            + representationType + " argument not valid\", e);");
+        out.println("        }");
+        out.println("        if(result == null) {");
+        out.println("            throw new IllegalStateException(");
+        out.println("                \"Option parameter " + userFacingName + " representation "
+            + representationType + " not set\");");
+        out.println("        }");
+        out.println("        return result;");
         out.println("    }");
         out.println();
-        out.println("    @Provides");
-        out.println("    @CliFlagParameter(" + nameClauses + ")");
-        out.println("    public Optional<List<Boolean>> " + baseMethodName
-            + "AsOptionalOfBoolean(@CliFlagParameter(" + nameClauses + ") List<Boolean> values) {");
-        out.println("        return Optional.of(values);");
-        out.println("    }");
-        out.println();
-      }
-    } else if (representationIsList == false
-        && getTypes().isSameType(representationType, getBooleanType())) {
-      // This is a single positional parameter, and we are generating the "default" binding
-      if (representationDefaultValue != null) {
-        // We can just grab the first element. The default value guarantees it's there.
-        final String annotationDefaultValueExpr =
-            "CliFlagParameterValue." + representationDefaultValue;
-        out.println("    @Provides");
-        out.println("    @CliFlagParameter(" + nameClauses + ", defaultValue="
-            + annotationDefaultValueExpr + ")");
-        out.println("    public Boolean " + baseMethodName + "AsBoolean(");
-        out.println("            @CliFlagParameter(" + nameClauses + ", defaultValue="
-            + annotationDefaultValueExpr + ") List<Boolean> values) {");
-        out.println("        return values.get(values.size()-1);");
-        out.println("    }");
-        out.println();
-      } else if (parameterIsRequired) {
-        // We can just grab the first element. It has to be there. We confirmed above.
-        out.println("    @Provides");
-        out.println("    @CliFlagParameter(" + nameClauses + ")");
-        out.println("    public Boolean " + baseMethodName + "AsBoolean(");
-        out.println("            @CliFlagParameter(" + nameClauses + ") List<Boolean> values) {");
-        out.println("        return values.get(values.size()-1);");
-        out.println("    }");
-        out.println();
-      } else {
-        out.println("    @Provides");
-        out.println("    @Nullable");
-        out.println("    @CliFlagParameter(" + nameClauses + ")");
-        out.println("    public Boolean " + baseMethodName + "AsBoolean(");
-        out.println("            @CliFlagParameter(" + nameClauses + ") List<Boolean> values) {");
-        out.println("        if(values.isEmpty())");
-        out.println("            return null;");
-        out.println("        return values.get(values.size()-1);");
-        out.println("    }");
-        out.println();
-        out.println("    @Provides");
-        out.println("    @CliFlagParameter(" + nameClauses + ")");
-        out.println("    public Optional<Boolean> " + baseMethodName
-            + "AsOptionalOfBoolean(@Nullable @CliFlagParameter(" + nameClauses
-            + ") Boolean value) {");
-        out.println("        return Optional.ofNullable(value);");
-        out.println("    }");
-        out.println();
+
+        if (representationDefaultValue == null && parameterIsRequired == false) {
+          out.println("    @Provides");
+          out.println("    " + representationAnnotation);
+          out.println("    public Optional<" + representationType + "> " + baseMethodName
+              + "AsOptionalOf" + typeSimpleName + "(" + representationAnnotation + " "
+              + representationType + " value) {");
+          out.println("        return Optional.of(value);");
+          out.println("    }");
+          out.println();
+        }
       }
     } else {
-      final String typeSimpleName = getSimpleTypeName(representationType);
-      if (representationIsList) {
-        final String conversionExpr = getListOfBooleanConverter()
-            .generateConversionExpr(representationType, "value").orElse(null);
-        if (conversionExpr == null) {
-          // This should never happen, we've already checked that the conversion is possible.
-          getMessager().printMessage(Diagnostic.Kind.ERROR,
-              "Cannot convert " + representationType + " from " + getListOfBooleanType());
-          return;
-        }
+      final boolean representationIsNullable =
+          representationDefaultValue == null && !parameterIsRequired;
 
+      final String nullableAnnotation = representationIsNullable ? "@Nullable" : "";
+
+      if (getTypes().isSameType(representationType, getBooleanType())) {
+        out.println("    " + nullableAnnotation);
+        out.println("    @Provides");
+        out.println("    " + representationAnnotation);
+        out.println("    public Boolean " + baseMethodName + "AsBoolean() {");
         if (representationDefaultValue != null) {
-          // We don't need to check nullability here because the default value "protects" us
-          // from any possible null values.
-          final String annotationDefaultValueExpr =
-              "CliFlagParameterValue." + representationDefaultValue;
-          final String javaDefaultValueExpr = "Boolean." + representationDefaultValue;
-          out.println("    @Provides");
-          out.println("    @CliFlagParameter(" + nameClauses + ", defaultValue="
-              + annotationDefaultValueExpr + ")");
-          out.println("    public " + representationType + " " + baseMethodName + "As"
-              + typeSimpleName + "(@CliFlagParameter(" + nameClauses + ", defaultValue="
-              + javaDefaultValueExpr + " ) List<Boolean> value) {");
-          out.println("        return " + conversionExpr + ";");
-          out.println("    }");
-          out.println();
+          out.println("        if(" + fieldName + " == null) {");
+          out.println(
+              "            return " + javaDefaultValueExpr + ";");
+          out.println("        }");
         } else if (parameterIsRequired) {
-          // We don't need to check for null here because we already did in the constructor
+          // No special action required here. It is handled in the constructor.
+        }
+        out.println("        return " + fieldName + ".get(" + fieldName + ".size()-1);");
+        out.println("    }");
+        out.println();
+
+        if (representationIsNullable) {
           out.println("    @Provides");
-          out.println("    @CliFlagParameter(" + nameClauses + ")");
-          out.println("    public " + representationType + " " + baseMethodName + "As"
-              + typeSimpleName + "(@CliFlagParameter(" + nameClauses + ") List<Boolean> value) {");
-          out.println("        return " + conversionExpr + ";");
-          out.println("    }");
-          out.println();
-        } else {
-          // We never generate a nullable list of strings. We just use empty list.
-          out.println("    @Provides");
-          out.println("    @CliFlagParameter(" + nameClauses + ")");
-          out.println("    public " + representationType + " " + baseMethodName + "As"
-              + typeSimpleName + "(@CliFlagParameter(" + nameClauses + ") List<Boolean> value) {");
-          out.println("        return " + conversionExpr + ";");
-          out.println("    }");
-          out.println();
-          out.println("    @Provides");
-          out.println("    @CliFlagParameter(" + nameClauses + ")");
-          out.println("    public Optional<" + representationType + "> " + baseMethodName
-              + "AsOptionalOf" + typeSimpleName + "(@CliFlagParameter(" + nameClauses
-              + ") Optional<Boolean<String>> o) {");
-          out.println("        return o.map(value -> " + conversionExpr + ");");
+          out.println("    " + representationAnnotation);
+          out.println("    public Optional<Boolean> " + baseMethodName + "AsOptionalOfBoolean("
+              + representationAnnotation + " String value) {");
+          out.println("        return Optional.ofNullable(value);");
           out.println("    }");
           out.println();
         }
       } else {
-        final String conversionExpr =
-            getBooleanConverter().generateConversionExpr(representationType, "value").orElse(null);
-        if (conversionExpr == null) {
-          // This should never happen, we've already checked that the conversion is possible.
-          getMessager().printMessage(Diagnostic.Kind.ERROR,
-              "Cannot convert " + representationType + " from " + getBooleanType());
-          return;
-        }
+        final String typeSimpleName = getSimpleTypeName(representationType);
+        final String conversionExpr = booleanConversionExpr;
 
-        if (representationDefaultValue != null) {
-          // We don't need to check nullability here because the default value "protects" us
-          // from any possible null values.
-          final String annotationDefaultValueExpr =
-              "CliFlagParameterValue." + representationDefaultValue;
-          final String javaDefaultValueExpr = "Boolean." + representationDefaultValue;
+        out.println("    " + nullableAnnotation);
+        out.println("    @Provides");
+        out.println("    " + representationAnnotation);
+        out.println("    public " + representationType + " " + baseMethodName + "As"
+            + typeSimpleName + "(" + representationAnnotation + " Boolean value) {");
+        out.println("        if(value == null)");
+        out.println("            return null;");
+        out.println("        " + representationType + " result;");
+        out.println("        try {");
+        out.println("            result = " + conversionExpr + ";");
+        out.println("        } catch (Exception e) {");
+        out.println("            throw new IllegalArgumentException(");
+        out.println("                \"Flag parameter " + userFacingName + " representation "
+            + representationType + " argument not valid\", e);");
+        out.println("        }");
+        if (representationIsNullable == false) {
+          out.println("        if(result == null) {");
+          out.println("            throw new IllegalStateException(");
+          out.println("                \"Flag parameter " + userFacingName + " representation "
+              + representationType + " not set\");");
+          out.println("        }");
+        }
+        out.println("        return result;");
+        out.println("    }");
+        out.println();
+
+        if (representationIsNullable == true) {
+          out.println("    " + nullableAnnotation);
           out.println("    @Provides");
-          out.println("    @CliFlagParameter(" + nameClauses + ", defaultValue="
-              + annotationDefaultValueExpr + ")");
-          out.println("    public " + representationType + " " + baseMethodName + "As"
-              + typeSimpleName + "(@CliFlagParameter(" + nameClauses + ", defaultValue="
-              + annotationDefaultValueExpr + " ) Boolean value) {");
-          out.println("        return " + javaDefaultValueExpr + ";");
-          out.println("    }");
-          out.println();
-        } else if (parameterIsRequired) {
-          // We don't need to check for null here because we already did in the constructor
-          out.println("    @Provides");
-          out.println("    @CliFlagParameter(" + nameClauses + ")");
-          out.println("    public " + representationType + " " + baseMethodName + "As"
-              + typeSimpleName + "(@CliFlagParameter(" + nameClauses + ") Boolean value) {");
-          out.println("        return " + conversionExpr + ";");
-          out.println("    }");
-          out.println();
-        } else {
-          out.println("    @Provides");
-          out.println("    @Nullable");
-          out.println("    @CliFlagParameter(" + nameClauses + ")");
-          out.println(
-              "    public " + representationType + " " + baseMethodName + "As" + typeSimpleName
-                  + "(@Nullable @CliFlagParameter(" + nameClauses + ") Boolean value) {");
-          out.println("        if(value == null)");
-          out.println("            return null;");
-          out.println("        return " + conversionExpr + ";");
-          out.println("    }");
-          out.println();
-          out.println("    @Provides");
-          out.println("    @CliFlagParameter(" + nameClauses + ")");
+          out.println("    " + representationAnnotation);
           out.println("    public Optional<" + representationType + "> " + baseMethodName
-              + "AsOptionalOf" + typeSimpleName + "(@CliFlagParameter(" + nameClauses
-              + ") Optional<Boolean> o) {");
-          out.println("        return o.map(value -> " + conversionExpr + ");");
+              + "AsOptionalOf" + typeSimpleName + "(" + representationAnnotation + " "
+              + representationType + " value) {");
+          out.println("        return Optional.ofNullable(value);");
           out.println("    }");
           out.println();
         }
