@@ -22,6 +22,7 @@ package rapier.aws.ssm.compiler;
 import static com.google.testing.compile.CompilationSubject.assertThat;
 import static java.util.Collections.unmodifiableList;
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -605,6 +606,66 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
     final String output = doRun(compilation).trim();
 
     assertEquals("42", output);
+  }
+
+  @Test
+  public void givenComponentWithParameterNameWithInvalidCharacters_whenCompile_thenCompileError()
+      throws IOException {
+    // Define the source file to test
+    final JavaFileObject componentSource = prepareSourceFile("""
+        @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
+        public interface ExampleComponent {
+            @rapier.aws.ssm.AwsSsmStringParameter(value="/foo/bar!")
+            public String provisionFooBarAsString();
+        }
+        """);
+
+    final Compilation compilation = doCompile(componentSource);
+
+    assertThat(compilation).failed();
+
+    assertTrue(compilation.errors().stream()
+        .anyMatch(e -> e.getMessage(null).contains("Invalid AWS SSM parameter name template")));
+  }
+
+  @Test
+  public void givenComponentWithParameterNameStartingWithAws_whenCompile_thenCompileError()
+      throws IOException {
+    // Define the source file to test
+    final JavaFileObject componentSource = prepareSourceFile("""
+        @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
+        public interface ExampleComponent {
+            @rapier.aws.ssm.AwsSsmStringParameter(value="/aws/foo/bar")
+            public String provisionFooBarAsString();
+        }
+        """);
+
+    final Compilation compilation = doCompile(componentSource);
+
+    assertThat(compilation).failed();
+
+    assertTrue(compilation.errors().stream().anyMatch(
+        e -> e.getMessage(null).contains("AWS SSM parameter name must not start with \"aws\"")));
+  }
+
+  @Test
+  public void givenComponentWithParameterNameStartingWithSsm_whenCompile_thenCompileError()
+      throws IOException {
+    // Define the source file to test
+    final JavaFileObject componentSource = prepareSourceFile("""
+        @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
+        public interface ExampleComponent {
+            @rapier.aws.ssm.AwsSsmStringParameter(value="/ssm/foo/bar")
+            public String provisionFooBarAsString();
+        }
+        """);
+
+    final Compilation compilation = doCompile(componentSource);
+
+    assertThat(compilation).failed();
+
+    assertTrue(compilation.errors().stream().anyMatch(
+        e -> e.getMessage(null).contains("AWS SSM parameter name must not start with \"ssm\"")));
   }
 
   private static final String AWS_SDK_VERSION =

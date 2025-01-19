@@ -40,6 +40,7 @@ import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
@@ -61,6 +62,7 @@ import rapier.aws.ssm.compiler.util.SystemProperties;
 import rapier.compiler.core.ConversionExprFactory;
 import rapier.compiler.core.DaggerComponentAnalyzer;
 import rapier.compiler.core.RapierProcessorBase;
+import rapier.compiler.core.TemplateParser;
 import rapier.compiler.core.model.DaggerInjectionSite;
 import rapier.compiler.core.util.AnnotationProcessing;
 import rapier.compiler.core.util.CaseFormat;
@@ -144,8 +146,7 @@ public class AwsSsmProcessor extends RapierProcessorBase {
     emitCompilerWarnings(injectionSites, parameterMetadataService);
 
     // Determine all the various and sundry representations to generate bindings for
-    final Set<RepresentationKey> representations =
-        this.computeRepresentationsToGenerate(injectionSites);
+    final Set<RepresentationKey> representations = computeRepresentationsToGenerate(injectionSites);
 
     final String componentPackageName =
         getElements().getPackageOf(component).getQualifiedName().toString();
@@ -181,7 +182,72 @@ public class AwsSsmProcessor extends RapierProcessorBase {
         .analyzeComponent(component).getInjectionSites().stream()
         .filter(d -> d.getQualifier().isPresent()).filter(d -> getTypes()
             .isSameType(d.getQualifier().orElseThrow().getAnnotationType(), getQualifierType()))
-        .collect(toList());
+        .filter(d -> {
+          final ParameterKey parameter = ParameterKey.fromInjectionSite(d);
+          if (!isValidAwsSsmParameterNameTemplate(parameter.getName())) {
+            getMessager().printMessage(Diagnostic.Kind.ERROR,
+                "Invalid AWS SSM parameter name template", d.getElement());
+            return false;
+          }
+          if (awsSsmParameterNameStartsWithAws(parameter.getName())) {
+            getMessager().printMessage(Diagnostic.Kind.ERROR,
+                "AWS SSM parameter name must not start with \"aws\"", d.getElement());
+            return false;
+          }
+          if (awsSsmParameterNameStartsWithSsm(parameter.getName())) {
+            getMessager().printMessage(Diagnostic.Kind.ERROR,
+                "AWS SSM parameter name must not start with \"ssm\"", d.getElement());
+            return false;
+          }
+          return true;
+        }).collect(toList());
+  }
+
+  private boolean isValidAwsSsmParameterNameTemplate(String template) {
+    final AtomicBoolean result = new AtomicBoolean(true);
+    try {
+      new TemplateParser().parse(template, new TemplateParser.ParseHandler() {
+        @Override
+        public void onText(int index, String text) {
+          if (!text.chars().allMatch(AwsSsmProcessor.this::isValidAwsSsmParameterNameChar)) {
+            result.set(false);
+          }
+        }
+
+        @Override
+        public void onVariableExpression(int index, String variableName) {}
+
+        @Override
+        public void onVariableExpressionWithDefaultValue(int index, String variableName,
+            String defaultValue) {}
+      });
+    } catch (TemplateParser.TemplateSyntaxException e) {
+      result.set(false);
+    }
+    return result.get();
+  }
+
+  private boolean isValidAwsSsmParameterNameChar(int ch) {
+    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9')
+        || ch == '_' || ch == '-' || ch == '.' || ch == '/';
+  }
+
+  private static final Pattern STARTS_WITH_AWS =
+      Pattern.compile("^/?aws", Pattern.CASE_INSENSITIVE);
+
+  private boolean awsSsmParameterNameStartsWithAws(String template) {
+    if (STARTS_WITH_AWS.matcher(template).find())
+      return true;
+    return false;
+  }
+
+  private static final Pattern STARTS_WITH_SSM =
+      Pattern.compile("^/?ssm", Pattern.CASE_INSENSITIVE);
+
+  private boolean awsSsmParameterNameStartsWithSsm(String template) {
+    if (STARTS_WITH_SSM.matcher(template).find())
+      return true;
+    return false;
   }
 
   @FunctionalInterface
