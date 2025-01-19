@@ -147,7 +147,7 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
   }
 
   @Test
-  public void givenComponentWithOneRequiredParameterThatExistsValue_whenCompileAndRun_thenExpectedtOutput()
+  public void givenComponentWithOneRequiredParameterThatExistsValue_whenCompileAndRun_thenExpectedOutput()
       throws IOException {
     // Define the source file to test
     final JavaFileObject componentSource = prepareSourceFile("""
@@ -202,7 +202,7 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
   }
 
   @Test
-  public void givenComponentWithOneRequiredParameterThatDoesNotExistValue_whenCompileAndRun_thenExpectedtOutput()
+  public void givenComponentWithOneRequiredParameterThatDoesNotExistValue_whenCompileAndRun_thenExpectedOutput()
       throws IOException {
     final JavaFileObject componentSource = prepareSourceFile("""
         @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
@@ -258,7 +258,7 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
   }
 
   @Test
-  public void givenComponentWithOneNullableParameterThatExistsValue_whenCompileAndRun_thenExpectedtOutput()
+  public void givenComponentWithOneNullableParameterThatExistsValue_whenCompileAndRun_thenExpectedOutput()
       throws IOException {
     // Define the source file to test
     final JavaFileObject componentSource = prepareSourceFile("""
@@ -314,7 +314,119 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
   }
 
   @Test
-  public void givenComponentWithOneNullableParameterThatDoesNotExistValue_whenCompileAndRun_thenExpectedtOutput()
+  public void givenComponentWithParameterWithDefaultValue_whenCompileAndRunWithoutValue_thenExpectedOutput()
+      throws IOException {
+    final JavaFileObject componentSource = prepareSourceFile("""
+        @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
+        public interface ExampleComponent {
+            @rapier.aws.ssm.AwsSsmStringParameter(value="foo.bar", defaultValue="42")
+            public Integer provisionFooBarAsInt();
+        }
+        """);
+
+    final JavaFileObject clientStubSource =
+        prepareSourceFile(generateMockSsmClientSourceCode(new AwsSsmClientMethodStubGenerator() {
+          @Override
+          public void generateGetParameterOfGetParameterRequestMethodStub(PrintWriter out) {
+            out.println(
+                "        throw software.amazon.awssdk.services.ssm.model.ParameterNotFoundException.builder()");
+            out.println("            .message(request.name())");
+            out.println("            .build();");
+          }
+        }));
+
+    final JavaFileObject appSource = prepareSourceFile("""
+        import java.util.Map;
+        import java.net.URI;
+        import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+        import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+        import software.amazon.awssdk.regions.Region;
+        import software.amazon.awssdk.services.ssm.SsmClient;
+
+        public class App {
+            public static void main(String[] args) {
+                final SsmClient client = new MockSsmClient();
+
+                try {
+                    ExampleComponent component = DaggerExampleComponent.builder()
+                        .rapierExampleComponentAwsSsmModule(
+                            new RapierExampleComponentAwsSsmModule(client))
+                        .build();
+                    System.out.println(component.provisionFooBarAsInt());
+                } catch (Exception e) {
+                    System.out.println(e.getClass().getName());
+                }
+            }
+        }
+        """);
+
+    final Compilation compilation = doCompile(componentSource, clientStubSource, appSource);
+
+    assertThat(compilation).succeeded();
+
+    final String output = doRun(compilation).trim();
+
+    assertEquals("42", output);
+  }
+
+  @Test
+  public void givenComponentWithParameterWithDefaultValue_whenCompileAndRunWithValue_thenExpectedOutput()
+      throws IOException {
+    // Define the source file to test
+    final JavaFileObject componentSource = prepareSourceFile("""
+        @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
+        public interface ExampleComponent {
+            @javax.annotation.Nullable
+            @rapier.aws.ssm.AwsSsmStringParameter(value="foo.bar", defaultValue="42")
+            public Integer provisionFooBarAsInt();
+        }
+        """);
+
+    final JavaFileObject clientStubSource =
+        prepareSourceFile(generateMockSsmClientSourceCode(new AwsSsmClientMethodStubGenerator() {
+          @Override
+          public void generateGetParameterOfGetParameterRequestMethodStub(PrintWriter out) {
+            out.println("        return GetParameterResponse.builder()");
+            out.println("            .parameter(Parameter.builder()");
+            out.println("                .name(request.name())");
+            out.println("                .value(\"43\")");
+            out.println("                .build())");
+            out.println("            .build();");
+          }
+        }));
+
+    final JavaFileObject appSource = prepareSourceFile("""
+        import java.util.Map;
+        import java.net.URI;
+        import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
+        import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
+        import software.amazon.awssdk.regions.Region;
+        import software.amazon.awssdk.services.ssm.SsmClient;
+
+        public class App {
+            public static void main(String[] args) {
+                final SsmClient client = new MockSsmClient();
+
+                ExampleComponent component = DaggerExampleComponent.builder()
+                    .rapierExampleComponentAwsSsmModule(
+                        new RapierExampleComponentAwsSsmModule(client))
+                    .build();
+                System.out.println(component.provisionFooBarAsInt());
+            }
+        }
+        """);
+
+    final Compilation compilation = doCompile(componentSource, clientStubSource, appSource);
+
+    assertThat(compilation).succeeded();
+
+    final String output = doRun(compilation).trim();
+
+    assertEquals("43", output);
+  }
+
+  @Test
+  public void givenComponentWithOneNullableParameterThatDoesNotExistValue_whenCompileAndRun_thenExpectedOutput()
       throws IOException {
     // Define the source file to test
     final JavaFileObject componentSource = prepareSourceFile("""
@@ -368,7 +480,7 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
   }
 
   @Test
-  public void givenComponentWithParameterWithEnvNameTemplate_whenCompileAndRun_thenExpectedtOutput()
+  public void givenComponentWithParameterWithEnvNameTemplate_whenCompileAndRun_thenExpectedOutput()
       throws IOException {
     // Define the source file to test
     final JavaFileObject componentSource = prepareSourceFile("""
@@ -432,7 +544,7 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
   }
 
   @Test
-  public void givenComponentWithParameterWithSysNameTemplate_whenCompileAndRun_thenExpectedtOutput()
+  public void givenComponentWithParameterWithSysNameTemplate_whenCompileAndRun_thenExpectedOutput()
       throws IOException {
     // Define the source file to test
     final JavaFileObject componentSource = prepareSourceFile("""

@@ -1404,86 +1404,42 @@ public class CliProcessor extends RapierProcessorBase {
       baseMethodName.append("WithDefaultValue").append(stringSignature(representationDefaultValue));
     }
 
-    if (parameterIsList == true
-        && getTypes().isSameType(representationType, getListOfStringType())) {
-      // This is a varargs parameter, and we're generating the "default" binding.
-      if (representationDefaultValue != null) {
-        final String defaultValueExpr = "\"" + Java.escapeString(representationDefaultValue) + "\"";
-        out.println("    @Provides");
-        out.println("    @CliPositionalParameter(value=" + position + ", defaultValue="
-            + defaultValueExpr + ")");
-        out.println("    public List<String> " + baseMethodName + "AsListOfString() {");
-        out.println("        if(" + fieldName + " == null)");
-        out.println("            return singletonList(" + defaultValueExpr + ");");
-        out.println("        return " + fieldName + ";");
-        out.println("    }");
-        out.println();
-      } else if (parameterIsRequired) {
-        out.println("    @Provides");
-        out.println("    @CliPositionalParameter(" + position + ")");
-        out.println("    public List<String> " + baseMethodName + "AsListOfString() {");
-        out.println("        return " + fieldName + ";");
-        out.println("    }");
-        out.println();
-      } else {
-        // We never generate a nullable list of strings. We just use empty list.
-        out.println("    @Provides");
-        out.println("    @CliPositionalParameter(" + position + ")");
-        out.println("    public List<String> " + baseMethodName + "AsListOfString() {");
-        out.println("        if(" + fieldName + " == null)");
-        out.println("            return emptyList();");
-        out.println("        return " + fieldName + ";");
-        out.println("    }");
-        out.println();
-        out.println("    @Provides");
-        out.println("    @CliPositionalParameter(" + position + ")");
-        out.println("    public Optional<List<String>> " + baseMethodName
-            + "AsOptionalOfString(@CliPositionalParameter(" + position + ") List<String> value) {");
-        out.println("        return Optional.of(value);");
-        out.println("    }");
-        out.println();
-      }
-    } else if (parameterIsList == false
-        && getTypes().isSameType(representationType, getStringType())) {
-      // This is a single positional parameter, and we are generating the "default" binding
-      if (representationDefaultValue != null) {
-        final String defaultValueExpr = "\"" + Java.escapeString(representationDefaultValue) + "\"";
-        out.println("    @Provides");
-        out.println("    @CliPositionalParameter(value=" + position + ", defaultValue="
-            + defaultValueExpr + ")");
-        out.println("    public String " + baseMethodName + "AsString() {");
-        out.println("        if(" + fieldName + " == null)");
-        out.println("            return " + defaultValueExpr + ";");
-        out.println("        return " + fieldName + ";");
-        out.println("    }");
-        out.println();
-      } else if (parameterIsRequired) {
-        out.println("    @Provides");
-        out.println("    @CliPositionalParameter(" + position + ")");
-        out.println("    public String " + baseMethodName + "AsString() {");
-        out.println("        return " + fieldName + ";");
-        out.println("    }");
-        out.println();
-      } else {
-        out.println("    @Provides");
-        out.println("    @Nullable");
-        out.println("    @CliPositionalParameter(" + position + ")");
-        out.println("    public String " + baseMethodName + "AsString() {");
-        out.println("        return " + fieldName + ";");
-        out.println("    }");
-        out.println();
-        out.println("    @Provides");
-        out.println("    @CliPositionalParameter(" + position + ")");
-        out.println("    public Optional<String> " + baseMethodName
-            + "AsOptionalOfString(@Nullable @CliPositionalParameter(" + position
-            + ") String value) {");
-        out.println("        return Optional.ofNullable(value);");
-        out.println("    }");
-        out.println();
-      }
+    final String representationAnnotation;
+    if (representationDefaultValue != null) {
+      representationAnnotation = "@CliPositionalParameter(value=" + position + ", defaultValue=\""
+          + Java.escapeString(representationDefaultValue) + "\")";
     } else {
-      final String typeSimpleName = getSimpleTypeName(representationType);
-      if (parameterIsList) {
+      representationAnnotation = "@CliPositionalParameter(" + position + ")";
+    }
+
+    if (parameterIsList) {
+      if (getTypes().isSameType(representationType, getListOfStringType())) {
+        out.println("    @Provides");
+        out.println("    " + representationAnnotation);
+        out.println("    public List<String> " + baseMethodName + "AsListOfString() {");
+        if (representationDefaultValue != null) {
+          out.println("        if(" + fieldName + " == null)");
+          out.println("            return singletonList(\""
+              + Java.escapeString(representationDefaultValue) + "\");");
+        } else if (parameterIsRequired == false) {
+          out.println("        if(" + fieldName + " == null)");
+          out.println("            return emptyList();");
+        }
+        out.println("        return " + fieldName + ";");
+        out.println("    }");
+        out.println();
+
+        if (representationDefaultValue == null && parameterIsRequired == false) {
+          out.println("    @Provides");
+          out.println("    " + representationAnnotation);
+          out.println("    public Optional<List<String>> " + baseMethodName
+              + "AsOptionalOfListOfString(" + representationAnnotation + " List<String> value) {");
+          out.println("        return Optional.of(value);");
+          out.println("    }");
+          out.println();
+        }
+      } else {
+        final String typeSimpleName = getSimpleTypeName(representationType);
         final String conversionExpr = getListOfStringConverter()
             .generateConversionExpr(representationType, "value").orElse(null);
         if (conversionExpr == null) {
@@ -1493,105 +1449,284 @@ public class CliProcessor extends RapierProcessorBase {
           return;
         }
 
-        if (representationDefaultValue != null) {
-          // We don't need to check nullability here because the default value "protects" us
-          // from any possible null values.
-          final String defaultValueExpr =
-              "\"" + Java.escapeString(representationDefaultValue) + "\"";
+        out.println("    @Provides");
+        out.println("    " + representationAnnotation);
+        out.println("    public " + representationType + " " + baseMethodName + "As"
+            + typeSimpleName + "(" + representationAnnotation + " List<String> value) {");
+        out.println("        return " + conversionExpr + ";");
+        out.println("    }");
+        out.println();
+
+
+        if (representationDefaultValue == null && parameterIsRequired == false) {
           out.println("    @Provides");
-          out.println("    @CliPositionalParameter(value=" + position + ", defaultValue="
-              + defaultValueExpr + ")");
-          out.println("    public " + representationType + " " + baseMethodName + "As"
-              + typeSimpleName + "(@CliPositionalParameter(value=" + position + ", defaultValue="
-              + defaultValueExpr + " ) List<String> value) {");
-          out.println("        return " + conversionExpr + ";");
-          out.println("    }");
-          out.println();
-        } else if (parameterIsRequired) {
-          // We don't need to check for null here because we already did in the constructor
-          out.println("    @Provides");
-          out.println("    @CliPositionalParameter(" + position + ")");
-          out.println(
-              "    public " + representationType + " " + baseMethodName + "As" + typeSimpleName
-                  + "(@CliPositionalParameter(" + position + ") List<String> value) {");
-          out.println("        return " + conversionExpr + ";");
-          out.println("    }");
-          out.println();
-        } else {
-          // We never generate a nullable list of strings. We just use empty list.
-          out.println("    @Provides");
-          out.println("    @CliPositionalParameter(" + position + ")");
-          out.println(
-              "    public " + representationType + " " + baseMethodName + "As" + typeSimpleName
-                  + "(@CliPositionalParameter(" + position + ") List<String> value) {");
-          out.println("        return " + conversionExpr + ";");
-          out.println("    }");
-          out.println();
-          out.println("    @Provides");
-          out.println("    @CliPositionalParameter(" + position + ")");
+          out.println("    " + representationAnnotation);
           out.println("    public Optional<" + representationType + "> " + baseMethodName
-              + "AsOptionalOf" + typeSimpleName + "(@CliPositionalParameter(" + position
-              + ") Optional<List<String>> o) {");
-          out.println("        return o.map(value -> " + conversionExpr + ");");
+              + "AsOptionalOf" + typeSimpleName + "(" + representationAnnotation
+              + " Optional<List<String>> o) {");
+          out.println("        return value.map(value -> " + conversionExpr + ");");
+          out.println("    }");
+          out.println();
+        }
+      }
+    } else {
+      final boolean representationIsNullable =
+          representationDefaultValue == null && !parameterIsRequired;
+
+      final String nullableAnnotation = representationIsNullable ? "@Nullable" : "";
+
+      if (getTypes().isSameType(representationType, getStringType())) {
+        out.println("    " + nullableAnnotation);
+        out.println("    @Provides");
+        out.println("    " + representationAnnotation);
+        out.println("    public String " + baseMethodName + "AsString() {");
+        if (representationDefaultValue != null) {
+          out.println("        if(" + fieldName + " == null)");
+          out.println(
+              "            return \"" + Java.escapeString(representationDefaultValue) + "\";");
+        } else if (parameterIsRequired == false) {
+          out.println("        if(" + fieldName + " == null)");
+          out.println("            return null;");
+        }
+        out.println("        return " + fieldName + ";");
+        out.println("    }");
+        out.println();
+
+        if (representationDefaultValue == null && parameterIsRequired == false) {
+          out.println("    @Provides");
+          out.println("    " + representationAnnotation);
+          out.println("    public Optional<String> " + baseMethodName
+              + "AsOptionalOfString(" + representationAnnotation + " String value) {");
+          out.println("        return Optional.ofNullable(value);");
           out.println("    }");
           out.println();
         }
       } else {
-        final String conversionExpr =
-            getStringConverter().generateConversionExpr(representationType, "value").orElse(null);
+        final String typeSimpleName = getSimpleTypeName(representationType);
+        final String conversionExpr = getStringConverter()
+            .generateConversionExpr(representationType, "value").orElse(null);
         if (conversionExpr == null) {
           // This should never happen, we've already checked that the conversion is possible.
           getMessager().printMessage(Diagnostic.Kind.ERROR,
-              "Cannot convert " + representationType + " from " + getStringType());
+              "Cannot convert " + representationType + " from " + getListOfStringType());
           return;
         }
 
-        if (representationDefaultValue != null) {
-          // We don't need to check nullability here because the default value "protects" us
-          // from any possible null values.
-          final String defaultValueExpr =
-              "\"" + Java.escapeString(representationDefaultValue) + "\"";
+        out.println("    " + nullableAnnotation);
+        out.println("    @Provides");
+        out.println("    " + representationAnnotation);
+        out.println("    public " + representationType + " " + baseMethodName + "As"
+            + typeSimpleName + "(" + representationAnnotation + " String value) {");
+        out.println("        if(value == null)");
+        out.println("            return null;");
+        out.println("        return " + conversionExpr + ";");
+        out.println("    }");
+        out.println();
+
+
+        if (representationDefaultValue == null && parameterIsRequired == false) {
+          out.println("    " + nullableAnnotation);
           out.println("    @Provides");
-          out.println("    @CliPositionalParameter(value=" + position + ", defaultValue="
-              + defaultValueExpr + ")");
-          out.println("    public " + representationType + " " + baseMethodName + "As"
-              + typeSimpleName + "(@CliPositionalParameter(value=" + position + ", defaultValue="
-              + defaultValueExpr + " ) String value) {");
-          out.println("        return " + conversionExpr + ";");
-          out.println("    }");
-          out.println();
-        } else if (parameterIsRequired) {
-          // We don't need to check for null here because we already did in the constructor
-          out.println("    @Provides");
-          out.println("    @CliPositionalParameter(" + position + ")");
-          out.println("    public " + representationType + " " + baseMethodName + "As"
-              + typeSimpleName + "(@CliPositionalParameter(" + position + ") String value) {");
-          out.println("        return " + conversionExpr + ";");
-          out.println("    }");
-          out.println();
-        } else {
-          out.println("    @Provides");
-          out.println("    @Nullable");
-          out.println("    @CliPositionalParameter(" + position + ")");
-          out.println(
-              "    public " + representationType + " " + baseMethodName + "As" + typeSimpleName
-                  + "(@Nullable @CliPositionalParameter(" + position + ") String value) {");
-          out.println("        if(value == null)");
-          out.println("            return null;");
-          out.println("        return " + conversionExpr + ";");
-          out.println("    }");
-          out.println();
-          out.println("    @Provides");
-          out.println("    @CliPositionalParameter(" + position + ")");
+          out.println("    " + representationAnnotation);
           out.println("    public Optional<" + representationType + "> " + baseMethodName
-              + "AsOptionalOf" + typeSimpleName + "(@CliPositionalParameter(" + position
-              + ") Optional<String> o) {");
-          out.println("        return o.map(value -> " + conversionExpr + ");");
+              + "AsOptionalOf" + typeSimpleName + "(" + representationAnnotation
+              + " Optional<String> o) {");
+          out.println("        return value.map(value -> " + conversionExpr + ");");
           out.println("    }");
           out.println();
         }
       }
     }
+//
+//    if (parameterIsList == true
+//        && getTypes().isSameType(representationType, getListOfStringType())) {
+//      // This is a varargs parameter, and we're generating the "default" binding.
+//
+//      if (representationDefaultValue != null) {
+//        final String defaultValueExpr = "\"" + Java.escapeString(representationDefaultValue) + "\"";
+//        out.println("    @Provides");
+//        out.println("    @CliPositionalParameter(value=" + position + ", defaultValue="
+//            + defaultValueExpr + ")");
+//        out.println("    public List<String> " + baseMethodName + "AsListOfString() {");
+//        out.println("        if(" + fieldName + " == null)");
+//        out.println("            return singletonList(" + defaultValueExpr + ");");
+//        out.println("        return " + fieldName + ";");
+//        out.println("    }");
+//        out.println();
+//      } else if (parameterIsRequired) {
+//        out.println("    @Provides");
+//        out.println("    @CliPositionalParameter(" + position + ")");
+//        out.println("    public List<String> " + baseMethodName + "AsListOfString() {");
+//        out.println("        return " + fieldName + ";");
+//        out.println("    }");
+//        out.println();
+//      } else {
+//        // We never generate a nullable list of strings. We just use empty list.
+//        out.println("    @Provides");
+//        out.println("    @CliPositionalParameter(" + position + ")");
+//        out.println("    public List<String> " + baseMethodName + "AsListOfString() {");
+//        out.println("        if(" + fieldName + " == null)");
+//        out.println("            return emptyList();");
+//        out.println("        return " + fieldName + ";");
+//        out.println("    }");
+//        out.println();
+//        out.println("    @Provides");
+//        out.println("    @CliPositionalParameter(" + position + ")");
+//        out.println("    public Optional<List<String>> " + baseMethodName
+//            + "AsOptionalOfString(@CliPositionalParameter(" + position + ") List<String> value) {");
+//        out.println("        return Optional.of(value);");
+//        out.println("    }");
+//        out.println();
+//      }
+//    } else if (parameterIsList == false
+//        && getTypes().isSameType(representationType, getStringType())) {
+//      // This is a single positional parameter, and we are generating the "default" binding
+//      if (representationDefaultValue != null) {
+//        final String defaultValueExpr = "\"" + Java.escapeString(representationDefaultValue) + "\"";
+//        out.println("    @Provides");
+//        out.println("    @CliPositionalParameter(value=" + position + ", defaultValue="
+//            + defaultValueExpr + ")");
+//        out.println("    public String " + baseMethodName + "AsString() {");
+//        out.println("        if(" + fieldName + " == null)");
+//        out.println("            return " + defaultValueExpr + ";");
+//        out.println("        return " + fieldName + ";");
+//        out.println("    }");
+//        out.println();
+//      } else if (parameterIsRequired) {
+//        out.println("    @Provides");
+//        out.println("    @CliPositionalParameter(" + position + ")");
+//        out.println("    public String " + baseMethodName + "AsString() {");
+//        out.println("        return " + fieldName + ";");
+//        out.println("    }");
+//        out.println();
+//      } else {
+//        out.println("    @Provides");
+//        out.println("    @Nullable");
+//        out.println("    @CliPositionalParameter(" + position + ")");
+//        out.println("    public String " + baseMethodName + "AsString() {");
+//        out.println("        return " + fieldName + ";");
+//        out.println("    }");
+//        out.println();
+//        out.println("    @Provides");
+//        out.println("    @CliPositionalParameter(" + position + ")");
+//        out.println("    public Optional<String> " + baseMethodName
+//            + "AsOptionalOfString(@Nullable @CliPositionalParameter(" + position
+//            + ") String value) {");
+//        out.println("        return Optional.ofNullable(value);");
+//        out.println("    }");
+//        out.println();
+//      }
+//    } else {
+//      final String typeSimpleName = getSimpleTypeName(representationType);
+//      if (parameterIsList) {
+//        final String conversionExpr = getListOfStringConverter()
+//            .generateConversionExpr(representationType, "value").orElse(null);
+//        if (conversionExpr == null) {
+//          // This should never happen, we've already checked that the conversion is possible.
+//          getMessager().printMessage(Diagnostic.Kind.ERROR,
+//              "Cannot convert " + representationType + " from " + getListOfStringType());
+//          return;
+//        }
+//
+//        if (representationDefaultValue != null) {
+//          // We don't need to check nullability here because the default value "protects" us
+//          // from any possible null values.
+//          final String defaultValueExpr =
+//              "\"" + Java.escapeString(representationDefaultValue) + "\"";
+//          out.println("    @Provides");
+//          out.println("    @CliPositionalParameter(value=" + position + ", defaultValue="
+//              + defaultValueExpr + ")");
+//          out.println("    public " + representationType + " " + baseMethodName + "As"
+//              + typeSimpleName + "(@CliPositionalParameter(value=" + position + ", defaultValue="
+//              + defaultValueExpr + " ) List<String> value) {");
+//          out.println("        return " + conversionExpr + ";");
+//          out.println("    }");
+//          out.println();
+//        } else if (parameterIsRequired) {
+//          // We don't need to check for null here because we already did in the constructor
+//          out.println("    @Provides");
+//          out.println("    @CliPositionalParameter(" + position + ")");
+//          out.println(
+//              "    public " + representationType + " " + baseMethodName + "As" + typeSimpleName
+//                  + "(@CliPositionalParameter(" + position + ") List<String> value) {");
+//          out.println("        return " + conversionExpr + ";");
+//          out.println("    }");
+//          out.println();
+//        } else {
+//          // We never generate a nullable list of strings. We just use empty list.
+//          out.println("    @Provides");
+//          out.println("    @CliPositionalParameter(" + position + ")");
+//          out.println(
+//              "    public " + representationType + " " + baseMethodName + "As" + typeSimpleName
+//                  + "(@CliPositionalParameter(" + position + ") List<String> value) {");
+//          out.println("        return " + conversionExpr + ";");
+//          out.println("    }");
+//          out.println();
+//          out.println("    @Provides");
+//          out.println("    @CliPositionalParameter(" + position + ")");
+//          out.println("    public Optional<" + representationType + "> " + baseMethodName
+//              + "AsOptionalOf" + typeSimpleName + "(@CliPositionalParameter(" + position
+//              + ") Optional<List<String>> o) {");
+//          out.println("        return o.map(value -> " + conversionExpr + ");");
+//          out.println("    }");
+//          out.println();
+//        }
+//      } else {
+//        final String conversionExpr =
+//            getStringConverter().generateConversionExpr(representationType, "value").orElse(null);
+//        if (conversionExpr == null) {
+//          // This should never happen, we've already checked that the conversion is possible.
+//          getMessager().printMessage(Diagnostic.Kind.ERROR,
+//              "Cannot convert " + representationType + " from " + getStringType());
+//          return;
+//        }
+//
+//        if (representationDefaultValue != null) {
+//          // We don't need to check nullability here because the default value "protects" us
+//          // from any possible null values.
+//          final String defaultValueExpr =
+//              "\"" + Java.escapeString(representationDefaultValue) + "\"";
+//          out.println("    @Provides");
+//          out.println("    @CliPositionalParameter(value=" + position + ", defaultValue="
+//              + defaultValueExpr + ")");
+//          out.println("    public " + representationType + " " + baseMethodName + "As"
+//              + typeSimpleName + "(@CliPositionalParameter(value=" + position + ", defaultValue="
+//              + defaultValueExpr + " ) String value) {");
+//          out.println("        return " + conversionExpr + ";");
+//          out.println("    }");
+//          out.println();
+//        } else if (parameterIsRequired) {
+//          // We don't need to check for null here because we already did in the constructor
+//          out.println("    @Provides");
+//          out.println("    @CliPositionalParameter(" + position + ")");
+//          out.println("    public " + representationType + " " + baseMethodName + "As"
+//              + typeSimpleName + "(@CliPositionalParameter(" + position + ") String value) {");
+//          out.println("        return " + conversionExpr + ";");
+//          out.println("    }");
+//          out.println();
+//        } else {
+//          out.println("    @Provides");
+//          out.println("    @Nullable");
+//          out.println("    @CliPositionalParameter(" + position + ")");
+//          out.println(
+//              "    public " + representationType + " " + baseMethodName + "As" + typeSimpleName
+//                  + "(@Nullable @CliPositionalParameter(" + position + ") String value) {");
+//          out.println("        if(value == null)");
+//          out.println("            return null;");
+//          out.println("        return " + conversionExpr + ";");
+//          out.println("    }");
+//          out.println();
+//          out.println("    @Provides");
+//          out.println("    @CliPositionalParameter(" + position + ")");
+//          out.println("    public Optional<" + representationType + "> " + baseMethodName
+//              + "AsOptionalOf" + typeSimpleName + "(@CliPositionalParameter(" + position
+//              + ") Optional<String> o) {");
+//          out.println("        return o.map(value -> " + conversionExpr + ");");
+//          out.println("    }");
+//          out.println();
+//        }
+//      }
+//    }
   }
 
   private String positionalParameterInstanceFieldName(int position) {
