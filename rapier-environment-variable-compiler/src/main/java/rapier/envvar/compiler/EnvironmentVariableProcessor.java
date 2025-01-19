@@ -40,6 +40,7 @@ import java.util.SortedMap;
 import java.util.SortedSet;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Pattern;
 import javax.annotation.processing.ProcessingEnvironment;
 import javax.annotation.processing.RoundEnvironment;
@@ -56,6 +57,7 @@ import dagger.Component;
 import rapier.compiler.core.ConversionExprFactory;
 import rapier.compiler.core.DaggerComponentAnalyzer;
 import rapier.compiler.core.RapierProcessorBase;
+import rapier.compiler.core.TemplateParser;
 import rapier.compiler.core.model.DaggerInjectionSite;
 import rapier.compiler.core.util.AnnotationProcessing;
 import rapier.compiler.core.util.CaseFormat;
@@ -181,7 +183,45 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
         .analyzeComponent(component).getInjectionSites().stream()
         .filter(d -> d.getQualifier().isPresent()).filter(d -> getTypes()
             .isSameType(d.getQualifier().orElseThrow().getAnnotationType(), getQualifierType()))
-        .collect(toList());
+        .filter(d -> {
+          final ParameterKey key = ParameterKey.fromInjectionSite(d);
+          if (!isValidEnvironmentVariableNameTemplate(key.getName())) {
+            getMessager().printMessage(Diagnostic.Kind.ERROR,
+                "Invalid environment variable name template", d.getElement());
+            return false;
+          }
+          return true;
+        }).collect(toList());
+  }
+
+  private boolean isValidEnvironmentVariableNameTemplate(String template) {
+    final AtomicBoolean result = new AtomicBoolean(true);
+    try {
+      new TemplateParser().parse(template, new TemplateParser.ParseHandler() {
+        @Override
+        public void onText(int index, String text) {
+          if (!text.chars()
+              .allMatch(EnvironmentVariableProcessor.this::isValidEnvironmentVariableNameChar)) {
+            result.set(false);
+          }
+        }
+
+        @Override
+        public void onVariableExpression(int index, String variableName) {}
+
+        @Override
+        public void onVariableExpressionWithDefaultValue(int index, String variableName,
+            String defaultValue) {}
+      });
+    } catch (TemplateParser.TemplateSyntaxException e) {
+      result.set(false);
+    }
+    return result.get();
+  }
+
+  private boolean isValidEnvironmentVariableNameChar(int ch) {
+    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9')
+        || ch == '_';
   }
 
   @FunctionalInterface
@@ -448,8 +488,9 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
           writer.println("    " + nullableAnnotation);
           writer.println("    @Provides");
           writer.println("    " + representationAnnotation);
-          writer.println("    public " + representationType + " " + baseMethodName + "As" + typeSimpleName + "("
-              + nullableAnnotation + " " + representationAnnotation + " String value) {");
+          writer.println(
+              "    public " + representationType + " " + baseMethodName + "As" + typeSimpleName
+                  + "(" + nullableAnnotation + " " + representationAnnotation + " String value) {");
           if (representationIsNullable == true) {
             writer.println("        if(value == null)");
             writer.println("            return null;");
@@ -478,8 +519,9 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
           if (representationIsNullable) {
             writer.println("    @Provides");
             writer.println("    " + representationAnnotation);
-            writer.println("    public Optional<" + representationType + "> " + baseMethodName + "AsOptionalOf"
-                + typeSimpleName + "(" + representationAnnotation + " " + representationType + " value) {");
+            writer.println("    public Optional<" + representationType + "> " + baseMethodName
+                + "AsOptionalOf" + typeSimpleName + "(" + representationAnnotation + " "
+                + representationType + " value) {");
             writer.println("        return Optional.ofNullable(value);");
             writer.println("    }");
             writer.println();
