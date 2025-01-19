@@ -257,7 +257,7 @@ Similarly, to allow Rapier to convert from `C` to another type `T` automatically
 
 #### Additional Information
 
-Specific details about the type conversions each module supports appear in their respective READMEs.
+Specific details about the type conversions each module supports appear in their respective READMEs and [the Rapier wiki](https://github.com/aleph0io/rapier/wiki/Type-conversions).
 
 ### Templating
 
