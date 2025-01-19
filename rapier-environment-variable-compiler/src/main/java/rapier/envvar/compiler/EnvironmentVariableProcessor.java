@@ -477,9 +477,9 @@ public class EnvironmentVariableProcessor extends RapierProcessorBase {
 
           if (representationIsNullable) {
             writer.println("    @Provides");
-            writer.println("    @EnvironmentVariable(\"" + name + "\")");
+            writer.println("    " + representationAnnotation);
             writer.println("    public Optional<" + type + "> " + baseMethodName + "AsOptionalOf"
-                + typeSimpleName + "(@EnvironmentVariable(\"" + name + "\") Optional<String> o) {");
+                + typeSimpleName + "(" + representationAnnotation + " Optional<String> o) {");
             writer.println("        return o.map(value -> " + conversionExpr + ");");
             writer.println("    }");
             writer.println();

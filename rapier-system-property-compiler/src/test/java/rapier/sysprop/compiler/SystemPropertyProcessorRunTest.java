@@ -35,397 +35,792 @@ import rapier.compiler.core.RapierTestBase;
 public class SystemPropertyProcessorRunTest extends RapierTestBase {
   @Test
   public void givenSimpleComponent_whenCompileAndRun_thenGetExpectedOutput() throws IOException {
-    final JavaFileObject componentSource = prepareSourceFile("""
-        package com.example;
+      final JavaFileObject componentSource = prepareSourceFile("""
+          package com.example;
 
-        @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
-        public interface ExampleComponent {
-            @rapier.sysprop.SystemProperty("foo.bar")
-            public Integer provisionFooBarAsInt();
-        }
-        """);
+          @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
+          public interface ExampleComponent {
+              @rapier.sysprop.SystemProperty("FOO_BAR")
+              public Integer provisionFooBarAsInt();
+          }
+          """);
 
-    final JavaFileObject appSource = prepareSourceFile("""
-        package com.example;
+      final JavaFileObject appSource = prepareSourceFile("""
+          package com.example;
 
-        import java.util.Map;
+          import java.util.Properties;
 
-        public class App {
-            public static void main(String[] args) {
-                final ExampleComponent component = DaggerExampleComponent.builder()
-                    .rapierExampleComponentSystemPropertyModule(
-                        new RapierExampleComponentSystemPropertyModule(
-                            Map.of(),
-                            Map.of("foo.bar", "42")))
-                    .build();
+          public class App {
+              public static void main(String[] args) {
+                  Properties sys = new Properties();
+                  sys.setProperty("FOO_BAR", "42");
 
-                System.out.println(component.provisionFooBarAsInt());
-            }
-        }
-        """);
+                  final ExampleComponent component = DaggerExampleComponent.builder()
+                      .rapierExampleComponentSystemPropertyModule(
+                          new RapierExampleComponentSystemPropertyModule(sys))
+                      .build();
 
-    // Run the annotation processor
-    final Compilation compilation = doCompile(componentSource, appSource);
+                  System.out.println(component.provisionFooBarAsInt());
+              }
+          }
+          """);
 
-    // Assert the compilation succeeded
-    assertThat(compilation).succeeded();
+      final Compilation compilation = doCompile(componentSource, appSource);
 
-    final String output = doRun(compilation).trim();
+      assertThat(compilation).succeeded();
 
-    assertEquals("42", output);
+      final String output = doRun(compilation).trim();
+
+      assertEquals("42", output);
   }
 
   @Test
-  public void givenSimpleComponentWithNameTemplateEnvWithoutDefaultValue_whenCompileAndRunWithReferencedVariable_thenGetExpectedOutput()
-      throws IOException {
-    final JavaFileObject componentSource = prepareSourceFile("""
-        package com.example;
+  public void givenComponentWithRequiredParameter_whenCompileAndRunWithValue_thenGetExpectedOutput() throws IOException {
+      final JavaFileObject componentSource = prepareSourceFile("""
+          package com.example;
 
-        @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
-        public interface ExampleComponent {
-            @rapier.sysprop.SystemProperty("foo.${env.QUUX}")
-            public Integer provisionFooBarAsInt();
-        }
-        """);
+          @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
+          public interface ExampleComponent {
+              @rapier.sysprop.SystemProperty("FOO_BAR")
+              public String provisionFooBar();
+          }
+          """);
 
-    final JavaFileObject appSource = prepareSourceFile("""
-        package com.example;
+      final JavaFileObject appSource = prepareSourceFile("""
+          package com.example;
 
-        import java.util.Map;
+          import java.util.Properties;
 
-        public class App {
-            public static void main(String[] args) {
-                final ExampleComponent component = DaggerExampleComponent.builder()
-                    .rapierExampleComponentSystemPropertyModule(
-                        new RapierExampleComponentSystemPropertyModule(
-                            Map.of("QUUX", "bar"),
-                            Map.of("foo.bar", "42")))
-                    .build();
+          public class App {
+              public static void main(String[] args) {
+                  Properties sys = new Properties();
+                  sys.setProperty("FOO_BAR", "42");
 
-                System.out.println(component.provisionFooBarAsInt());
-            }
-        }
-        """);
+                  final ExampleComponent component = DaggerExampleComponent.builder()
+                      .rapierExampleComponentSystemPropertyModule(
+                          new RapierExampleComponentSystemPropertyModule(sys))
+                      .build();
 
-    // Run the annotation processor
-    final Compilation compilation = doCompile(componentSource, appSource);
+                  System.out.println(component.provisionFooBar());
+              }
+          }
+          """);
 
-    // Assert the compilation succeeded
-    assertThat(compilation).succeeded();
+      final Compilation compilation = doCompile(componentSource, appSource);
 
-    final String output = doRun(compilation).trim();
+      assertThat(compilation).succeeded();
 
-    assertEquals("42", output);
+      final String output = doRun(compilation).trim();
+
+      assertEquals("42", output);
   }
 
   @Test
-  public void givenSimpleComponentWithNameTemplateEnvWithoutDefaultValue_whenCompileAndRunWithoutReferencedVariable_thenCatchException()
-      throws IOException {
-    final JavaFileObject componentSource = prepareSourceFile("""
-        package com.example;
+  public void givenComponentWithRequiredParameter_whenCompileAndRunWithoutValue_thenCatchIllegalStateException() throws IOException {
+      final JavaFileObject componentSource = prepareSourceFile("""
+          package com.example;
 
-        @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
-        public interface ExampleComponent {
-            @rapier.sysprop.SystemProperty("foo.${env.QUUX}")
-            public Integer provisionFooBarAsInt();
-        }
-        """);
+          @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
+          public interface ExampleComponent {
+              @rapier.sysprop.SystemProperty("FOO_BAR")
+              public String provisionFooBar();
+          }
+          """);
 
-    final JavaFileObject appSource = prepareSourceFile("""
-        package com.example;
+      final JavaFileObject appSource = prepareSourceFile("""
+          package com.example;
 
-        import java.util.Map;
+          import java.util.Properties;
 
-        public class App {
-            public static void main(String[] args) {
-                try {
-                    final ExampleComponent component = DaggerExampleComponent.builder()
-                        .rapierExampleComponentSystemPropertyModule(
-                            new RapierExampleComponentSystemPropertyModule(
-                                Map.of("FOO_BAR", "42")))
-                        .build();
+          public class App {
+              public static void main(String[] args) {
+                  try {
+                      DaggerExampleComponent.builder()
+                          .rapierExampleComponentSystemPropertyModule(
+                              new RapierExampleComponentSystemPropertyModule(new Properties()))
+                          .build()
+                          .provisionFooBar();
+                  } catch (Exception e) {
+                      System.out.println(e.getClass().getName());
+                  }
+              }
+          }
+          """);
 
-                    System.out.println(component.provisionFooBarAsInt());
-                } catch (IllegalStateException e) {
-                    System.out.println(e.getClass().getName());
-                }
-            }
-        }
-        """);
+      final Compilation compilation = doCompile(componentSource, appSource);
 
-    // Run the annotation processor
-    final Compilation compilation = doCompile(componentSource, appSource);
+      assertThat(compilation).succeeded();
 
-    // Assert the compilation succeeded
-    assertThat(compilation).succeeded();
+      final String output = doRun(compilation).trim();
 
-    final String output = doRun(compilation).trim();
-
-    assertEquals("java.lang.IllegalStateException", output);
+      assertEquals("java.lang.IllegalStateException", output);
   }
 
   @Test
-  public void givenSimpleComponentWithNameTemplateEnvWithDefaultValue_whenCompileAndRunWithReferencedVariable_thenGetExpectedOutput()
-      throws IOException {
-    final JavaFileObject componentSource = prepareSourceFile("""
-        package com.example;
+  public void givenComponentWithNullableParameter_whenCompileAndRunWithoutValue_thenGetExpectedOutput() throws IOException {
+      final JavaFileObject componentSource = prepareSourceFile("""
+          package com.example;
 
-        @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
-        public interface ExampleComponent {
-            @rapier.sysprop.SystemProperty("foo.${env.QUUX:-pants}")
-            public Integer provisionFooBarAsInt();
-        }
-        """);
+          @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
+          public interface ExampleComponent {
+              @javax.annotation.Nullable
+              @rapier.sysprop.SystemProperty("FOO_BAR")
+              public String provisionFooBar();
+          }
+          """);
 
-    final JavaFileObject appSource = prepareSourceFile("""
-        package com.example;
+      final JavaFileObject appSource = prepareSourceFile("""
+          package com.example;
 
-        import java.util.Map;
+          import java.util.Properties;
 
-        public class App {
-            public static void main(String[] args) {
-                final ExampleComponent component = DaggerExampleComponent.builder()
-                    .rapierExampleComponentSystemPropertyModule(
-                        new RapierExampleComponentSystemPropertyModule(
-                            Map.of("QUUX", "bar"),
-                            Map.of("foo.bar", "42")))
-                    .build();
+          public class App {
+              public static void main(String[] args) {
+                  final ExampleComponent component = DaggerExampleComponent.builder()
+                      .rapierExampleComponentSystemPropertyModule(
+                          new RapierExampleComponentSystemPropertyModule(new Properties()))
+                      .build();
 
-                System.out.println(component.provisionFooBarAsInt());
-            }
-        }
-        """);
+                  System.out.println(component.provisionFooBar());
+              }
+          }
+          """);
 
-    // Run the annotation processor
-    final Compilation compilation = doCompile(componentSource, appSource);
+      final Compilation compilation = doCompile(componentSource, appSource);
 
-    // Assert the compilation succeeded
-    assertThat(compilation).succeeded();
+      assertThat(compilation).succeeded();
 
-    final String output = doRun(compilation).trim();
+      final String output = doRun(compilation).trim();
 
-    assertEquals("42", output);
+      assertEquals("null", output);
+  }
+
+
+  @Test
+  public void givenComponentWithNullableParameter_whenCompileAndRunWithValue_thenGetExpectedOutput() throws IOException {
+      final JavaFileObject componentSource = prepareSourceFile("""
+          package com.example;
+
+          @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
+          public interface ExampleComponent {
+              @javax.annotation.Nullable
+              @rapier.sysprop.SystemProperty("FOO_BAR")
+              public String provisionFooBar();
+          }
+          """);
+
+      final JavaFileObject appSource = prepareSourceFile("""
+          package com.example;
+
+          import java.util.Properties;
+
+          public class App {
+              public static void main(String[] args) {
+                  Properties sys = new Properties();
+                  sys.setProperty("FOO_BAR", "42");
+
+                  final ExampleComponent component = DaggerExampleComponent.builder()
+                      .rapierExampleComponentSystemPropertyModule(
+                          new RapierExampleComponentSystemPropertyModule(sys))
+                      .build();
+
+                  System.out.println(component.provisionFooBar());
+              }
+          }
+          """);
+
+      final Compilation compilation = doCompile(componentSource, appSource);
+
+      assertThat(compilation).succeeded();
+
+      final String output = doRun(compilation).trim();
+
+      assertEquals("42", output);
   }
 
   @Test
-  public void givenSimpleComponentWithNameTemplateEnvWithDefaultValue_whenCompileAndRunWithoutReferencedVariable_thenCatchException()
-      throws IOException {
-    final JavaFileObject componentSource = prepareSourceFile("""
-        package com.example;
+  public void givenComponentWithParameterWithDefaultValue_whenCompileAndRunWithoutValue_thenGetExpectedOutput() throws IOException {
+      final JavaFileObject componentSource = prepareSourceFile("""
+          package com.example;
 
-        @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
-        public interface ExampleComponent {
-            @rapier.sysprop.SystemProperty("foo.${env.QUUX:-bar}")
-            public Integer provisionFooBarAsInt();
-        }
-        """);
+          @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
+          public interface ExampleComponent {
+              @javax.annotation.Nullable
+              @rapier.sysprop.SystemProperty(value="FOO_BAR", defaultValue="43")
+              public String provisionFooBar();
+          }
+          """);
 
-    final JavaFileObject appSource = prepareSourceFile("""
-        package com.example;
+      final JavaFileObject appSource = prepareSourceFile("""
+          package com.example;
 
-        import java.util.Map;
+          import java.util.Properties;
 
-        public class App {
-            public static void main(String[] args) {
-                final ExampleComponent component = DaggerExampleComponent.builder()
-                    .rapierExampleComponentSystemPropertyModule(
-                        new RapierExampleComponentSystemPropertyModule(
-                            Map.of(),
-                            Map.of("foo.bar", "42")))
-                    .build();
+          public class App {
+              public static void main(String[] args) {
+                  final ExampleComponent component = DaggerExampleComponent.builder()
+                      .rapierExampleComponentSystemPropertyModule(
+                          new RapierExampleComponentSystemPropertyModule(new Properties()))
+                      .build();
 
-                System.out.println(component.provisionFooBarAsInt());
-            }
-        }
-        """);
+                  System.out.println(component.provisionFooBar());
+              }
+          }
+          """);
 
-    // Run the annotation processor
-    final Compilation compilation = doCompile(componentSource, appSource);
+      final Compilation compilation = doCompile(componentSource, appSource);
 
-    // Assert the compilation succeeded
-    assertThat(compilation).succeeded();
+      assertThat(compilation).succeeded();
 
-    final String output = doRun(compilation).trim();
+      final String output = doRun(compilation).trim();
 
-    assertEquals("42", output);
+      assertEquals("43", output);
   }
 
   @Test
-  public void givenSimpleComponentWithNameTemplateSysWithoutDefaultValue_whenCompileAndRunWithReferencedVariable_thenGetExpectedOutput()
-      throws IOException {
-    final JavaFileObject componentSource = prepareSourceFile("""
-        package com.example;
+  public void givenComponentWithParameterWithDefaultValue_whenCompileAndRunWithValue_thenGetExpectedOutput() throws IOException {
+      final JavaFileObject componentSource = prepareSourceFile("""
+          package com.example;
 
-        @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
-        public interface ExampleComponent {
-            @rapier.sysprop.SystemProperty("foo.${sys.QUUX}")
-            public Integer provisionFooBarAsInt();
-        }
-        """);
+          @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
+          public interface ExampleComponent {
+              @javax.annotation.Nullable
+              @rapier.sysprop.SystemProperty(value="FOO_BAR", defaultValue="43")
+              public String provisionFooBar();
+          }
+          """);
 
-    final JavaFileObject appSource = prepareSourceFile("""
-        package com.example;
+      final JavaFileObject appSource = prepareSourceFile("""
+          package com.example;
 
-        import java.util.Map;
+          import java.util.Properties;
 
-        public class App {
-            public static void main(String[] args) {
-                final ExampleComponent component = DaggerExampleComponent.builder()
-                    .rapierExampleComponentSystemPropertyModule(
-                        new RapierExampleComponentSystemPropertyModule(
-                            Map.of(),
-                            Map.of("foo.bar", "42", "QUUX", "bar")))
-                    .build();
+          public class App {
+              public static void main(String[] args) {
+                  Properties sys = new Properties();
+                  sys.setProperty("FOO_BAR", "42");
 
-                System.out.println(component.provisionFooBarAsInt());
-            }
-        }
-        """);
+                  final ExampleComponent component = DaggerExampleComponent.builder()
+                      .rapierExampleComponentSystemPropertyModule(
+                          new RapierExampleComponentSystemPropertyModule(sys))
+                      .build();
 
-    // Run the annotation processor
-    final Compilation compilation = doCompile(componentSource, appSource);
+                  System.out.println(component.provisionFooBar());
+              }
+          }
+          """);
 
-    // Assert the compilation succeeded
-    assertThat(compilation).succeeded();
+      final Compilation compilation = doCompile(componentSource, appSource);
 
-    final String output = doRun(compilation).trim();
+      assertThat(compilation).succeeded();
 
-    assertEquals("42", output);
+      final String output = doRun(compilation).trim();
+
+      assertEquals("42", output);
   }
 
   @Test
-  public void givenSimpleComponentWithNameTemplateSysWithoutDefaultValue_whenCompileAndRunWithoutReferencedVariable_thenCatchException()
-      throws IOException {
-    final JavaFileObject componentSource = prepareSourceFile("""
-        package com.example;
+  public void givenComponentWithIntParameter_whenCompileAndRunWithNonIntArgument_thenCatchIllegalArgumentException() throws IOException {
+      final JavaFileObject componentSource = prepareSourceFile("""
+          package com.example;
 
-        @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
-        public interface ExampleComponent {
-            @rapier.sysprop.SystemProperty("foo.${sys.QUUX}")
-            public Integer provisionFooBarAsInt();
-        }
-        """);
+          @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
+          public interface ExampleComponent {
+              @rapier.sysprop.SystemProperty("FOO_BAR")
+              public int provisionFooBar();
+          }
+          """);
 
-    final JavaFileObject appSource = prepareSourceFile("""
-        package com.example;
+      final JavaFileObject appSource = prepareSourceFile("""
+          package com.example;
 
-        import java.util.Map;
+          import java.util.Properties;
 
-        public class App {
-            public static void main(String[] args) {
-                try {
-                    final ExampleComponent component = DaggerExampleComponent.builder()
-                        .rapierExampleComponentSystemPropertyModule(
-                            new RapierExampleComponentSystemPropertyModule(
-                                Map.of("FOO_BAR", "42"),
-                                Map.of()))
-                        .build();
+          public class App {
+              public static void main(String[] args) {
+                  try {
+                      Properties sys = new Properties();
+                      sys.setProperty("FOO_BAR", "not an int");
 
-                    System.out.println(component.provisionFooBarAsInt());
-                } catch (IllegalStateException e) {
-                    System.out.println(e.getClass().getName());
-                }
-            }
-        }
-        """);
+                      DaggerExampleComponent.builder()
+                          .rapierExampleComponentSystemPropertyModule(
+                              new RapierExampleComponentSystemPropertyModule(sys))
+                          .build()
+                          .provisionFooBar();
+                  } catch (Exception e) {
+                      System.out.println(e.getClass().getName());
+                  }
+              }
+          }
+          """);
 
-    // Run the annotation processor
-    final Compilation compilation = doCompile(componentSource, appSource);
+      final Compilation compilation = doCompile(componentSource, appSource);
 
-    // Assert the compilation succeeded
-    assertThat(compilation).succeeded();
+      assertThat(compilation).succeeded();
 
-    final String output = doRun(compilation).trim();
+      final String output = doRun(compilation).trim();
 
-    assertEquals("java.lang.IllegalStateException", output);
+      assertEquals("java.lang.IllegalArgumentException", output);
   }
 
   @Test
-  public void givenSimpleComponentWithNameTemplateSysWithDefaultValue_whenCompileAndRunWithReferencedVariable_thenGetExpectedOutput()
-      throws IOException {
-    final JavaFileObject componentSource = prepareSourceFile("""
-        package com.example;
+  public void givenComponentWithTypeConversionThatThrowsCheckedException_whenCompileAndRunWithoutThrow_thenGetExpectedOutput() throws IOException {
+      final JavaFileObject componentSource = prepareSourceFile("""
+          package com.example;
 
-        @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
-        public interface ExampleComponent {
-            @rapier.sysprop.SystemProperty("foo.${sys.QUUX:-pants}")
-            public Integer provisionFooBarAsInt();
-        }
-        """);
+          @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
+          public interface ExampleComponent {
+              @rapier.sysprop.SystemProperty("FOO_BAR")
+              public ExampleType provisionFooBar();
+          }
+          """);
 
-    final JavaFileObject appSource = prepareSourceFile("""
-        package com.example;
+      final JavaFileObject typeSource = prepareSourceFile("""
+          package com.example;
 
-        import java.util.Map;
+          public class ExampleType {
+              public final String value;
 
-        public class App {
-            public static void main(String[] args) {
-                final ExampleComponent component = DaggerExampleComponent.builder()
-                    .rapierExampleComponentSystemPropertyModule(
-                        new RapierExampleComponentSystemPropertyModule(
-                            Map.of(),
-                            Map.of("foo.bar", "42", "QUUX", "bar")))
-                    .build();
+              public ExampleType(String value) throws Exception {
+                  this.value = value;
+              }
+          }
+          """);
 
-                System.out.println(component.provisionFooBarAsInt());
-            }
-        }
-        """);
+      final JavaFileObject appSource = prepareSourceFile("""
+          package com.example;
 
-    // Run the annotation processor
-    final Compilation compilation = doCompile(componentSource, appSource);
+          import java.util.Properties;
 
-    // Assert the compilation succeeded
-    assertThat(compilation).succeeded();
+          public class App {
+              public static void main(String[] args) {
+                  Properties sys = new Properties();
+                  sys.setProperty("FOO_BAR", "example");
 
-    final String output = doRun(compilation).trim();
+                  ExampleComponent component = DaggerExampleComponent.builder()
+                      .rapierExampleComponentSystemPropertyModule(
+                          new RapierExampleComponentSystemPropertyModule(sys))
+                      .build();
+                  System.out.println(component.provisionFooBar().value);
+              }
+          }
+          """);
 
-    assertEquals("42", output);
+      final Compilation compilation = doCompile(componentSource, typeSource, appSource);
+
+      assertThat(compilation).succeeded();
+
+      final String output = doRun(compilation).trim();
+
+      assertEquals("example", output);
   }
 
   @Test
-  public void givenSimpleComponentWithNameTemplateSysWithDefaultValue_whenCompileAndRunWithoutReferencedVariable_thenCatchException()
-      throws IOException {
-    final JavaFileObject componentSource = prepareSourceFile("""
-        package com.example;
+  public void givenComponentWithTypeConversionThatThrowsCheckedException_whenCompileAndRunWithThrow_thenCatchIllegalArgumentException() throws IOException {
+      final JavaFileObject componentSource = prepareSourceFile("""
+          package com.example;
 
-        @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
-        public interface ExampleComponent {
-            @rapier.sysprop.SystemProperty("foo.${env.QUUX:-bar}")
-            public Integer provisionFooBarAsInt();
-        }
-        """);
+          @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
+          public interface ExampleComponent {
+              @rapier.sysprop.SystemProperty("FOO_BAR")
+              public ExampleType provisionFooBar();
+          }
+          """);
 
-    final JavaFileObject appSource = prepareSourceFile("""
-        package com.example;
+      final JavaFileObject typeSource = prepareSourceFile("""
+          package com.example;
 
-        import java.util.Map;
+          public class ExampleType {
+              public final String value;
 
-        public class App {
-            public static void main(String[] args) {
-                final ExampleComponent component = DaggerExampleComponent.builder()
-                    .rapierExampleComponentSystemPropertyModule(
-                        new RapierExampleComponentSystemPropertyModule(
-                            Map.of(),
-                            Map.of("foo.bar", "42")))
-                    .build();
+              public ExampleType(String value) throws Exception {
+                  throw new Exception("hello");
+              }
+          }
+          """);
 
-                System.out.println(component.provisionFooBarAsInt());
-            }
-        }
-        """);
+      final JavaFileObject appSource = prepareSourceFile("""
+          package com.example;
 
-    // Run the annotation processor
-    final Compilation compilation = doCompile(componentSource, appSource);
+          import java.util.Properties;
 
-    // Assert the compilation succeeded
-    assertThat(compilation).succeeded();
+          public class App {
+              public static void main(String[] args) {
+                  try {
+                      Properties sys = new Properties();
+                      sys.setProperty("FOO_BAR", "example");
 
-    final String output = doRun(compilation).trim();
+                      DaggerExampleComponent.builder()
+                          .rapierExampleComponentSystemPropertyModule(
+                              new RapierExampleComponentSystemPropertyModule(sys))
+                          .build()
+                          .provisionFooBar();
+                  } catch (Exception e) {
+                      System.out.println(e.getClass().getName());
+                  }
+              }
+          }
+          """);
 
-    assertEquals("42", output);
+      final Compilation compilation = doCompile(componentSource, typeSource, appSource);
+
+      assertThat(compilation).succeeded();
+
+      final String output = doRun(compilation).trim();
+
+      assertEquals("java.lang.IllegalArgumentException", output);
   }
 
+  @Test
+  public void givenComponentWithNameTemplateEnvWithoutDefaultValue_whenCompileAndRunWithReferencedVariable_thenGetExpectedOutput() throws IOException {
+      final JavaFileObject componentSource = prepareSourceFile("""
+          package com.example;
+
+          @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
+          public interface ExampleComponent {
+              @rapier.sysprop.SystemProperty("FOO_${env.QUUX}")
+              public Integer provisionFooBarAsInt();
+          }
+          """);
+
+      final JavaFileObject appSource = prepareSourceFile("""
+          package com.example;
+
+          import java.util.HashMap;
+          import java.util.Map;
+          import java.util.Properties;
+
+          public class App {
+              public static void main(String[] args) {
+                  Map<String, String> env = new HashMap<>();
+                  env.put("QUUX", "BAR");
+              
+                  Properties sys = new Properties();
+                  sys.setProperty("FOO_BAR", "42");
+
+                  final ExampleComponent component = DaggerExampleComponent.builder()
+                      .rapierExampleComponentSystemPropertyModule(
+                          new RapierExampleComponentSystemPropertyModule(env, sys))
+                      .build();
+
+                  System.out.println(component.provisionFooBarAsInt());
+              }
+          }
+          """);
+
+      final Compilation compilation = doCompile(componentSource, appSource);
+
+      assertThat(compilation).succeeded();
+
+      final String output = doRun(compilation).trim();
+
+      assertEquals("42", output);
+  }
+
+  @Test
+  public void givenComponentWithNameTemplateEnvWithoutDefaultValue_whenCompileAndRunWithoutReferencedVariable_thenCatchException() throws IOException {
+      final JavaFileObject componentSource = prepareSourceFile("""
+          package com.example;
+
+          @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
+          public interface ExampleComponent {
+              @rapier.sysprop.SystemProperty("FOO_${env.QUUX}")
+              public Integer provisionFooBarAsInt();
+          }
+          """);
+
+      final JavaFileObject appSource = prepareSourceFile("""
+          package com.example;
+
+          import java.util.Properties;
+
+          public class App {
+              public static void main(String[] args) {
+                  try {
+                      Properties sys = new Properties();
+                      sys.setProperty("FOO_BAR", "42");
+
+                      final ExampleComponent component = DaggerExampleComponent.builder()
+                          .rapierExampleComponentSystemPropertyModule(
+                              new RapierExampleComponentSystemPropertyModule(sys))
+                          .build();
+
+                      System.out.println(component.provisionFooBarAsInt());
+                  } catch (IllegalStateException e) {
+                      System.out.println(e.getClass().getName());
+                  }
+              }
+          }
+          """);
+
+      final Compilation compilation = doCompile(componentSource, appSource);
+
+      assertThat(compilation).succeeded();
+
+      final String output = doRun(compilation).trim();
+
+      assertEquals("java.lang.IllegalStateException", output);
+  }
+
+
+  @Test
+  public void givenComponentWithNameTemplateEnvWithDefaultValue_whenCompileAndRunWithReferencedVariable_thenGetExpectedOutput() throws IOException {
+      final JavaFileObject componentSource = prepareSourceFile("""
+          package com.example;
+
+          @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
+          public interface ExampleComponent {
+              @rapier.sysprop.SystemProperty("FOO_${env.QUUX:-PANTS}")
+              public Integer provisionFooBarAsInt();
+          }
+          """);
+
+      final JavaFileObject appSource = prepareSourceFile("""
+          package com.example;
+
+          import java.util.HashMap;
+          import java.util.Map;
+          import java.util.Properties;
+
+          public class App {
+              public static void main(String[] args) {
+                  Map<String, String> env = new HashMap<>();
+                  env.put("QUUX", "BAR");
+              
+                  Properties sys = new Properties();
+                  sys.setProperty("FOO_BAR", "42");
+
+                  final ExampleComponent component = DaggerExampleComponent.builder()
+                      .rapierExampleComponentSystemPropertyModule(
+                          new RapierExampleComponentSystemPropertyModule(env, sys))
+                      .build();
+
+                  System.out.println(component.provisionFooBarAsInt());
+              }
+          }
+          """);
+
+      final Compilation compilation = doCompile(componentSource, appSource);
+
+      assertThat(compilation).succeeded();
+
+      final String output = doRun(compilation).trim();
+
+      assertEquals("42", output);
+  }
+
+  @Test
+  public void givenComponentWithNameTemplateEnvWithDefaultValue_whenCompileAndRunWithoutReferencedVariable_thenCatchException() throws IOException {
+      final JavaFileObject componentSource = prepareSourceFile("""
+          package com.example;
+
+          @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
+          public interface ExampleComponent {
+              @rapier.sysprop.SystemProperty("FOO_${env.QUUX:-BAR}")
+              public Integer provisionFooBarAsInt();
+          }
+          """);
+
+      final JavaFileObject appSource = prepareSourceFile("""
+          package com.example;
+
+          import java.util.Properties;
+
+          public class App {
+              public static void main(String[] args) {
+                  Properties sys = new Properties();
+                  sys.setProperty("FOO_BAR", "42");
+
+                  final ExampleComponent component = DaggerExampleComponent.builder()
+                      .rapierExampleComponentSystemPropertyModule(
+                          new RapierExampleComponentSystemPropertyModule(sys))
+                      .build();
+
+                  System.out.println(component.provisionFooBarAsInt());
+              }
+          }
+          """);
+
+      final Compilation compilation = doCompile(componentSource, appSource);
+
+      assertThat(compilation).succeeded();
+
+      final String output = doRun(compilation).trim();
+
+      assertEquals("42", output);
+  }
+
+  @Test
+  public void givenComponentWithNameTemplateSysWithoutDefaultValue_whenCompileAndRunWithReferencedVariable_thenGetExpectedOutput() throws IOException {
+      final JavaFileObject componentSource = prepareSourceFile("""
+          package com.example;
+
+          @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
+          public interface ExampleComponent {
+              @rapier.sysprop.SystemProperty("FOO_${sys.QUUX}")
+              public Integer provisionFooBarAsInt();
+          }
+          """);
+
+      final JavaFileObject appSource = prepareSourceFile("""
+          package com.example;
+
+          import java.util.Properties;
+
+          public class App {
+              public static void main(String[] args) {
+                  Properties sys = new Properties();
+                  sys.setProperty("FOO_BAR", "42");
+                  sys.setProperty("QUUX", "BAR");
+
+                  final ExampleComponent component = DaggerExampleComponent.builder()
+                      .rapierExampleComponentSystemPropertyModule(
+                          new RapierExampleComponentSystemPropertyModule(sys))
+                      .build();
+
+                  System.out.println(component.provisionFooBarAsInt());
+              }
+          }
+          """);
+
+      final Compilation compilation = doCompile(componentSource, appSource);
+
+      assertThat(compilation).succeeded();
+
+      final String output = doRun(compilation).trim();
+
+      assertEquals("42", output);
+  }
+
+  @Test
+  public void givenComponentWithNameTemplateSysWithoutDefaultValue_whenCompileAndRunWithoutReferencedVariable_thenCatchException() throws IOException {
+      final JavaFileObject componentSource = prepareSourceFile("""
+          package com.example;
+
+          @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
+          public interface ExampleComponent {
+              @rapier.sysprop.SystemProperty("FOO_${sys.QUUX}")
+              public Integer provisionFooBarAsInt();
+          }
+          """);
+
+      final JavaFileObject appSource = prepareSourceFile("""
+          package com.example;
+
+          import java.util.Properties;
+
+          public class App {
+              public static void main(String[] args) {
+                  try {
+                      Properties sys = new Properties();
+                      sys.setProperty("FOO_BAR", "42");
+
+                      final ExampleComponent component = DaggerExampleComponent.builder()
+                          .rapierExampleComponentSystemPropertyModule(
+                              new RapierExampleComponentSystemPropertyModule(sys))
+                          .build();
+
+                      System.out.println(component.provisionFooBarAsInt());
+                  } catch (IllegalStateException e) {
+                      System.out.println(e.getClass().getName());
+                  }
+              }
+          }
+          """);
+
+      final Compilation compilation = doCompile(componentSource, appSource);
+
+      assertThat(compilation).succeeded();
+
+      final String output = doRun(compilation).trim();
+
+      assertEquals("java.lang.IllegalStateException", output);
+  }
+
+
+  @Test
+  public void givenComponentWithNameTemplateSysWithDefaultValue_whenCompileAndRunWithReferencedVariable_thenGetExpectedOutput() throws IOException {
+      final JavaFileObject componentSource = prepareSourceFile("""
+          package com.example;
+
+          @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
+          public interface ExampleComponent {
+              @rapier.sysprop.SystemProperty("FOO_${sys.QUUX:-PANTS}")
+              public Integer provisionFooBarAsInt();
+          }
+          """);
+
+      final JavaFileObject appSource = prepareSourceFile("""
+          package com.example;
+
+          import java.util.Properties;
+
+          public class App {
+              public static void main(String[] args) {
+                  Properties sys = new Properties();
+                  sys.setProperty("FOO_BAR", "42");
+                  sys.setProperty("QUUX", "BAR");
+
+                  final ExampleComponent component = DaggerExampleComponent.builder()
+                      .rapierExampleComponentSystemPropertyModule(
+                          new RapierExampleComponentSystemPropertyModule(sys))
+                      .build();
+
+                  System.out.println(component.provisionFooBarAsInt());
+              }
+          }
+          """);
+
+      final Compilation compilation = doCompile(componentSource, appSource);
+
+      assertThat(compilation).succeeded();
+
+      final String output = doRun(compilation).trim();
+
+      assertEquals("42", output);
+  }
+
+  @Test
+  public void givenComponentWithNameTemplateSysWithDefaultValue_whenCompileAndRunWithoutReferencedVariable_thenCatchException() throws IOException {
+      final JavaFileObject componentSource = prepareSourceFile("""
+          package com.example;
+
+          @dagger.Component(modules = {RapierExampleComponentSystemPropertyModule.class})
+          public interface ExampleComponent {
+              @rapier.sysprop.SystemProperty("FOO_${env.QUUX:-BAR}")
+              public Integer provisionFooBarAsInt();
+          }
+          """);
+
+      final JavaFileObject appSource = prepareSourceFile("""
+          package com.example;
+
+          import java.util.Properties;
+
+          public class App {
+              public static void main(String[] args) {
+                  Properties sys = new Properties();
+                  sys.setProperty("FOO_BAR", "42");
+
+                  final ExampleComponent component = DaggerExampleComponent.builder()
+                      .rapierExampleComponentSystemPropertyModule(
+                          new RapierExampleComponentSystemPropertyModule(sys))
+                      .build();
+
+                  System.out.println(component.provisionFooBarAsInt());
+              }
+          }
+          """);
+
+      final Compilation compilation = doCompile(componentSource, appSource);
+
+      assertThat(compilation).succeeded();
+
+      final String output = doRun(compilation).trim();
+
+      assertEquals("42", output);
+  }
+  
   /**
    * We need to include the generated classes from the rapier-environment-variable module in the
    * classpath for our tests.

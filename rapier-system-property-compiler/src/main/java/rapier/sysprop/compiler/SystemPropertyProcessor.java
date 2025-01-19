@@ -88,14 +88,14 @@ public class SystemPropertyProcessor extends RapierProcessorBase {
       throw new NullPointerException();
     this.date = date;
   }
-  
+
   private String url = RapierInfo.URL;
 
   /* default */ void setUrl(String url) {
     if (url == null)
       throw new NullPointerException();
     this.url = url;
-  }  
+  }
 
   @Override
   public synchronized void init(ProcessingEnvironment processingEnv) {
@@ -396,44 +396,44 @@ public class SystemPropertyProcessor extends RapierProcessorBase {
               .append(stringSignature(representationDefaultValue));
         }
 
+        final String representationAnnotation;
+        if (representationDefaultValue != null) {
+          representationAnnotation = "@SystemProperty(value=\"" + name + "\", defaultValue=\""
+              + Java.escapeString(representationDefaultValue) + "\")";
+        } else {
+          representationAnnotation = "@SystemProperty(\"" + name + "\")";
+        }
+
+        final boolean representationIsNullable =
+            representationDefaultValue == null && !parameterIsRequired;
+
+        final String nullableAnnotation = representationIsNullable ? "@Nullable" : "";
+
         if (getTypes().isSameType(type, getStringType())) {
+          writer.println("    " + nullableAnnotation);
+          writer.println("    @Provides");
+          writer.println("    " + representationAnnotation);
+          writer.println("    public String " + baseMethodName + "AsString() {");
+          writer.println("        final String name=" + nameExpr + ";");
+          writer.println("        final String value=sys.get(name);");
           if (representationDefaultValue != null) {
-            writer.println("    @Provides");
-            writer.println("    @SystemProperty(value=\"" + name + "\", defaultValue=\""
-                + Java.escapeString(representationDefaultValue) + "\")");
-            writer.println("    public String " + baseMethodName + "AsString() {");
-            writer.println("        final String name=" + nameExpr + ";");
-            writer.println("        final String value=sys.get(name);");
-            writer.println("        return Optional.ofNullable(value).orElse(\""
-                + Java.escapeString(representationDefaultValue) + "\");");
-            writer.println("    }");
-            writer.println();
+            writer.println("        if(value == null)");
+            writer.println(
+                "            return \"" + Java.escapeString(representationDefaultValue) + "\";");
           } else if (parameterIsRequired) {
-            writer.println("    @Provides");
-            writer.println("    @SystemProperty(\"" + name + "\")");
-            writer.println("    public String " + baseMethodName + "AsString() {");
-            writer.println("        final String name=" + nameExpr + ";");
-            writer.println("        final String value=sys.get(name);");
-            writer.println("        if (value == null)");
+            writer.println("        if(value == null)");
             writer.println(
                 "            throw new IllegalStateException(\"System property \" + name + \" not set\");");
-            writer.println("        return value;");
-            writer.println("    }");
-            writer.println();
-          } else {
+          }
+          writer.println("        return value;");
+          writer.println("    }");
+          writer.println();
+
+          if (representationIsNullable) {
             writer.println("    @Provides");
-            writer.println("    @Nullable");
-            writer.println("    @SystemProperty(\"" + name + "\")");
-            writer.println("    public String " + baseMethodName + "AsString() {");
-            writer.println("        final String name=" + nameExpr + ";");
-            writer.println("        final String value=sys.get(name);");
-            writer.println("        return value;");
-            writer.println("    }");
-            writer.println();
-            writer.println("    @Provides");
-            writer.println("    @SystemProperty(\"" + name + "\")");
-            writer.println("    public Optional<String> " + baseMethodName
-                + "AsOptionalOfString(@Nullable @SystemProperty(\"" + name + "\") String value) {");
+            writer.println("    " + representationAnnotation);
+            writer.println("    public Optional<String> " + baseMethodName + "AsOptionalOfString("
+                + representationAnnotation + " String value) {");
             writer.println("        return Optional.ofNullable(value);");
             writer.println("    }");
             writer.println();
@@ -449,46 +449,41 @@ public class SystemPropertyProcessor extends RapierProcessorBase {
 
           final String typeSimpleName = getSimpleTypeName(type);
 
-          if (representationDefaultValue != null) {
-            // We don't need to check nullability here because the default value "protects" us
-            // from any possible null values.
-            writer.println("    @Provides");
-            writer.println("    @SystemProperty(value=\"" + name + "\", defaultValue=\""
-                + Java.escapeString(representationDefaultValue) + "\")");
-            writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
-                + "(@SystemProperty(value=\"" + name + "\", defaultValue=\""
-                + Java.escapeString(representationDefaultValue) + "\") String value) {");
-            writer.println("        return " + conversionExpr + ";");
-            writer.println("    }");
-            writer.println();
-          } else if (parameterIsRequired) {
-            writer.println("    @Provides");
-            writer.println("    @SystemProperty(\"" + name + "\")");
-            writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
-                + "(@SystemProperty(\"" + name + "\") String value) {");
-            writer.println("        " + type + " result = " + conversionExpr + ";");
+          writer.println("    " + nullableAnnotation);
+          writer.println("    @Provides");
+          writer.println("    " + representationAnnotation);
+          writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName + "("
+              + nullableAnnotation + " " + representationAnnotation + " String value) {");
+          if (representationIsNullable == true) {
+            writer.println("        if(value == null)");
+            writer.println("            return null;");
+          }
+          writer.println("        final " + type + " result;");
+          writer.println("        try {");
+          writer.println("            result = " + conversionExpr + ";");
+          writer.println("        } catch (Exception e) {");
+          writer.println("            final String name=" + nameExpr + ";");
+          writer.println("            throw new IllegalArgumentException(");
+          writer.println("                \"System property \" + name + \" representation " + type
+              + " argument not valid\", e);");
+          writer.println("        }");
+          if (representationIsNullable == false) {
             writer.println("        if (result == null) {");
             writer.println("            final String name=" + nameExpr + ";");
             writer.println(
                 "            throw new IllegalStateException(\"System property \" + name + \" representation "
                     + type + " not set\");");
             writer.println("        }");
-            writer.println("        return result;");
-            writer.println("    }");
-            writer.println();
-          } else {
+          }
+          writer.println("        return result;");
+          writer.println("    }");
+          writer.println();
+
+          if (representationIsNullable) {
             writer.println("    @Provides");
-            writer.println("    @Nullable");
-            writer.println("    @SystemProperty(\"" + name + "\")");
-            writer.println("    public " + type + " " + baseMethodName + "As" + typeSimpleName
-                + "(@Nullable @SystemProperty(\"" + name + "\") String value) {");
-            writer.println("        return value != null ? " + conversionExpr + " : null;");
-            writer.println("    }");
-            writer.println();
-            writer.println("    @Provides");
-            writer.println("    @SystemProperty(\"" + name + "\")");
+            writer.println("    " + representationAnnotation);
             writer.println("    public Optional<" + type + "> " + baseMethodName + "AsOptionalOf"
-                + typeSimpleName + "(@SystemProperty(\"" + name + "\") Optional<String> o) {");
+                + typeSimpleName + "(" + representationAnnotation + " Optional<String> o) {");
             writer.println("        return o.map(value -> " + conversionExpr + ");");
             writer.println("    }");
             writer.println();
