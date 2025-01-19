@@ -233,6 +233,7 @@ public class SystemPropertyProcessorCompileTest extends RapierTestBase {
                 }
                 """));
   }
+
   @Test
   public void givenSimpleComponentWithSystemProperty_whenCompileAndRunWithValue_thenExpectedOutput()
       throws IOException {
@@ -440,6 +441,32 @@ public class SystemPropertyProcessorCompileTest extends RapierTestBase {
     assertTrue(compilation.warnings().stream().anyMatch(e -> e.getMessage(Locale.getDefault())
         .equals("Effectively required system property FOO_BAR has default value")));
   }
+
+
+  @Test
+  public void givenComponentWithInvalidSystemPropertyName_whenCompile_thenCompileError()
+      throws IOException {
+    // Define the source file to test
+    final JavaFileObject source = prepareSourceFile("""
+        package com.example;
+
+        @dagger.Component(modules={RapierExampleComponentSystemPropertyModule.class})
+        public interface ExampleComponent {
+            @rapier.sysprop.SystemProperty(value="FOO_BAR!")
+            public String provisionFooBarAsString();
+        }
+        """);
+
+    // Run the annotation processor
+    final Compilation compilation = doCompile(source);
+
+    // Assert the compilation succeeded
+    assertThat(compilation).failed();
+
+    assertTrue(compilation.errors().stream().anyMatch(
+        e -> e.getMessage(Locale.getDefault()).equals("Invalid system property name template")));
+  }
+
   public static final OffsetDateTime TEST_DATE =
       OffsetDateTime.of(2024, 1, 1, 12, 34, 56, 0, ZoneOffset.UTC);
 
