@@ -424,6 +424,28 @@ public class EnvironmentVariableProcessorCompileTest extends RapierTestBase {
         .equals("Effectively required environment variable FOO_BAR has default value")));
   }
 
+  @Test
+  public void givenComponentWithInvalidEnvironmentVariableName_whenCompile_thenCompileError()
+      throws IOException {
+    // Define the source file to test
+    final JavaFileObject source = prepareSourceFile("""
+        package com.example;
+
+        @dagger.Component(modules={RapierExampleComponentEnvironmentVariableModule.class})
+        public interface ExampleComponent {
+            @rapier.envvar.EnvironmentVariable(value="FOO.BAR")
+            public String provisionFooBarAsString();
+        }
+        """);
+
+    final Compilation compilation = doCompile(source);
+
+    assertThat(compilation).failed();
+
+    assertTrue(compilation.errors().stream().anyMatch(e -> e.getMessage(Locale.getDefault())
+        .equals("Invalid environment variable name template")));
+  }
+
   public static final OffsetDateTime TEST_DATE =
       OffsetDateTime.of(2024, 1, 1, 12, 34, 56, 0, ZoneOffset.UTC);
 
