@@ -438,6 +438,7 @@ public class AwsSsmProcessor extends RapierProcessorBase {
           }
           writer.println("        } catch(Exception e) {");
           writer.println("            throw new UncheckedIOException(");
+          writer.println("                \"Failed to retrieve AWS SSM Parameter \" + name,");
           writer.println("                new IOException(");
           writer.println(
               "                    \"Failed to retrieve AWS SSM Parameter \" + name, e));");
