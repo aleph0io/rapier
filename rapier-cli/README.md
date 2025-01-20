@@ -249,7 +249,7 @@ Rapier is designed to integrate with Dagger seamlessly and supports provisioning
     @Component(modules = {
       ServerModule.class,
       RapierExampleComponentCliModule.class })
-    public class ExampleComponent {
+    public interface ExampleComponent {
       public Server server();
     }
 
@@ -332,6 +332,137 @@ All flag parameters are allowed to be required or optional as required without c
 A flag parameter's listness is flexible. The same flag parameter can be treated as a list and scalar value at different injection sites without error. When a list is treated as a scalar, then the last value is used.
 
 Option parameters are given on the command line as a standalone switch, as in `-x` or `--xray`. Multiple flag short names may also be given together in "batch" syntax, where `-xyz` is equivalent to `-x -y -z`.
+
+## Standard help and version
+
+Rapier automatically adds standard help (`--help`, `-h`) and version (`--version`, `-V`) flags, along with corresponding messages, to your CLI application by default. Here’s an example:
+
+    @CliCommand
+    @CliCommandHelp(
+      name = "server",
+      version = "0.0.1",
+      description = "A simple server application",
+      provideStandardHelp = true,
+      provideStandardVersion = true)
+    @Component(modules = {
+      ServerModule.class,
+      RapierExampleComponentCliModule.class })
+    public interface ExampleComponent {
+      public Server server();
+    }
+
+    @Module(includes = {DataStoreModule.class})
+    public class ServerModule {
+      @Provides
+      public Server getServer(
+          @CliOptionParameterHelp(
+            valueName="port", 
+            description="The port the server should listen on")
+          @CliOptionParameter(longName="serverPort", defaultValue="7070") int port,
+          DataStore dataStore) {
+        return new ExampleServer(port, dataStore);
+      }
+    }
+    
+    @Module
+    public class DataStoreModule {
+      @Provides
+      public DataStore getDataStore(
+          @CliOptionParameterHelp(
+            valueName="host", 
+            description="The host for the database")
+          @CliOptionParameter(longName="databaseHost", defaultValue="localhost") String host,
+          @CliOptionParameterHelp(
+            valueName="port", 
+            description="The port for the database")
+          @CliOptionParameter(longName="databasePort", defaultValue="5432") int port) {
+        return new ExampleDataStore(host, port);
+      }
+    }
+
+Each Rapier CLI annotation (`@CliCommand`, `@CliPositionalParameter`, `@CliOptionParameter`, and `@CliFlagParameter`) has its own corresponding help documentation annotation (`@CliCommandHelp`, `@CliPositionalParameterHelp`, `@CliOptionParameterHelp`, and `@CliFlagParameterHelp`, respectively). These help documentation annotations provide the information used in the standard help and version messages Rapier provides.
+
+If the above application were built and packaged as server.jar, then the following commands would demonstrate the built-in help and version handling.
+
+    $ java -jar server.jar --help
+    Usage: server [OPTIONS]
+
+    Description: A simple server application
+
+    Option parameters:
+      --databaseHost <host>
+                        The host for the database
+      --databasePort <port>
+                        The port for the database
+      -h, --help        Print this help message and exit
+      --serverPort <port>
+                        The port the server should listen on
+      -V, --version     Print a version message and exit    
+
+    $ java -jar server.jar --version
+    server version 0.0.1
+    
+To disable the standard help and/or standard version flags, simply use `@CliCommandHelp(provideStandardHelp=false)` or `@CliCommandHelp(provideStandardVersion=false)`, repsectively. Both are enabled by default.
+
+Only one injection site needs to be annotated with help information for the given parameter to be documented in the standard help message. While users can organize this help information however they like, one approach to simplify and centralize parameter documentation is to define a separate documentation component. Remember, Dagger allows users to provision a given value as many times as they like, so there is no issue with duplicate provisioning. 
+
+    @CliCommand
+    @CliCommandHelp(
+      name = "server",
+      version = "0.0.1",
+      description = "A simple server application")
+    @Component(
+      modules = {
+        ServerModule.class,
+        RapierExampleComponentCliModule.class
+      },
+      dependencies = ExampleComponentCliDocumentation.class)
+    public interface ExampleComponent {
+      public Server server();
+    }
+    
+    @Component
+    public interface ExampleComponentCliDocumentation {
+      @CliOptionParameterHelp(
+        valueName="port", 
+        description="The port the server should listen on")
+      @CliOptionParameter(longName="serverPort", defaultValue="7070")
+      public int serverPortHelp();
+      
+      @CliOptionParameterHelp(
+        valueName="host", 
+        description="The host for the database")
+      @CliOptionParameter(longName="databaseHost", defaultValue="localhost")
+      public String databaseHostHelp();
+      
+      @CliOptionParameterHelp(
+        valueName="port", 
+        description="The port for the database")
+      @CliOptionParameter(longName="databasePort", defaultValue="5432")
+      public int databasePortHelp();
+    }
+
+    @Module(includes = {DataStoreModule.class})
+    public class ServerModule {
+      @Provides
+      public Server getServer(
+          @CliOptionParameter(longName="serverPort", defaultValue="7070") int port,
+          DataStore dataStore) {
+        return new ExampleServer(port, dataStore);
+      }
+    }
+    
+    @Module
+    public class DataStoreModule {
+      @Provides
+      public DataStore getDataStore(
+          @CliOptionParameter(longName="databaseHost", defaultValue="localhost") String host,
+          @CliOptionParameter(longName="databasePort", defaultValue="5432") int port) {
+        return new ExampleDataStore(host, port);
+      }
+    }
+
+In this approach, a separate component (`ExampleComponentCliDocumentation`) consolidates all parameter help annotations. The main component (`ExampleComponent`) depends on the documentation component, simplifying updates and ensuring clear separation of concerns.
 
 ## Customizing the code
 
