@@ -330,7 +330,8 @@
                                     <goal>jar</goal>
                                 </goals>
                                 <configuration>
-                                    <failOnError>false</failOnError>
+                                    <!-- Let's do fail on error -->
+                                    <failOnError>true</failOnError>
                                 </configuration>
                             </execution>
                         </executions>
