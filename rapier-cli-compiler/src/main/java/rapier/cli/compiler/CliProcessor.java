@@ -2195,8 +2195,7 @@ public class CliProcessor extends RapierProcessorBase {
         out.println("    public Boolean " + baseMethodName + "AsBoolean() {");
         if (representationDefaultValue != null) {
           out.println("        if(" + fieldName + " == null) {");
-          out.println(
-              "            return " + javaDefaultValueExpr + ";");
+          out.println("            return " + javaDefaultValueExpr + ";");
           out.println("        }");
         } else if (parameterIsRequired) {
           // No special action required here. It is handled in the constructor.

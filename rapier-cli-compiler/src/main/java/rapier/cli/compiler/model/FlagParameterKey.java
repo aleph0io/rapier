@@ -22,6 +22,7 @@ package rapier.cli.compiler.model;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.util.SimpleAnnotationValueVisitor8;
 import rapier.cli.CliFlagParameter;
@@ -50,6 +51,17 @@ public class FlagParameterKey {
         negativeLongName);
   }
 
+  private static boolean isValidShortName(char ch) {
+    return (ch >= 'a' && ch <= 'z') || (ch >= 'A' && ch <= 'Z') || (ch >= '0' && ch <= '9');
+  }
+
+  private static final Pattern PATTERN = Pattern.compile("[-a-zA-Z0-9_]*");
+
+  private static boolean isValidLongName(String s) {
+    return PATTERN.matcher(s).matches();
+  }
+
+
   private final Character positiveShortName;
   private final String positiveLongName;
   private final Character negativeShortName;
@@ -57,14 +69,18 @@ public class FlagParameterKey {
 
   public FlagParameterKey(Character shortPositiveName, String positiveLongName,
       Character negativeShortName, String negativeLongName) {
-    if (positiveLongName != null && positiveLongName.isEmpty())
-      throw new IllegalArgumentException("positiveLongName must not be empty");
-    if (negativeLongName != null && negativeLongName.isEmpty())
-      throw new IllegalArgumentException("negativeLongName must not be empty");
+    if (positiveLongName != null && !isValidLongName(positiveLongName))
+      throw new IllegalArgumentException("Flag parameter positiveLongName is invalid");
+    if (shortPositiveName != null && !isValidShortName(shortPositiveName))
+      throw new IllegalArgumentException("Flag parameter positiveShortName is invalid");
+    if (negativeLongName != null && !isValidLongName(negativeLongName))
+      throw new IllegalArgumentException("Flag parameter negativeLongName is invalid");
+    if (negativeShortName != null && !isValidShortName(negativeShortName))
+      throw new IllegalArgumentException("Flag parameter negativeShortName is invalid");
     if (shortPositiveName == null && positiveLongName == null && negativeShortName == null
         && negativeLongName == null)
       throw new IllegalArgumentException(
-          "At least one of positiveShortName, positiveLongName, negativeShortName, negativeLongName must be non-null");
+          "At least one of flag parameter positiveShortName, positiveLongName, negativeShortName, negativeLongName must be non-null");
     this.positiveShortName = shortPositiveName;
     this.positiveLongName = positiveLongName;
     this.negativeShortName = negativeShortName;

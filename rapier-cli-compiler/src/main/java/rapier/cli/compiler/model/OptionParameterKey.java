@@ -22,6 +22,7 @@ package rapier.cli.compiler.model;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.regex.Pattern;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.util.SimpleAnnotationValueVisitor8;
 import rapier.cli.CliOptionParameter;
@@ -37,22 +38,34 @@ public class OptionParameterKey {
         .equals(CliOptionParameter.class.getCanonicalName())) {
       throw new IllegalArgumentException("Dependency qualifier must be @CliOptionParameter");
     }
-
+    
     final Character shortName = extractOptionParameterShortName(qualifier);
-
+    
     final String longName = extractOptionParameterLongName(qualifier);
 
     return new OptionParameterKey(shortName, longName);
+  }
+    
+  private static boolean isValidShortName(char ch) {
+    return (ch>='a' && ch<='z') || (ch>='A' && ch<='Z') || (ch>='0' && ch<='9');
+  }
+  
+  private static final Pattern PATTERN = Pattern.compile("[-a-zA-Z0-9_]*");
+
+  private static boolean isValidLongName(String s) {
+    return PATTERN.matcher(s).matches();
   }
 
   private final Character shortName;
   private final String longName;
 
   public OptionParameterKey(Character shortName, String longName) {
-    if (longName != null && longName.isEmpty())
-      throw new IllegalArgumentException("longName must not be empty");
+    if (longName != null && !isValidLongName(longName))
+      throw new IllegalArgumentException("Option parameter longName is invalid");
+    if (shortName != null && !isValidShortName(shortName))
+      throw new IllegalArgumentException("Option parameter shortName is invalid");
     if (shortName == null && longName == null)
-      throw new IllegalArgumentException("At least one of shortName, longName must be non-null");
+      throw new IllegalArgumentException("At least one of option parameter shortName, longName must be non-null");
     this.shortName = shortName;
     this.longName = longName;
   }
