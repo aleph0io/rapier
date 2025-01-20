@@ -72,7 +72,7 @@ public class ElementwiseListConversionExprFactoryTest {
         unit.generateConversionExpr(targetTypeAsTypeMirror, "value").orElse(null);
 
     assertEquals(
-        "value.stream().map(element -> Integer.valueOf(element)).collect(java.util.stream.Collectors.toList())",
+        "value.stream().map(element -> { try { return Integer.valueOf(element); } catch(RuntimeException e) { throw e; } catch(Exception e) { throw new RuntimeException(e); } }).collect(java.util.stream.Collectors.toList())",
         conversionExpr);
   }
 

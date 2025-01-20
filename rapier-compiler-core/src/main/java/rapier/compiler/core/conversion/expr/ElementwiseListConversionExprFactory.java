@@ -47,7 +47,7 @@ public class ElementwiseListConversionExprFactory implements ConversionExprFacto
     final TypeMirror targetErasedType = getTypes().erasure(targetType);
     if (!targetErasedType.toString().equals("java.util.List"))
       return Optional.empty();
-    
+
     // Get the type arguments of the target type. If there are no type arguments, then this is a
     // raw List type, and we can't see the element type, so just return.
     List<? extends TypeMirror> typeArguments = targetDeclaredType.getTypeArguments();
@@ -66,8 +66,14 @@ public class ElementwiseListConversionExprFactory implements ConversionExprFacto
       return Optional.empty();
     final String elementConversionExpr = maybeElementConversionExpr.orElseThrow();
 
-    return Optional.of(sourceValue + ".stream().map(element -> " + elementConversionExpr
-        + ").collect(java.util.stream.Collectors.toList())");
+    return Optional
+        .of(sourceValue + ".stream().map(element -> { " + returnOrPropagate(elementConversionExpr)
+            + " }).collect(java.util.stream.Collectors.toList())");
+  }
+
+  private String returnOrPropagate(String expr) {
+    return "try { return " + expr
+        + "; } catch(RuntimeException e) { throw e; } catch(Exception e) { throw new RuntimeException(e); }";
   }
 
   private Types getTypes() {

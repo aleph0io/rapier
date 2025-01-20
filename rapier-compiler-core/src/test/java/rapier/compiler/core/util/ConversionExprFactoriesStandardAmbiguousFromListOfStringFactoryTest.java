@@ -176,25 +176,25 @@ public class ConversionExprFactoriesStandardAmbiguousFromListOfStringFactoryTest
     expectedConversionExprs.put("singleArgumentConstructorExample",
         "new com.example.SingleArgumentListOfStringConstructorExample(value)");
     expectedConversionExprs.put("listOfByteExample",
-        "value.stream().map(element -> java.lang.Byte.valueOf(element)).collect(java.util.stream.Collectors.toList())");
+        "value.stream().map(element -> { try { return java.lang.Byte.valueOf(element); } catch(RuntimeException e) { throw e; } catch(Exception e) { throw new RuntimeException(e); } }).collect(java.util.stream.Collectors.toList())");
     expectedConversionExprs.put("listOfShortExample",
-        "value.stream().map(element -> java.lang.Short.valueOf(element)).collect(java.util.stream.Collectors.toList())");
+        "value.stream().map(element -> { try { return java.lang.Short.valueOf(element); } catch(RuntimeException e) { throw e; } catch(Exception e) { throw new RuntimeException(e); } }).collect(java.util.stream.Collectors.toList())");
     expectedConversionExprs.put("listOfIntExample",
-        "value.stream().map(element -> java.lang.Integer.valueOf(element)).collect(java.util.stream.Collectors.toList())");
+        "value.stream().map(element -> { try { return java.lang.Integer.valueOf(element); } catch(RuntimeException e) { throw e; } catch(Exception e) { throw new RuntimeException(e); } }).collect(java.util.stream.Collectors.toList())");
     expectedConversionExprs.put("listOfLongExample",
-        "value.stream().map(element -> java.lang.Long.valueOf(element)).collect(java.util.stream.Collectors.toList())");
+        "value.stream().map(element -> { try { return java.lang.Long.valueOf(element); } catch(RuntimeException e) { throw e; } catch(Exception e) { throw new RuntimeException(e); } }).collect(java.util.stream.Collectors.toList())");
     expectedConversionExprs.put("listOfFloatExample",
-        "value.stream().map(element -> java.lang.Float.valueOf(element)).collect(java.util.stream.Collectors.toList())");
+        "value.stream().map(element -> { try { return java.lang.Float.valueOf(element); } catch(RuntimeException e) { throw e; } catch(Exception e) { throw new RuntimeException(e); } }).collect(java.util.stream.Collectors.toList())");
     expectedConversionExprs.put("listOfDoubleExample",
-        "value.stream().map(element -> java.lang.Double.valueOf(element)).collect(java.util.stream.Collectors.toList())");
+        "value.stream().map(element -> { try { return java.lang.Double.valueOf(element); } catch(RuntimeException e) { throw e; } catch(Exception e) { throw new RuntimeException(e); } }).collect(java.util.stream.Collectors.toList())");
     expectedConversionExprs.put("listOfCharExample",
-        "value.stream().map(element -> Optional.of(element).map(s -> s.isEmpty() ? null : s.charAt(0)).orElseThrow(() -> new IllegalStateException(\"Cannot convert empty string to char\"))).collect(java.util.stream.Collectors.toList())");
+        "value.stream().map(element -> { try { return Optional.of(element).map(s -> s.isEmpty() ? null : s.charAt(0)).orElseThrow(() -> new IllegalStateException(\"Cannot convert empty string to char\")); } catch(RuntimeException e) { throw e; } catch(Exception e) { throw new RuntimeException(e); } }).collect(java.util.stream.Collectors.toList())");
     expectedConversionExprs.put("listOfBooleanExample",
-        "value.stream().map(element -> java.lang.Boolean.valueOf(element)).collect(java.util.stream.Collectors.toList())");
+        "value.stream().map(element -> { try { return java.lang.Boolean.valueOf(element); } catch(RuntimeException e) { throw e; } catch(Exception e) { throw new RuntimeException(e); } }).collect(java.util.stream.Collectors.toList())");
     expectedConversionExprs.put("listOfValueOfExample",
-        "value.stream().map(element -> com.example.ValueOfStringExample.valueOf(element)).collect(java.util.stream.Collectors.toList())");
+        "value.stream().map(element -> { try { return com.example.ValueOfStringExample.valueOf(element); } catch(RuntimeException e) { throw e; } catch(Exception e) { throw new RuntimeException(e); } }).collect(java.util.stream.Collectors.toList())");
     expectedConversionExprs.put("listOfSingleArgumentConstructorExample",
-        "value.stream().map(element -> new com.example.SingleArgumentStringConstructorExample(element)).collect(java.util.stream.Collectors.toList())");
+        "value.stream().map(element -> { try { return new com.example.SingleArgumentStringConstructorExample(element); } catch(RuntimeException e) { throw e; } catch(Exception e) { throw new RuntimeException(e); } }).collect(java.util.stream.Collectors.toList())");
 
     assertEquals(expectedConversionExprs, actualConversionExprs);
   }
