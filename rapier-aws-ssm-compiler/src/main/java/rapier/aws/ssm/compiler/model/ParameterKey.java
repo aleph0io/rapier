@@ -24,7 +24,7 @@ import java.util.Map;
 import java.util.Objects;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.util.SimpleAnnotationValueVisitor8;
-import rapier.aws.ssm.AwsSsmStringParameter;
+import rapier.aws.ssm.AwsSsmParameter;
 import rapier.compiler.core.model.DaggerInjectionSite;
 
 /**
@@ -42,8 +42,8 @@ public class ParameterKey {
     });
 
     if (!qualifier.getAnnotationType().toString()
-        .equals(AwsSsmStringParameter.class.getCanonicalName())) {
-      throw new IllegalArgumentException("Dependency qualifier must be @AwsSsmStringParameter");
+        .equals(AwsSsmParameter.class.getCanonicalName())) {
+      throw new IllegalArgumentException("Dependency qualifier must be @AwsSsmParameter");
     }
 
     final String name = extractName(qualifier);
@@ -85,7 +85,7 @@ public class ParameterKey {
 
   private static String extractName(AnnotationMirror annotation) {
     assert annotation.getAnnotationType().toString()
-        .equals(AwsSsmStringParameter.class.getCanonicalName());
+        .equals(AwsSsmParameter.class.getCanonicalName());
     return annotation.getElementValues().entrySet().stream()
         .filter(e -> e.getKey().getSimpleName().contentEquals("value")).findFirst()
         .map(Map.Entry::getValue)
@@ -95,7 +95,7 @@ public class ParameterKey {
             return s;
           }
         }, null)).orElseThrow(() -> {
-          return new AssertionError("No string value for @AwsSsmStringParameter(value)");
+          return new AssertionError("No string value for @AwsSsmParameter(value)");
         });
   }
 }

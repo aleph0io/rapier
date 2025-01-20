@@ -96,7 +96,7 @@ public class AwsSsmProcessorLocalStackTest extends RapierTestBase {
       final JavaFileObject componentSource = prepareSourceFile("""
           @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
           public interface ExampleComponent {
-              @rapier.aws.ssm.AwsSsmStringParameter(value="foo.bar")
+              @rapier.aws.ssm.AwsSsmParameter(value="foo.bar")
               public Integer provisionFooBarAsInt();
           }
           """);
@@ -154,7 +154,7 @@ public class AwsSsmProcessorLocalStackTest extends RapierTestBase {
     final JavaFileObject componentSource = prepareSourceFile("""
         @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
         public interface ExampleComponent {
-            @rapier.aws.ssm.AwsSsmStringParameter(value="foo.bar")
+            @rapier.aws.ssm.AwsSsmParameter(value="foo.bar")
             public Integer provisionFooBarAsInt();
         }
         """);
@@ -216,7 +216,7 @@ public class AwsSsmProcessorLocalStackTest extends RapierTestBase {
           @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
           public interface ExampleComponent {
               @javax.annotation.Nullable
-              @rapier.aws.ssm.AwsSsmStringParameter(value="foo.bar")
+              @rapier.aws.ssm.AwsSsmParameter(value="foo.bar")
               public Integer provisionFooBarAsInt();
           }
           """);
@@ -276,7 +276,7 @@ public class AwsSsmProcessorLocalStackTest extends RapierTestBase {
         @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
         public interface ExampleComponent {
             @javax.annotation.Nullable
-            @rapier.aws.ssm.AwsSsmStringParameter(value="foo.bar")
+            @rapier.aws.ssm.AwsSsmParameter(value="foo.bar")
             public Integer provisionFooBarAsInt();
         }
         """);
