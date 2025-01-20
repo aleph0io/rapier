@@ -56,7 +56,7 @@ public class PositionalParameterKey {
   public PositionalParameterKey(int position) {
     this.position = position;
     if (position < 0)
-      throw new IllegalArgumentException("Position must be non-negative");
+      throw new IllegalArgumentException("Positional parameter position must not be negative");
   }
 
   public int getPosition() {
