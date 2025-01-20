@@ -53,25 +53,25 @@ import java.lang.annotation.Target;
 public @interface CliFlagParameter {
   /**
    * The short name (e.g., {@code -x}, {@code -y}) of the parameter that represents the value
-   * {@code true}.
+   * {@code true}. The allowed characters are {@code [a-zA-Z0-9]}.
    */
   public char positiveShortName() default '\0';
 
   /**
    * The long name (e.g., {@code --foo}, {@code --bar}) of the parameter that represents the value
-   * {@code true}.
+   * {@code true}. The allowed characters are {@code [a-zA-Z0-9_-]}.
    */
   public String positiveLongName() default "";
 
   /**
    * The short name (e.g., {@code -x}, {@code -y}) of the parameter that represents the value
-   * {@code false}.
+   * {@code false}. The allowed characters are {@code [a-zA-Z0-9]}.
    */
   public char negativeShortName() default '\0';
 
   /**
    * The long name (e.g., {@code --foo}, {@code --bar}) of the parameter that represents the value
-   * {@code false}.
+   * {@code false}. The allowed characters are {@code [a-zA-Z0-9_-]}.
    */
   public String negativeLongName() default "";
 

@@ -52,7 +52,8 @@ public @interface SystemProperty {
   public static final String DEFAULT_VALUE_NOT_SET = "__UNDEFINED__";
 
   /**
-   * The name of the environment variable to read.
+   * The name of the environment variable to read. The allowed characters are
+   * {@code [-a-zA-Z0-9_.]}.
    */
   public String value();
 

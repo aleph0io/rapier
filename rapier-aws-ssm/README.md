@@ -131,7 +131,7 @@ If using Maven, add this to your `pom.xml`:
         </dependency>
     </dependencies>
 
-Next, define a component class that uses the `@AwsSsmStringParameter` annotation to create a dependency on an AWS SSM Parameter Store string parameter:
+Next, define a component class that uses the `@AwsSsmStringParameter` annotation to create a dependency on an AWS SSM Parameter Store parameter. Names are allowed to have the characters `[-a-zA-Z0-9._/]`.
 
     @Component(modules = {
         // Note that we refer to the generated module here, by name
@@ -142,7 +142,7 @@ Next, define a component class that uses the `@AwsSsmStringParameter` annotation
          * Get timeout in milliseconds from SSM Parameter Store parameter `/config/timeout`, or use the
          * default of 30000 if not present.
          */
-        @AwsSsmStringParameter(value="/config/timeout", defaultValue="30000")
+        @AwsSsmParameter(value="/config/timeout", defaultValue="30000")
         public long timeout();
     }
     

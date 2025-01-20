@@ -54,7 +54,8 @@ public @interface CliPositionalParameter {
 
   /**
    * The index of the positional parameter in the program arguments. The first positional parameter
-   * has an index of {@code 0}.
+   * has an index of {@code 0}. All positional parameters must have unique indexes. All positional
+   * parameters must be in order, starting from {@code 0}, without gaps. 
    */
   public int value();
 

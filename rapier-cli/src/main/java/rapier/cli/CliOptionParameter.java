@@ -59,14 +59,14 @@ public @interface CliOptionParameter {
   /**
    * The short name (e.g., {@code -x}, {@code -y}) of the option parameter. If not set, then the
    * {@link #longName() long name} must be set, and the option parameter is only accessible by the
-   * long name.
+   * long name. The allowed characters are {@code [a-zA-Z0-9]}.
    */
   public char shortName() default '\0';
 
   /**
    * The long name (e.g., {@code --foo}, {@code --bar}) of the option parameter. If not set, then
    * the {@link #shortName() short name} must be set, and the option parameter is only accessible by
-   * the short name.
+   * the short name. The allowed characters are {@code [-a-zA-Z0-9_]}.
    */
   public String longName() default "";
 

@@ -227,6 +227,8 @@ Next, define a component class that uses the `@CliPositionalParameter`, `@CliOpt
         public URL url();
     }
     
+Position parameter indexes must start at 0 and increase consecutively. Short names for option and flag parameters must be single characters in `[a-zA-Z0-9]`. Long names for option and flag parameters must be non-empty strings with characters in `[-a-zA-Z0-9_]`.
+
 Rapier analyzes dependencies on the component level and generates a module for each component in the same package as the component. Therefore, the above will generate a new module, `RapierExampleComponentCliModule`, for `ExampleComponent` in the same package. Note that the example component references the generated module by name. Generating the module isn't useful if it isn't added to the component!
 
 Now create and use the component in your code like any other Dagger component:

@@ -134,7 +134,7 @@ If using Maven, add this to your `pom.xml`:
         </dependency>
     </dependencies>
 
-Next, define a component class that uses the `@EnvironmentVariable` annotation to create a dependency on an environment variable:
+Next, define a component class that uses the `@EnvironmentVariable` annotation to create a dependency on an environment variable. Names are allowed to have the characters `[a-zA-Z0-9_]`.
 
     @Component(modules = {
         // Note that we refer to the generated module here, by name

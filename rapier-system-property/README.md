@@ -135,7 +135,7 @@ If using Maven, add this to your `pom.xml`:
         </dependency>
     </dependencies>
 
-Next, define a component class that uses the `@SystemProperty` annotation to create a dependency on a system property:
+Next, define a component class that uses the `@SystemProperty` annotation to create a dependency on a system property. Names are allowed to have the characters `[-a-zA-Z0-9_.]`.
 
     @Component(modules = {
         // Note that we refer to the generated module here, by name

@@ -52,7 +52,8 @@ public @interface AwsSsmParameter {
   public static final String DEFAULT_VALUE_NOT_SET = "__UNDEFINED__";
 
   /**
-   * The name of the AWS SSM Parameter Store string parameter to fetch.
+   * The name of the AWS SSM Parameter Store string parameter to fetch. The allowed characters are
+   * {@code [-a-zA-Z0-9_./]}.
    */
   public String value();
 
