@@ -42,7 +42,7 @@ public class DaggerModuleWalker {
     /**
      * Called at the beginning of the walk.
      * 
-     * @param component the logical module being visited
+     * @param module the logical module being visited
      */
     public void beginModule(TypeElement module);
 
@@ -59,7 +59,7 @@ public class DaggerModuleWalker {
     /**
      * Called for each valid {@link Provides @Provides}-annotated instance method in the module.
      * 
-     * @param component the logical module being visited
+     * @param module the logical module being visited
      * @param method the method being visited
      * 
      */
@@ -68,7 +68,7 @@ public class DaggerModuleWalker {
     /**
      * Called for each valid {@link Provides @Provides}-annotated static method in the module.
      * 
-     * @param component the logical module being visited
+     * @param module the logical module being visited
      * @param method the method being visited
      * 
      */
@@ -77,7 +77,7 @@ public class DaggerModuleWalker {
     /**
      * Called at the end of the walk.
      * 
-     * @param component the logical module being visited
+     * @param module the logical module being visited
      */
     public void endModule(TypeElement module);
   }

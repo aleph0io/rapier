@@ -32,14 +32,14 @@ public enum DaggerProvisionStyle {
   PRIMITIVE,
 
   /**
-   * The provisioned type is an {@link Optional Optional<T>}. The binding type will be the type
-   * parameter. The qualifier must appear on the element, or on the type parameter. The binding is
-   * implicitly nullable. It is redundant, but not an error, to mark an optional as nullable.
+   * The provisioned type is an {@link Optional Optional&lt;T&gt;}. The binding type will be the
+   * type parameter. The qualifier must appear on the element, or on the type parameter. The binding
+   * is implicitly nullable. It is redundant, but not an error, to mark an optional as nullable.
    */
   OPTIONAL,
 
   /**
-   * The provisioned type is a {@link Provider Provider<T>}. The binding type will be the type
+   * The provisioned type is a {@link Provider Provider&lt;T&gt;}. The binding type will be the type
    * parameter. The qualifier must appear on the element, or on the type parameter. The binding is
    * considered nullable if either the element is annotated {@code @Nullable} or the type parameter
    * is annotated {@code @Nullable}.
@@ -48,10 +48,10 @@ public enum DaggerProvisionStyle {
   PROVIDER,
 
   /**
-   * The provisioned type is a {@link Lazy Lazy<T>}. The binding type will be the type parameter.
-   * The qualifier must appear on the element, or on the type parameter. The binding is considered
-   * nullable if either the element is annotated {@code @Nullable} or the type parameter is
-   * annotated {@code @Nullable}.
+   * The provisioned type is a {@link Lazy Lazy&lt;T&gt;}. The binding type will be the type
+   * parameter. The qualifier must appear on the element, or on the type parameter. The binding is
+   * considered nullable if either the element is annotated {@code @Nullable} or the type parameter
+   * is annotated {@code @Nullable}.
    */
   LAZY,
 

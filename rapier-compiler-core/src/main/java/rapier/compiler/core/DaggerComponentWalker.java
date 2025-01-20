@@ -57,7 +57,7 @@ public class DaggerComponentWalker {
      * Called for each component dependency referenced by the component.
      * 
      * @param component the logical component being visited
-     * @param module the dependency being visited
+     * @param dependency the dependency being visited
      */
     public void visitComponentDependency(TypeElement component, TypeMirror dependency);
 
