@@ -3,7 +3,7 @@
     
     <groupId>io.aleph0</groupId>
     <artifactId>rapier</artifactId>
-    <version>0.0.0-b1</version>
+    <version>0.0.0-b2-SNAPSHOT</version>
     <name>rapier</name>
     <inceptionYear>2024</inceptionYear>
     <description>Code generation companion for Dagger</description>

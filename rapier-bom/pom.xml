@@ -4,7 +4,7 @@
     <parent>
         <groupId>io.aleph0</groupId>
         <artifactId>rapier</artifactId>
-        <version>0.0.0-b1</version>
+        <version>0.0.0-b2-SNAPSHOT</version>
     </parent>
 
     <artifactId>rapier-bom</artifactId>
@@ -17,48 +17,48 @@
             <dependency>
                 <groupId>io.aleph0</groupId>
                 <artifactId>rapier-environment-variable</artifactId>
-                <version>0.0.0-b1</version>
+                <version>0.0.0-b2-SNAPSHOT</version>
             </dependency>
             <dependency>
                 <groupId>io.aleph0</groupId>
                 <artifactId>rapier-environment-variable-compiler</artifactId>
-                <version>0.0.0-b1</version>
+                <version>0.0.0-b2-SNAPSHOT</version>
             </dependency>
   
             <!-- System property -->
             <dependency>
                 <groupId>io.aleph0</groupId>
                 <artifactId>rapier-system-property</artifactId>
-                <version>0.0.0-b1</version>
+                <version>0.0.0-b2-SNAPSHOT</version>
             </dependency>
             <dependency>
                 <groupId>io.aleph0</groupId>
                 <artifactId>rapier-system-property-compiler</artifactId>
-                <version>0.0.0-b1</version>
+                <version>0.0.0-b2-SNAPSHOT</version>
             </dependency>
   
             <!-- AWS SSM -->
             <dependency>
                 <groupId>io.aleph0</groupId>
                 <artifactId>rapier-aws-ssm</artifactId>
-                <version>0.0.0-b1</version>
+                <version>0.0.0-b2-SNAPSHOT</version>
             </dependency>
             <dependency>
                 <groupId>io.aleph0</groupId>
                 <artifactId>rapier-aws-ssm-compiler</artifactId>
-                <version>0.0.0-b1</version>
+                <version>0.0.0-b2-SNAPSHOT</version>
             </dependency>
   
             <!-- CLI -->
             <dependency>
                 <groupId>io.aleph0</groupId>
                 <artifactId>rapier-cli</artifactId>
-                <version>0.0.0-b1</version>
+                <version>0.0.0-b2-SNAPSHOT</version>
             </dependency>
             <dependency>
                 <groupId>io.aleph0</groupId>
                 <artifactId>rapier-cli-compiler</artifactId>
-                <version>0.0.0-b1</version>
+                <version>0.0.0-b2-SNAPSHOT</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
