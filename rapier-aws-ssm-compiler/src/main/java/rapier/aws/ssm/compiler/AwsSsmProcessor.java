@@ -54,7 +54,7 @@ import javax.lang.model.type.TypeMirror;
 import javax.tools.Diagnostic;
 import javax.tools.JavaFileObject;
 import dagger.Component;
-import rapier.aws.ssm.AwsSsmStringParameter;
+import rapier.aws.ssm.AwsSsmParameter;
 import rapier.aws.ssm.compiler.model.ParameterKey;
 import rapier.aws.ssm.compiler.model.ParameterMetadata;
 import rapier.aws.ssm.compiler.model.RepresentationKey;
@@ -396,7 +396,7 @@ public class AwsSsmProcessor extends RapierProcessorBase {
       writer.println("import static java.util.stream.Collectors.toMap;");
       writer.println("import static java.util.Objects.requireNonNull;");
       writer.println();
-      writer.println("import " + AwsSsmStringParameter.class.getName() + ";");
+      writer.println("import " + AwsSsmParameter.class.getName() + ";");
       writer.println("import dagger.Module;");
       writer.println("import dagger.Provides;");
       writer.println("import java.io.IOException;");
@@ -460,8 +460,8 @@ public class AwsSsmProcessor extends RapierProcessorBase {
         final boolean parameterIsRequired = parameterMetadata.isRequired();
 
         final StringBuilder baseMethodName = new StringBuilder()
-            .append("provideAwsSsmStringParameter").append(CaseFormat.UPPER_UNDERSCORE
-                .to(CaseFormat.UPPER_CAMEL, standardizeAwsSsmStringParameterName(name)));
+            .append("provideAwsSsmParameter").append(CaseFormat.UPPER_UNDERSCORE
+                .to(CaseFormat.UPPER_CAMEL, standardizeAwsSsmParameterName(name)));
         if (representationDefaultValue != null) {
           baseMethodName.append("WithDefaultValue")
               .append(stringSignature(representationDefaultValue));
@@ -469,10 +469,10 @@ public class AwsSsmProcessor extends RapierProcessorBase {
 
         final String representationAnnotation;
         if (representationDefaultValue != null) {
-          representationAnnotation = "@AwsSsmStringParameter(value=\"" + name
+          representationAnnotation = "@AwsSsmParameter(value=\"" + name
               + "\", defaultValue=\"" + Java.escapeString(representationDefaultValue) + "\")";
         } else {
-          representationAnnotation = "@AwsSsmStringParameter(\"" + name + "\")";
+          representationAnnotation = "@AwsSsmParameter(\"" + name + "\")";
         }
 
         final boolean representationIsNullable =
@@ -609,7 +609,7 @@ public class AwsSsmProcessor extends RapierProcessorBase {
 
   private TypeMirror getQualifierType() {
     if (qualifierType == null) {
-      qualifierType = getElements().getTypeElement(AwsSsmStringParameter.class.getName()).asType();
+      qualifierType = getElements().getTypeElement(AwsSsmParameter.class.getName()).asType();
     }
     return qualifierType;
   }
@@ -621,7 +621,7 @@ public class AwsSsmProcessor extends RapierProcessorBase {
   private static final Pattern NONALPHANUMERIC = Pattern.compile("[^a-zA-Z0-9]+");
   private static final Pattern UNDERSCORES = Pattern.compile("_+");
 
-  private String standardizeAwsSsmStringParameterName(String name) {
+  private String standardizeAwsSsmParameterName(String name) {
     final String original = name;
 
     name = NONALPHANUMERIC.matcher(name).replaceAll("_").toUpperCase();

@@ -46,65 +46,65 @@ public class AwsSsmProcessorConversionTest extends RapierTestBase {
 
         @dagger.Component(modules = {RapierExampleComponentAwsSsmModule.class})
         public interface ExampleComponent {
-            @rapier.aws.ssm.AwsSsmStringParameter("INT")
+            @rapier.aws.ssm.AwsSsmParameter("INT")
             public Byte provisionIntAsBoxedByte();
 
-            @rapier.aws.ssm.AwsSsmStringParameter("INT")
+            @rapier.aws.ssm.AwsSsmParameter("INT")
             public byte provisionIntAsByte();
 
-            @rapier.aws.ssm.AwsSsmStringParameter("INT")
+            @rapier.aws.ssm.AwsSsmParameter("INT")
             public Short provisionIntAsBoxedShort();
 
-            @rapier.aws.ssm.AwsSsmStringParameter("INT")
+            @rapier.aws.ssm.AwsSsmParameter("INT")
             public short provisionIntAsShort();
 
-            @rapier.aws.ssm.AwsSsmStringParameter("INT")
+            @rapier.aws.ssm.AwsSsmParameter("INT")
             public Integer provisionIntAsBoxedInt();
 
-            @rapier.aws.ssm.AwsSsmStringParameter("INT")
+            @rapier.aws.ssm.AwsSsmParameter("INT")
             public int provisionIntAsInt();
 
-            @rapier.aws.ssm.AwsSsmStringParameter("INT")
+            @rapier.aws.ssm.AwsSsmParameter("INT")
             public Long provisionIntAsBoxedLong();
 
-            @rapier.aws.ssm.AwsSsmStringParameter("INT")
+            @rapier.aws.ssm.AwsSsmParameter("INT")
             public long provisionIntAsLong();
 
-            @rapier.aws.ssm.AwsSsmStringParameter("FLOAT")
+            @rapier.aws.ssm.AwsSsmParameter("FLOAT")
             public Float provisionFloatAsBoxedFloat();
 
-            @rapier.aws.ssm.AwsSsmStringParameter("FLOAT")
+            @rapier.aws.ssm.AwsSsmParameter("FLOAT")
             public float provisionFloatAsFloat();
 
-            @rapier.aws.ssm.AwsSsmStringParameter("FLOAT")
+            @rapier.aws.ssm.AwsSsmParameter("FLOAT")
             public Double provisionFloatAsBoxedDouble();
 
-            @rapier.aws.ssm.AwsSsmStringParameter("FLOAT")
+            @rapier.aws.ssm.AwsSsmParameter("FLOAT")
             public double provisionFloatAsDouble();
 
-            @rapier.aws.ssm.AwsSsmStringParameter("STRING")
+            @rapier.aws.ssm.AwsSsmParameter("STRING")
             public String provisionStringAsString();
 
-            @rapier.aws.ssm.AwsSsmStringParameter("STRING")
+            @rapier.aws.ssm.AwsSsmParameter("STRING")
             public Character provisionStringAsBoxedChar();
 
-            @rapier.aws.ssm.AwsSsmStringParameter("STRING")
+            @rapier.aws.ssm.AwsSsmParameter("STRING")
             public char provisionStringAsChar();
 
-            @rapier.aws.ssm.AwsSsmStringParameter("STRING")
+            @rapier.aws.ssm.AwsSsmParameter("STRING")
             public FromStringExample provisionStringAsFromStringExample();
 
-            @rapier.aws.ssm.AwsSsmStringParameter("STRING")
+            @rapier.aws.ssm.AwsSsmParameter("STRING")
             public ValueOfExample provisionStringAsValueOfExample();
 
-            @rapier.aws.ssm.AwsSsmStringParameter("STRING")
+            @rapier.aws.ssm.AwsSsmParameter("STRING")
             public SingleArgumentConstructorExample
               provisionStringAsSingleArgumentConstructorExample();
 
-            @rapier.aws.ssm.AwsSsmStringParameter("BOOLEAN")
+            @rapier.aws.ssm.AwsSsmParameter("BOOLEAN")
             public Boolean provisionBooleanAsBoxedBoolean();
 
-            @rapier.aws.ssm.AwsSsmStringParameter("BOOLEAN")
+            @rapier.aws.ssm.AwsSsmParameter("BOOLEAN")
             public boolean provisionBooleanAsBoolean();
         }
         """);

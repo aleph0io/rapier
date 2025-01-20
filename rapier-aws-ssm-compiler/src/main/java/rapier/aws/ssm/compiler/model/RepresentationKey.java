@@ -27,7 +27,7 @@ import java.util.Optional;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.util.SimpleAnnotationValueVisitor8;
-import rapier.aws.ssm.AwsSsmStringParameter;
+import rapier.aws.ssm.AwsSsmParameter;
 import rapier.compiler.core.model.DaggerInjectionSite;
 
 /**
@@ -41,8 +41,8 @@ public class RepresentationKey implements Comparable<RepresentationKey> {
     });
 
     if (!qualifier.getAnnotationType().toString()
-        .equals(AwsSsmStringParameter.class.getCanonicalName())) {
-      throw new IllegalArgumentException("Dependency qualifier must be @AwsSsmStringParameter");
+        .equals(AwsSsmParameter.class.getCanonicalName())) {
+      throw new IllegalArgumentException("Dependency qualifier must be @AwsSsmParameter");
     }
 
     final TypeMirror type = dependency.getProvidedType();
@@ -110,7 +110,7 @@ public class RepresentationKey implements Comparable<RepresentationKey> {
 
   private static String extractName(AnnotationMirror annotation) {
     assert annotation.getAnnotationType().toString()
-        .equals(AwsSsmStringParameter.class.getCanonicalName());
+        .equals(AwsSsmParameter.class.getCanonicalName());
     return annotation.getElementValues().entrySet().stream()
         .filter(e -> e.getKey().getSimpleName().contentEquals("value")).findFirst()
         .map(Map.Entry::getValue)
@@ -126,14 +126,14 @@ public class RepresentationKey implements Comparable<RepresentationKey> {
 
   private static String extractDefaultValue(AnnotationMirror annotation) {
     assert annotation.getAnnotationType().toString()
-        .equals(AwsSsmStringParameter.class.getCanonicalName());
+        .equals(AwsSsmParameter.class.getCanonicalName());
     return annotation.getElementValues().entrySet().stream()
         .filter(e -> e.getKey().getSimpleName().contentEquals("defaultValue")).findFirst()
         .map(Map.Entry::getValue)
         .map(v -> v.accept(new SimpleAnnotationValueVisitor8<String, Void>() {
           @Override
           public String visitString(String s, Void p) {
-            if (s.equals(AwsSsmStringParameter.DEFAULT_VALUE_NOT_SET))
+            if (s.equals(AwsSsmParameter.DEFAULT_VALUE_NOT_SET))
               return null;
             return s;
           }

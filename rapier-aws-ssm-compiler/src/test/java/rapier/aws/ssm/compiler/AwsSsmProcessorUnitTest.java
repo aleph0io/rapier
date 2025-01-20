@@ -55,7 +55,7 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
     final JavaFileObject componentSource = prepareSourceFile("""
         @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
         public interface ExampleComponent {
-            @rapier.aws.ssm.AwsSsmStringParameter(value="foo.bar")
+            @rapier.aws.ssm.AwsSsmParameter(value="foo.bar")
             public Integer provisionFooBarAsInt();
         }
         """);
@@ -71,7 +71,7 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
                 import static java.util.stream.Collectors.toMap;
                 import static java.util.Objects.requireNonNull;
 
-                import rapier.aws.ssm.AwsSsmStringParameter;
+                import rapier.aws.ssm.AwsSsmParameter;
                 import dagger.Module;
                 import dagger.Provides;
                 import java.util.Map;
@@ -119,8 +119,8 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
                     }
 
                     @Provides
-                    @AwsSsmStringParameter("foo.bar")
-                    public java.lang.Integer provideAwsSsmStringParameterFooBarAsInteger(@AwsSsmStringParameter("foo.bar") String value) {
+                    @AwsSsmParameter("foo.bar")
+                    public java.lang.Integer provideAwsSsmParameterFooBarAsInteger(@AwsSsmParameter("foo.bar") String value) {
                         java.lang.Integer result = java.lang.Integer.valueOf(value);
                         if (result == null) {
                             final String name="foo.bar";
@@ -130,8 +130,8 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
                     }
 
                     @Provides
-                    @AwsSsmStringParameter("foo.bar")
-                    public String provideAwsSsmStringParameterFooBarAsString() {
+                    @AwsSsmParameter("foo.bar")
+                    public String provideAwsSsmParameterFooBarAsString() {
                         final String name="foo.bar";
                         try {
                             return client
@@ -154,7 +154,7 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
     final JavaFileObject componentSource = prepareSourceFile("""
         @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
         public interface ExampleComponent {
-            @rapier.aws.ssm.AwsSsmStringParameter(value="foo.bar")
+            @rapier.aws.ssm.AwsSsmParameter(value="foo.bar")
             public Integer provisionFooBarAsInt();
         }
         """);
@@ -208,7 +208,7 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
     final JavaFileObject componentSource = prepareSourceFile("""
         @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
         public interface ExampleComponent {
-            @rapier.aws.ssm.AwsSsmStringParameter(value="foo.bar")
+            @rapier.aws.ssm.AwsSsmParameter(value="foo.bar")
             public Integer provisionFooBarAsInt();
         }
         """);
@@ -266,7 +266,7 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
         @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
         public interface ExampleComponent {
             @javax.annotation.Nullable
-            @rapier.aws.ssm.AwsSsmStringParameter(value="foo.bar")
+            @rapier.aws.ssm.AwsSsmParameter(value="foo.bar")
             public Integer provisionFooBarAsInt();
         }
         """);
@@ -320,7 +320,7 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
     final JavaFileObject componentSource = prepareSourceFile("""
         @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
         public interface ExampleComponent {
-            @rapier.aws.ssm.AwsSsmStringParameter(value="foo.bar", defaultValue="42")
+            @rapier.aws.ssm.AwsSsmParameter(value="foo.bar", defaultValue="42")
             public Integer provisionFooBarAsInt();
         }
         """);
@@ -378,7 +378,7 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
         @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
         public interface ExampleComponent {
             @javax.annotation.Nullable
-            @rapier.aws.ssm.AwsSsmStringParameter(value="foo.bar", defaultValue="42")
+            @rapier.aws.ssm.AwsSsmParameter(value="foo.bar", defaultValue="42")
             public Integer provisionFooBarAsInt();
         }
         """);
@@ -434,7 +434,7 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
         @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
         public interface ExampleComponent {
             @javax.annotation.Nullable
-            @rapier.aws.ssm.AwsSsmStringParameter(value="foo.bar")
+            @rapier.aws.ssm.AwsSsmParameter(value="foo.bar")
             public Integer provisionFooBarAsInt();
         }
         """);
@@ -487,7 +487,7 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
     final JavaFileObject componentSource = prepareSourceFile("""
         @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
         public interface ExampleComponent {
-            @rapier.aws.ssm.AwsSsmStringParameter(value="foo.${env.QUUX}")
+            @rapier.aws.ssm.AwsSsmParameter(value="foo.${env.QUUX}")
             public Integer provisionFooBarAsInt();
         }
         """);
@@ -551,7 +551,7 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
     final JavaFileObject componentSource = prepareSourceFile("""
         @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
         public interface ExampleComponent {
-            @rapier.aws.ssm.AwsSsmStringParameter(value="foo.${sys.QUUX}")
+            @rapier.aws.ssm.AwsSsmParameter(value="foo.${sys.QUUX}")
             public Integer provisionFooBarAsInt();
         }
         """);
@@ -615,7 +615,7 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
     final JavaFileObject componentSource = prepareSourceFile("""
         @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
         public interface ExampleComponent {
-            @rapier.aws.ssm.AwsSsmStringParameter(value="/foo/bar!")
+            @rapier.aws.ssm.AwsSsmParameter(value="/foo/bar!")
             public String provisionFooBarAsString();
         }
         """);
@@ -635,7 +635,7 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
     final JavaFileObject componentSource = prepareSourceFile("""
         @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
         public interface ExampleComponent {
-            @rapier.aws.ssm.AwsSsmStringParameter(value="/aws/foo/bar")
+            @rapier.aws.ssm.AwsSsmParameter(value="/aws/foo/bar")
             public String provisionFooBarAsString();
         }
         """);
@@ -655,7 +655,7 @@ public class AwsSsmProcessorUnitTest extends RapierTestBase {
     final JavaFileObject componentSource = prepareSourceFile("""
         @dagger.Component(modules={RapierExampleComponentAwsSsmModule.class})
         public interface ExampleComponent {
-            @rapier.aws.ssm.AwsSsmStringParameter(value="/ssm/foo/bar")
+            @rapier.aws.ssm.AwsSsmParameter(value="/ssm/foo/bar")
             public String provisionFooBarAsString();
         }
         """);

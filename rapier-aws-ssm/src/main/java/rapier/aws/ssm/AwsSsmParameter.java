@@ -48,7 +48,7 @@ import java.lang.annotation.Target;
 @jakarta.inject.Qualifier
 @Retention(RetentionPolicy.CLASS)
 @Target({ElementType.PARAMETER, ElementType.FIELD, ElementType.METHOD})
-public @interface AwsSsmStringParameter {
+public @interface AwsSsmParameter {
   public static final String DEFAULT_VALUE_NOT_SET = "__UNDEFINED__";
 
   /**
