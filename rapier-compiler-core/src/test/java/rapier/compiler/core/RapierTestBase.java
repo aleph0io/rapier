@@ -176,7 +176,7 @@ public abstract class RapierTestBase {
   private static final Pattern PACKAGE_DECLARATION_PATTERN =
       Pattern.compile("^package\\s+(\\S+)\\s*;", Pattern.MULTILINE);
   private static final Pattern CLASS_DECLARATION_PATTERN = Pattern.compile(
-      "^public\\s+(?:abstract\\s+)?(?:class|@?interface)\\s+(\\S+)\\s*(?:extends\\s+\\S+)?\\s*(?:implements\\s+\\S+(?:\\s*,\\s*\\S+)*)?\\s*\\{",
+      "^public\\s+(?:abstract\\s+)?(?:class|@?interface)\\s+([\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}.]+)\\s*(?:extends\\s+[\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}.]+)?\\s*(?:implements\\s+[\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}.]+\\s*(?:,\\s*[\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}.]+\\s*)*)?\\s*\\{",
       Pattern.MULTILINE);
 
   public JavaFileObject prepareSourceFile(String sourceCode) {
