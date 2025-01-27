@@ -1,8 +1,8 @@
 /*-
  * =================================LICENSE_START==================================
- * rapier-processor-core
+ * rapier-assumptions-tests
  * ====================================SECTION=====================================
- * Copyright (C) 2024 - 2025 Andy Boothe
+ * Copyright (C) 2024 - 2025 aleph0
  * ====================================SECTION=====================================
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
