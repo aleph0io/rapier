@@ -30,7 +30,7 @@ jobs:
         distribution: 'corretto'
         cache: maven
     - name: Cache Maven packages
-      uses: actions/cache@v4.2.0
+      uses: actions/cache@v4.2.2
       with:
         path: ~/.m2
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
@@ -44,7 +44,7 @@ jobs:
     # https://github.com/actions/cache/issues/1224
     # Most solutions seem focused on caching built images, no pulled images.
     # - name: Cache Docker layers
-    #   uses: actions/cache@v4.2.0
+    #   uses: actions/cache@v4.2.2
     #   with:
     #     path: /var/lib/docker
     #     key: ${{ runner.os }}-docker-layer-cache
